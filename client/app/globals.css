@@ -1,26 +1,221 @@
+
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/* ─── Tailwind v4 Theme Tokens ────────────────── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Typography */
+  --font-heading: 'Outfit', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-sans: 'Inter', sans-serif;
+
+  /* Cream palette — flat and crisp */
+  --color-cream-50: #FFFDF7;
+  --color-cream-100: #FFFDF7;
+  --color-cream-200: #F2E8D5;
+  --color-cream-300: #E6D4B8;
+
+  /* Orange palette — flat and crisp */
+  --color-orange-400: #E8891C;
+  --color-orange-500: #E8891C;
+  --color-orange-600: #3D2710; /* Hover state inversion to brown */
+
+  /* Brown palette — grounding, elegant */
+  --color-brown-800: #5C3D1A;
+  --color-brown-900: #3D2710;
+
+  /* Semantic aliases */
+  --color-primary: #E8891C;
+  --color-surface: #FFFDF7;
+  --color-surface-elevated: #FFFDF7;
+  --color-text-primary: #3D2710;
+  --color-text-secondary: #5C3D1A;
+  --color-text-muted: #9A7B5A;
+  --color-border: #3D2710; /* Sharp dark borders */
+  --color-border-light: #E6D4B8;
+
+  /* Status colors */
+  --color-success: #2E7D32;
+  --color-warning: #E8891C;
+  --color-danger: #C62828;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ─── Base Styles ─────────────────────────────── */
+:root {
+  --background: var(--color-surface);
+  --foreground: var(--color-brown-900);
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
+  font-family: var(--font-body);
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  color: var(--color-brown-900);
+}
+
+/* ─── Component Classes ──────────────────────── */
+
+/* Buttons - Sharp, flat, bordered */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.5rem;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: #FFFDF7;
+  background: var(--color-orange-500);
+  border: 1px solid var(--color-orange-500);
+  border-radius: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-primary:hover {
+  background: var(--color-brown-900);
+  border-color: var(--color-brown-900);
+  color: #FFFDF7;
+}
+
+.btn-primary:disabled {
+  background: var(--color-cream-300);
+  border-color: var(--color-cream-300);
+  color: var(--color-brown-900);
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.5rem;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--color-brown-900);
+  background: transparent;
+  border: 1px solid var(--color-brown-900);
+  border-radius: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-secondary:hover {
+  background: var(--color-brown-900);
+  color: #FFFDF7;
+}
+
+/* Cards - Sharp bordered */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0;
+  padding: 1.25rem;
+}
+
+.card-warm {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0;
+  padding: 1.25rem;
+}
+
+/* Inputs */
+.input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  color: var(--color-brown-900);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 0;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.input:focus {
+  border-color: var(--color-orange-500);
+}
+
+.input::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid var(--color-border);
+  border-radius: 0;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.badge-pending {
+  background: transparent;
+  color: var(--color-orange-500);
+  border-color: var(--color-orange-500);
+}
+
+.badge-accepted {
+  background: var(--color-brown-900);
+  color: #FFFDF7;
+  border-color: var(--color-brown-900);
+}
+
+.badge-preparing {
+  background: var(--color-orange-500);
+  color: #FFFDF7;
+  border-color: var(--color-orange-500);
+}
+
+.badge-served {
+  background: transparent;
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.badge-cancelled {
+  background: transparent;
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+/* Loading skeleton */
+.skeleton {
+  background: var(--color-cream-200);
+  border-radius: 0;
+}
+
+/* Print styles for KOT */
+@media print {
+  body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
 }

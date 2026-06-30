@@ -45,6 +45,14 @@ export default function MenuCard({ item, cartQuantity = 0, onAdd, onUpdateQuanti
           >
             {item.category?.name}
           </p>
+
+          {/* Rating */}
+          <div className="flex items-center gap-1.5 mt-1 text-xs font-bold" style={{ color: "var(--color-orange-600)" }}>
+            <span>⭐ {item.totalReviews && item.totalReviews > 0 ? (item.averageRating < 3.0 ? "3.0" : item.averageRating.toFixed(1)) : "3.0"}</span>
+            <span className="font-normal" style={{ color: "var(--color-text-muted)" }}>
+              ({item.totalReviews || 0} {item.totalReviews === 1 ? "Review" : "Reviews"})
+            </span>
+          </div>
         </div>
 
         <div className="flex items-center justify-between mt-3">

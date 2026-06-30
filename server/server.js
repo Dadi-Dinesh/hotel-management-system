@@ -14,6 +14,7 @@ const menuRoutes = require("./src/routes/menu.routes");
 const categoryRoutes = require("./src/routes/category.routes");
 const orderRoutes = require("./src/routes/order.routes");
 const adminRoutes = require("./src/routes/admin.routes");
+const ratingRoutes = require("./src/routes/rating.routes");
 
 const app = express();
 const server = http.createServer(app);
@@ -47,6 +48,7 @@ app.use("/api/menu", menuRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/ratings", ratingRoutes);
 
 // Global error handler
 app.use(errorHandler);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Bell,
@@ -31,6 +31,11 @@ export default function CaptainDashboard() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [billRequests, setBillRequests] = useState([]);
 
+  // Bill preview states
+  const [previewRequest, setPreviewRequest] = useState(null);
+  const [previewSession, setPreviewSession] = useState(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+
   useEffect(() => {
     if (!isAuthenticated()) {
       router.push("/captain/login");
@@ -43,6 +48,15 @@ export default function CaptainDashboard() {
     }
     setUser(u);
   }, [router]);
+
+  const fetchBillRequests = useCallback(async () => {
+    try {
+      const res = await api.get("/sessions/bill-requests");
+      setBillRequests(res.data.data);
+    } catch (error) {
+      console.error("Failed to fetch bill requests:", error);
+    }
+  }, []);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -57,8 +71,10 @@ export default function CaptainDashboard() {
 
   useEffect(() => {
     fetchOrders();
-  }, [fetchOrders]);
+    fetchBillRequests();
+  }, [fetchOrders, fetchBillRequests]);
 
+  // Listen for real-time socket events
   useEffect(() => {
     if (!socket) return;
     socket.emit("join-captain");
@@ -78,15 +94,26 @@ export default function CaptainDashboard() {
     });
 
     socket.on("bill-requested", (data) => {
-      setBillRequests((prev) => [...prev, data]);
+      fetchBillRequests();
       toast(`🧾 Bill requested for Table ${data.tableCode}`, { duration: 8000, icon: "💰" });
+    });
+
+    socket.on("bill-request-accepted", () => {
+      fetchBillRequests();
+    });
+
+    socket.on("bill-request-printed", () => {
+      fetchBillRequests();
+      fetchOrders();
     });
 
     return () => {
       socket.off("new-order");
       socket.off("bill-requested");
+      socket.off("bill-request-accepted");
+      socket.off("bill-request-printed");
     };
-  }, [socket, fetchOrders]);
+  }, [socket, fetchOrders, fetchBillRequests]);
 
   const handleAcceptOrder = async (orderId) => {
     try {
@@ -120,14 +147,52 @@ export default function CaptainDashboard() {
     }
   };
 
-  const handleCloseSession = async (sessionId) => {
+  const handleAcceptBill = async (requestId) => {
     try {
-      await api.patch(`/sessions/${sessionId}/close`);
-      toast.success("Session closed");
-      setBillRequests((prev) => prev.filter((b) => b.sessionId !== sessionId));
+      await api.patch(`/sessions/bill-requests/${requestId}/accept`);
+      toast.success("Bill request accepted! Customer notified.");
+      fetchBillRequests();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to accept bill request");
+    }
+  };
+
+  const handlePrintBill = async (requestId) => {
+    try {
+      const res = await api.post(`/sessions/bill-requests/${requestId}/print`);
+      const { billHTML } = res.data.data;
+
+      // Close preview modal
+      setPreviewRequest(null);
+      setPreviewSession(null);
+
+      // Open print window
+      const printWindow = window.open("", "_blank", "width=350,height=600");
+      if (printWindow) {
+        printWindow.document.write(billHTML);
+        printWindow.document.close();
+        setTimeout(() => printWindow.print(), 300);
+      }
+
+      toast.success("Bill printed! Table released.");
+      fetchBillRequests();
       fetchOrders();
     } catch (error) {
-      toast.error("Failed to close session");
+      toast.error(error.response?.data?.message || "Failed to print bill");
+    }
+  };
+
+  const handleViewBill = async (req) => {
+    setPreviewRequest(req);
+    setLoadingPreview(true);
+    try {
+      const res = await api.get(`/sessions/${req.sessionId}`);
+      setPreviewSession(res.data.data);
+    } catch (error) {
+      toast.error("Failed to load bill preview.");
+      console.error(error);
+    } finally {
+      setLoadingPreview(false);
     }
   };
 
@@ -170,7 +235,10 @@ export default function CaptainDashboard() {
             </button>
 
             <button
-              onClick={fetchOrders}
+              onClick={() => {
+                fetchOrders();
+                fetchBillRequests();
+              }}
               className="w-10 h-10 border flex items-center justify-center transition-colors hover:bg-brown-900 hover:text-white"
               style={{ borderColor: "var(--color-brown-900)", color: "var(--color-brown-900)" }}
             >
@@ -192,46 +260,88 @@ export default function CaptainDashboard() {
         {/* Bill Requests */}
         {billRequests.length > 0 && (
           <div className="mb-10 space-y-4">
-            {billRequests.map((bill) => (
-              <div
-                key={bill.sessionId}
-                className="flex items-center justify-between p-5 border-2 border-orange-500"
-                style={{ background: "var(--color-cream-200)" }}
-              >
-                <div className="flex items-center gap-4">
-                  <Receipt size={24} style={{ color: "var(--color-orange-500)" }} />
+            <h2
+              className="text-xl font-black uppercase tracking-widest flex items-center gap-3"
+              style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
+            >
+              <Receipt size={24} style={{ color: "var(--color-orange-500)" }} />
+              Pending Bill Requests ({billRequests.length})
+            </h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              {billRequests.map((req) => (
+                <div
+                  key={req.id}
+                  className="p-5 border-2 border-brown-900 bg-white flex flex-col justify-between shadow-[4px_4px_0px_0px_rgba(92,61,26,1)]"
+                >
                   <div>
-                    <p
-                      className="font-black text-base uppercase tracking-widest"
-                      style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
+                    <div className="flex items-center justify-between mb-3 border-b border-dashed border-brown-900/25 pb-2">
+                      <span className="font-black text-sm uppercase tracking-wider text-brown-900">
+                        Table {req.tableCode}
+                      </span>
+                      <span
+                        className="text-[10px] font-black uppercase border px-2 py-0.5"
+                        style={{
+                          background: req.status === "PENDING" ? "var(--color-cream-100)" : "rgba(232, 137, 28, 0.1)",
+                          borderColor: "var(--color-brown-900)",
+                          color: req.status === "PENDING" ? "var(--color-brown-900)" : "var(--color-orange-600)",
+                        }}
+                      >
+                        {req.status}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 text-xs font-bold text-gray-500 uppercase tracking-wide">
+                      <p>Order Number: <span className="text-brown-900">#{req.orderNumber}</span></p>
+                      {req.customerName && (
+                        <p>Customer Name: <span className="text-brown-900">{req.customerName}</span></p>
+                      )}
+                      <p>
+                        Request Time:{" "}
+                        <span className="text-brown-900">
+                          {new Date(req.requestTime).toLocaleTimeString("en-IN", {
+                            hour: "numeric",
+                            minute: "2-digit",
+                            hour12: true,
+                          })}
+                        </span>
+                      </p>
+                      <p>
+                        Current Order Total:{" "}
+                        <span className="text-orange-600 text-sm font-black">
+                          ₹{req.total}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2.5 mt-4 pt-3 border-t border-gray-100">
+                    <button
+                      onClick={() => handleViewBill(req)}
+                      className="btn-secondary flex-1 py-2 text-xs flex items-center justify-center gap-1"
                     >
-                      Bill Requested — Table {bill.tableCode}
-                    </p>
-                    <p className="text-sm font-bold uppercase tracking-widest mt-1" style={{ color: "var(--color-text-secondary)" }}>
-                      Total: ₹{bill.total}
-                    </p>
+                      <Receipt size={14} /> VIEW BILL
+                    </button>
+
+                    {req.status === "PENDING" ? (
+                      <button
+                        onClick={() => handleAcceptBill(req.id)}
+                        className="btn-primary flex-1 py-2 text-xs flex items-center justify-center gap-1 bg-orange-500 text-white border-brown-900"
+                        style={{ background: "var(--color-orange-500)" }}
+                      >
+                        <Check size={14} /> ACCEPT
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handlePrintBill(req.id)}
+                        className="btn-primary flex-1 py-2 text-xs flex items-center justify-center gap-1"
+                      >
+                        <Printer size={14} /> PRINT BILL
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => {
-                      const printWindow = window.open("", "_blank", "width=350,height=600");
-                      if (printWindow) {
-                        printWindow.document.write(bill.billHTML);
-                        printWindow.document.close();
-                        setTimeout(() => printWindow.print(), 300);
-                      }
-                    }}
-                    className="btn-secondary"
-                  >
-                    <Printer size={16} /> PRINT
-                  </button>
-                  <button onClick={() => handleCloseSession(bill.sessionId)} className="btn-primary">
-                    <Check size={16} /> CLOSE
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
@@ -350,6 +460,150 @@ export default function CaptainDashboard() {
           )}
         </section>
       </main>
+
+      {/* Bill Preview Modal */}
+      {previewRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+          <div
+            className="w-full max-w-md border-2 border-brown-900 rounded-none flex flex-col relative max-h-[90vh] shadow-[8px_8px_0px_0px_rgba(92,61,26,1)] overflow-hidden"
+            style={{ background: "var(--color-surface)" }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: "var(--color-brown-900)" }}>
+              <div>
+                <h3
+                  className="text-lg font-black uppercase tracking-wider"
+                  style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
+                >
+                  Bill Preview
+                </h3>
+                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                  Table {previewRequest.tableCode} · Order #{previewRequest.orderNumber}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setPreviewRequest(null);
+                  setPreviewSession(null);
+                }}
+                className="w-8 h-8 border border-brown-900 flex items-center justify-center hover:bg-brown-900 hover:text-white"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Scrollable Receipt Content */}
+            <div className="flex-1 overflow-y-auto p-6 font-mono text-sm bg-white text-black">
+              {loadingPreview ? (
+                <div className="text-center py-12">
+                  <p className="animate-pulse">Loading bill details...</p>
+                </div>
+              ) : previewSession ? (
+                <div className="space-y-4">
+                  <div className="text-center border-b border-dashed border-black pb-4">
+                    <p className="text-lg font-black uppercase">Nookambika Dhaba</p>
+                    <p className="text-xs uppercase mt-1">Table {previewRequest.tableCode}</p>
+                    <p className="text-xs uppercase mt-0.5">Order #{previewRequest.orderNumber}</p>
+                    <p className="text-xs mt-1">
+                      Date: {new Date(previewSession.createdAt).toLocaleDateString()}
+                    </p>
+                    <p className="text-xs">
+                      Time: {new Date().toLocaleTimeString()}
+                    </p>
+                  </div>
+
+                  {/* Items list */}
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-black font-bold text-[10px] uppercase">
+                        <th className="text-left py-1">Item</th>
+                        <th className="text-center py-1">Qty</th>
+                        <th className="text-right py-1">Amt</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* Gather flattened items */}
+                      {(() => {
+                        const items = [];
+                        previewSession.orders.forEach((o) => {
+                          if (o.status !== "CANCELLED") {
+                            o.items.forEach((item) => {
+                              const existing = items.find((bi) => bi.menuItemId === item.menuItem.id);
+                              if (existing) {
+                                existing.quantity += item.quantity;
+                              } else {
+                                items.push({
+                                  menuItemId: item.menuItem.id,
+                                  name: item.menuItem.name,
+                                  quantity: item.quantity,
+                                  price: item.price,
+                                });
+                              }
+                            });
+                          }
+                        });
+                        return items.map((item) => (
+                          <tr key={item.menuItemId} className="border-b border-dashed border-gray-100">
+                            <td className="py-2 text-left">{item.name}</td>
+                            <td className="py-2 text-center">x{item.quantity}</td>
+                            <td className="py-2 text-right">₹{item.price * item.quantity}</td>
+                          </tr>
+                        ));
+                      })()}
+                    </tbody>
+                  </table>
+
+                  {/* Taxes, discounts, grand total */}
+                  <div className="border-t border-dashed border-black pt-4 space-y-1.5 text-xs font-bold uppercase text-right">
+                    <p>Subtotal: ₹{previewSession.runningTotal}</p>
+                    <p>GST (0%): ₹0</p>
+                    <p>Discount (0%): ₹0</p>
+                    <div className="border-t border-black pt-3 flex justify-between items-center text-sm font-black mt-2">
+                      <span>Grand Total:</span>
+                      <span className="text-lg text-orange-600">₹{previewSession.runningTotal}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-center text-red-500 font-bold">Failed to load preview details.</p>
+              )}
+            </div>
+
+            {/* Footer buttons */}
+            <div className="p-4 border-t bg-cream-100 flex gap-3" style={{ borderColor: "var(--color-brown-900)" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setPreviewRequest(null);
+                  setPreviewSession(null);
+                }}
+                className="btn-secondary flex-1 py-3 text-xs border-brown-900"
+              >
+                Close Preview
+              </button>
+              {previewRequest.status === "PENDING" ? (
+                <button
+                  type="button"
+                  onClick={() => handleAcceptBill(previewRequest.id)}
+                  disabled={loadingPreview}
+                  className="btn-primary flex-1 py-3 text-xs flex items-center justify-center gap-1 bg-orange-500 text-white border-brown-900"
+                >
+                  <Check size={14} /> Accept Request
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handlePrintBill(previewRequest.id)}
+                  disabled={loadingPreview}
+                  className="btn-primary flex-1 py-3 text-xs flex items-center justify-center gap-1 bg-brown-900 text-white border-brown-900"
+                >
+                  <Printer size={14} /> Print Bill
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Notification Sidebar */}
       {showNotifications && (

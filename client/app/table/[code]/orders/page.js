@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Utensils, Receipt, RefreshCcw, Star, X } from "lucide-react";
+import { Utensils, Receipt, RefreshCcw } from "lucide-react";
 import api from "../../../lib/api";
 import Navbar from "../../../components/Navbar";
 import OrderStatusBadge from "../../../components/OrderStatusBadge";
@@ -17,13 +17,7 @@ export default function OrdersPage() {
 
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // Ratings & Feedback states
-  const [showRatingModal, setShowRatingModal] = useState(false);
-  const [ratings, setRatings] = useState({}); // menuItemId -> rating (1-5)
-  const [feedbacks, setFeedbacks] = useState({}); // menuItemId -> feedback text
-  const [overallFeedback, setOverallFeedback] = useState("");
-  const [submittingRating, setSubmittingRating] = useState(false);
+  const [requestingBill, setRequestingBill] = useState(false);
 
   const fetchSession = useCallback(async () => {
     const sessionId = localStorage.getItem(`session-${tableCode}`);
@@ -75,50 +69,16 @@ export default function OrdersPage() {
     };
   }, [socket, tableCode, fetchSession, router]);
 
-  const handleViewBillClick = () => {
-    const sessionId = session.id;
-    const alreadyReviewed = localStorage.getItem(`rated-session-${sessionId}`) || localStorage.getItem(`skipped-session-${sessionId}`);
-    
-    if (alreadyReviewed) {
-      router.push(`/table/${tableCode}/bill`);
-    } else {
-      setShowRatingModal(true);
-    }
-  };
-
-  const handleSkipRating = () => {
-    localStorage.setItem(`skipped-session-${session.id}`, "true");
-    setShowRatingModal(false);
-    router.push(`/table/${tableCode}/bill`);
-  };
-
-  const handleSubmitRating = async (e) => {
-    e.preventDefault();
-    setSubmittingRating(true);
-
+  const handleRequestBill = async () => {
+    setRequestingBill(true);
     try {
-      const ratingsArray = Object.keys(ratings)
-        .filter((itemId) => ratings[itemId] > 0)
-        .map((itemId) => ({
-          menuItemId: itemId,
-          rating: ratings[itemId],
-          feedback: feedbacks[itemId] || "",
-        }));
-
-      await api.post("/ratings", {
-        sessionId: session.id,
-        ratings: ratingsArray,
-        overallFeedback: overallFeedback.trim(),
-      });
-
-      localStorage.setItem(`rated-session-${session.id}`, "true");
-      toast.success("Feedback submitted! Thank you. ❤️");
-      setShowRatingModal(false);
-      router.push(`/table/${tableCode}/bill`);
+      await api.patch(`/sessions/${session.id}/request-bill`);
+      toast.success("Bill requested! The waiter will bring it shortly. 🧾");
+      fetchSession();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to submit feedback");
+      toast.error(error.response?.data?.message || "Failed to request bill");
     } finally {
-      setSubmittingRating(false);
+      setRequestingBill(false);
     }
   };
 
@@ -169,23 +129,6 @@ export default function OrdersPage() {
 
   const orders = session.orders || [];
   const runningTotal = session.runningTotal || 0;
-
-  // Extract all unique menu items ordered in active orders
-  const orderedItemsMap = {};
-  orders.forEach((order) => {
-    if (order.status !== "CANCELLED") {
-      order.items.forEach((item) => {
-        if (!orderedItemsMap[item.menuItem.id]) {
-          orderedItemsMap[item.menuItem.id] = {
-            id: item.menuItem.id,
-            name: item.menuItem.name,
-            image: item.menuItem.image,
-          };
-        }
-      });
-    }
-  });
-  const orderedItems = Object.values(orderedItemsMap);
 
   return (
     <div
@@ -338,185 +281,27 @@ export default function OrdersPage() {
                 <Utensils size={16} />
                 Order More
               </button>
-              <button
-                onClick={handleViewBillClick}
-                className="btn-primary flex-1 py-3"
-              >
-                <Receipt size={16} />
-                View Bill
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Rating & Feedback Modal */}
-      {showRatingModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto animate-fade-in">
-          <div
-            className="w-full max-w-lg border-2 border-brown-900 rounded-none flex flex-col relative max-h-[90vh] shadow-[8px_8px_0px_0px_rgba(92,61,26,1)] overflow-hidden"
-            style={{ background: "var(--color-surface)" }}
-          >
-            {/* Header */}
-            <div
-              className="flex items-center justify-between p-5 border-b"
-              style={{ borderColor: "var(--color-brown-900)" }}
-            >
-              <div>
-                <h3
-                  className="text-lg font-black uppercase tracking-wider"
-                  style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
+              {session.status !== "BILL_REQUESTED" ? (
+                <button
+                  onClick={handleRequestBill}
+                  disabled={requestingBill}
+                  className="btn-primary flex-1 py-3"
                 >
-                  Rate Your Meal
-                </h3>
-                <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                  Help us improve our service
-                </p>
-              </div>
-              <button
-                onClick={handleSkipRating}
-                className="absolute top-4 right-4 flex items-center gap-1 text-xs font-bold uppercase border px-2.5 py-1 transition-colors"
-                style={{
-                  borderColor: "var(--color-brown-900)",
-                  background: "var(--color-cream-100)",
-                  color: "var(--color-brown-900)",
-                }}
-              >
-                <span>Skip</span>
-                <X size={14} />
-              </button>
-            </div>
-
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-6">
-              {orderedItems.map((item) => (
+                  <Receipt size={16} />
+                  {requestingBill ? "Requesting..." : "Request Bill"}
+                </button>
+              ) : (
                 <div
-                  key={item.id}
-                  className="border-b border-dashed pb-5 last:border-b-0 last:pb-0"
-                  style={{ borderColor: "rgba(92, 61, 26, 0.2)" }}
-                >
-                  <div className="flex gap-4 items-start">
-                    {/* Item Image or Placeholder */}
-                    <div
-                      className="w-16 h-16 flex-shrink-0 flex items-center justify-center text-2xl border"
-                      style={{
-                        borderColor: "var(--color-brown-900)",
-                        background: "var(--color-cream-200)",
-                      }}
-                    >
-                      {item.image ? (
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        "🍽️"
-                      )}
-                    </div>
-
-                    {/* Rating logic */}
-                    <div className="flex-1 min-w-0">
-                      <h4
-                        className="font-bold text-sm uppercase tracking-wide truncate"
-                        style={{ color: "var(--color-brown-900)" }}
-                      >
-                        {item.name}
-                      </h4>
-
-                      {/* Star Rating Selector */}
-                      <div className="flex items-center gap-1.5 mt-2">
-                        {[1, 2, 3, 4, 5].map((star) => {
-                          const isSelected = (ratings[item.id] || 0) >= star;
-                          return (
-                            <button
-                              key={star}
-                              type="button"
-                              onClick={() =>
-                                setRatings((prev) => ({ ...prev, [item.id]: star }))
-                              }
-                              className="focus:outline-none transition-transform active:scale-90"
-                              style={{
-                                color: isSelected
-                                  ? "var(--color-orange-500)"
-                                  : "var(--color-cream-200)",
-                              }}
-                            >
-                              <Star
-                                size={26}
-                                fill={isSelected ? "var(--color-orange-500)" : "transparent"}
-                              />
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Subjective Item Feedback */}
-                      <textarea
-                        value={feedbacks[item.id] || ""}
-                        onChange={(e) =>
-                          setFeedbacks((prev) => ({ ...prev, [item.id]: e.target.value }))
-                        }
-                        placeholder="Feedback on this item (optional)..."
-                        className="w-full mt-3 p-2 text-sm border focus:outline-none placeholder-gray-400 font-medium"
-                        style={{
-                          borderColor: "var(--color-brown-900)",
-                          background: "var(--color-cream-50)",
-                          color: "var(--color-brown-900)",
-                        }}
-                        rows={2}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {/* General Feedback */}
-              <div className="pt-4 border-t-2" style={{ borderColor: "var(--color-brown-900)" }}>
-                <label
-                  className="block text-sm font-bold uppercase tracking-wider mb-2"
-                  style={{ color: "var(--color-brown-900)" }}
-                >
-                  Overall Experience (optional)
-                </label>
-                <textarea
-                  value={overallFeedback}
-                  onChange={(e) => setOverallFeedback(e.target.value)}
-                  placeholder="How was your experience overall?"
-                  className="w-full p-3 text-sm border focus:outline-none placeholder-gray-400 font-medium"
+                  className="flex-1 py-3 rounded-xl text-center text-sm font-semibold"
                   style={{
-                    borderColor: "var(--color-brown-900)",
-                    background: "var(--color-cream-50)",
-                    color: "var(--color-brown-900)",
+                    background: "var(--color-cream-100)",
+                    color: "var(--color-orange-600)",
+                    border: "1.5px solid var(--color-orange-400)",
                   }}
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div
-              className="p-4 border-t bg-cream-100 flex gap-3"
-              style={{
-                borderColor: "var(--color-brown-900)",
-                background: "var(--color-cream-100)",
-              }}
-            >
-              <button
-                type="button"
-                onClick={handleSkipRating}
-                className="btn-secondary flex-1 py-3 text-sm"
-              >
-                Skip
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmitRating}
-                disabled={submittingRating}
-                className="btn-primary flex-1 py-3 text-sm"
-              >
-                {submittingRating ? "Submitting..." : "Submit & View Bill"}
-              </button>
+                >
+                  🧾 Bill Requested
+                </div>
+              )}
             </div>
           </div>
         </div>

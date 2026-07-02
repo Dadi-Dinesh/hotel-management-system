@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Star,
   BarChart3,
   TrendingUp,
   ShoppingBag,
@@ -71,12 +70,6 @@ export default function AdminDashboard() {
       icon: <ClipboardList size={24} />,
       label: "Order History",
       desc: "View and filter orders",
-    },
-    {
-      href: "/admin/ratings",
-      icon: <Star size={24} />,
-      label: "Ratings & Reviews",
-      desc: "View food ratings and reviews",
     },
     {
       href: "/admin/tables",

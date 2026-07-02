@@ -14,7 +14,6 @@ const getMenu = async (req, res, next) => {
       where.isAvailable = true;
     }
 
-    // Fetch categories and items
     const categories = await prisma.category.findMany({
       orderBy: { name: "asc" },
       include: {
@@ -25,35 +24,7 @@ const getMenu = async (req, res, next) => {
       },
     });
 
-    // Fetch ratings grouped by menuItem
-    const ratings = await prisma.itemRating.groupBy({
-      by: ["menuItemId"],
-      _avg: { rating: true },
-      _count: { rating: true },
-    });
-
-    const ratingsMap = {};
-    ratings.forEach((r) => {
-      ratingsMap[r.menuItemId] = {
-        averageRating: r._avg.rating ? parseFloat(r._avg.rating.toFixed(1)) : 0,
-        totalReviews: r._count.rating,
-      };
-    });
-
-    // Map ratings back into the items list
-    const data = categories.map((cat) => {
-      const items = cat.items.map((item) => {
-        const ratingInfo = ratingsMap[item.id] || { averageRating: 0, totalReviews: 0 };
-        return {
-          ...item,
-          averageRating: ratingInfo.averageRating,
-          totalReviews: ratingInfo.totalReviews,
-        };
-      });
-      return { ...cat, items };
-    });
-
-    res.json({ success: true, data });
+    res.json({ success: true, data: categories });
   } catch (error) {
     next(error);
   }

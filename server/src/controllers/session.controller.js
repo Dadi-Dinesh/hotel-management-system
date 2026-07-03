@@ -49,6 +49,7 @@ const startSession = async (req, res, next) => {
           },
         },
         table: true,
+        feedbacks: true,
       },
     });
 
@@ -105,6 +106,7 @@ const getSession = async (req, res, next) => {
             items: { include: { menuItem: true } },
           },
         },
+        feedbacks: true,
       },
     });
 
@@ -192,6 +194,50 @@ const requestBill = async (req, res, next) => {
 };
 
 /**
+ * Get all sessions currently awaiting bill payment (captain view)
+ * GET /api/sessions/bill-requests
+ */
+const getBillRequests = async (req, res, next) => {
+  try {
+    const sessions = await prisma.session.findMany({
+      where: { status: "BILL_REQUESTED" },
+      include: {
+        table: true,
+        orders: {
+          include: {
+            items: { include: { menuItem: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const billRequests = sessions.map((session) => {
+      let total = 0;
+      session.orders.forEach((order) => {
+        if (order.status !== "CANCELLED") {
+          order.items.forEach((item) => {
+            total += item.price * item.quantity;
+          });
+        }
+      });
+      const billHTML = generateBillHTML(session);
+      return {
+        sessionId: session.id,
+        tableCode: session.table.code,
+        tableNumber: session.table.number,
+        total,
+        billHTML,
+      };
+    });
+
+    res.json({ success: true, data: billRequests });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Close a session (after payment)
  * PATCH /api/sessions/:id/close
  */
@@ -232,4 +278,53 @@ const closeSession = async (req, res, next) => {
   }
 };
 
-module.exports = { startSession, getSession, requestBill, closeSession };
+/**
+ * Submit feedback for a session
+ * POST /api/sessions/:id/feedback
+ */
+const submitFeedback = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { ratings } = req.body; // Array of { menuItemId, rating }
+
+    if (!Array.isArray(ratings) || ratings.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Ratings must be a non-empty array",
+      });
+    }
+
+    const session = await prisma.session.findUnique({
+      where: { id },
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: "Session not found",
+      });
+    }
+
+    // Save feedback inside a transaction
+    await prisma.$transaction(
+      ratings.map((rating) =>
+        prisma.feedback.create({
+          data: {
+            sessionId: id,
+            menuItemId: rating.menuItemId,
+            rating: rating.rating,
+          },
+        })
+      )
+    );
+
+    res.json({
+      success: true,
+      message: "Feedback submitted successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { startSession, getSession, requestBill, getBillRequests, closeSession, submitFeedback };

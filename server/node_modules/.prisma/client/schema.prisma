@@ -54,6 +54,7 @@ model Session {
   table     Table         @relation(fields: [tableId], references: [id])
   status    SessionStatus @default(ACTIVE)
   orders    Order[]
+  feedbacks Feedback[]
   createdAt DateTime      @default(now())
   closedAt  DateTime?
 }
@@ -73,6 +74,7 @@ model MenuItem {
   categoryId  String
   category    Category    @relation(fields: [categoryId], references: [id])
   orderItems  OrderItem[]
+  feedbacks   Feedback[]
   createdAt   DateTime    @default(now())
 }
 
@@ -97,4 +99,14 @@ model OrderItem {
   menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
   quantity   Int
   price      Float // price snapshot at time of ordering
+}
+
+model Feedback {
+  id         String   @id @default(cuid())
+  sessionId  String
+  session    Session  @relation(fields: [sessionId], references: [id])
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  rating     Int
+  createdAt  DateTime @default(now())
 }

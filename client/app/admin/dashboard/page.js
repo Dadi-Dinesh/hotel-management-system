@@ -9,11 +9,11 @@ import {
   ShoppingBag,
   Users,
   UtensilsCrossed,
-  Grid3X3,
   ClipboardList,
   LogOut,
   Award,
   IndianRupee,
+  Star,
 } from "lucide-react";
 import api from "../../lib/api";
 import { getUser, clearAuth, isAuthenticated } from "../../lib/auth";
@@ -72,16 +72,16 @@ export default function AdminDashboard() {
       desc: "View and filter orders",
     },
     {
-      href: "/admin/tables",
-      icon: <Grid3X3 size={24} />,
-      label: "Table Management",
-      desc: "Enable or disable tables",
-    },
-    {
       href: "/admin/captains",
       icon: <Users size={24} />,
       label: "Captain Management",
       desc: "Manage captain accounts",
+    },
+    {
+      href: "/admin/reviews",
+      icon: <Star size={24} />,
+      label: "Customer Reviews",
+      desc: "View customer feedback",
     },
   ];
 
@@ -216,37 +216,6 @@ export default function AdminDashboard() {
                   style={{ color: "var(--color-text-secondary)" }}
                 >
                   Orders Today
-                </p>
-              </div>
-            </div>
-            <div
-              className="card flex items-center gap-6"
-            >
-              <div
-                className="w-16 h-16 border flex items-center justify-center"
-                style={{
-                  background: "var(--color-brown-900)",
-                  borderColor: "var(--color-brown-900)",
-                  color: "white",
-                }}
-              >
-                <Grid3X3 size={28} />
-              </div>
-              <div>
-                <p
-                  className="text-3xl font-black"
-                  style={{
-                    fontFamily: "var(--font-heading)",
-                    color: "var(--color-brown-900)",
-                  }}
-                >
-                  {stats?.activeSessions || 0}
-                </p>
-                <p
-                  className="text-sm font-bold uppercase tracking-widest mt-1"
-                  style={{ color: "var(--color-text-secondary)" }}
-                >
-                  Active Tables
                 </p>
               </div>
             </div>

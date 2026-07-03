@@ -219,3 +219,10 @@ h1, h2, h3, h4, h5, h6 {
     display: none !important;
   }
 }
+
+/* Responsive Toaster */
+@media (min-width: 768px) {
+  .responsive-toaster {
+    align-items: flex-end !important;
+  }
+}

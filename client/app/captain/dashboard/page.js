@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Bell,
   Check,
-  ChefHat,
-  Truck,
+  ClipboardList,
   X,
   Printer,
   LogOut,
@@ -30,6 +29,9 @@ export default function CaptainDashboard() {
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [billRequests, setBillRequests] = useState([]);
+  const [printedBills, setPrintedBills] = useState(new Set());
+  const [acceptingOrders, setAcceptingOrders] = useState(new Set());
+  const [closingSessions, setClosingSessions] = useState(new Set());
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -55,9 +57,19 @@ export default function CaptainDashboard() {
     }
   }, []);
 
+  const fetchBillRequests = useCallback(async () => {
+    try {
+      const res = await api.get("/sessions/bill-requests");
+      setBillRequests(res.data.data);
+    } catch (error) {
+      console.error("Failed to fetch bill requests:", error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchOrders();
-  }, [fetchOrders]);
+    fetchBillRequests();
+  }, [fetchOrders, fetchBillRequests]);
 
   useEffect(() => {
     if (!socket) return;
@@ -78,7 +90,7 @@ export default function CaptainDashboard() {
     });
 
     socket.on("bill-requested", (data) => {
-      setBillRequests((prev) => [...prev, data]);
+      fetchBillRequests();
       toast(`🧾 Bill requested for Table ${data.tableCode}`, { duration: 8000, icon: "💰" });
     });
 
@@ -86,9 +98,10 @@ export default function CaptainDashboard() {
       socket.off("new-order");
       socket.off("bill-requested");
     };
-  }, [socket, fetchOrders]);
+  }, [socket, fetchOrders, fetchBillRequests]);
 
   const handleAcceptOrder = async (orderId) => {
+    setAcceptingOrders((prev) => new Set([...prev, orderId]));
     try {
       const res = await api.patch(`/orders/${orderId}/accept`);
       toast.success(`Order #${res.data.data.order.orderNumber} accepted!`);
@@ -107,27 +120,31 @@ export default function CaptainDashboard() {
       fetchOrders();
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to accept order");
+    } finally {
+      setAcceptingOrders((prev) => {
+        const next = new Set(prev);
+        next.delete(orderId);
+        return next;
+      });
     }
   };
 
-  const handleUpdateStatus = async (orderId, status) => {
-    try {
-      await api.patch(`/orders/${orderId}/status`, { status });
-      toast.success(`Order status updated to ${status}`);
-      fetchOrders();
-    } catch (error) {
-      toast.error("Failed to update status");
-    }
-  };
 
   const handleCloseSession = async (sessionId) => {
+    setClosingSessions((prev) => new Set([...prev, sessionId]));
     try {
       await api.patch(`/sessions/${sessionId}/close`);
       toast.success("Session closed");
-      setBillRequests((prev) => prev.filter((b) => b.sessionId !== sessionId));
+      fetchBillRequests();
       fetchOrders();
     } catch (error) {
       toast.error("Failed to close session");
+    } finally {
+      setClosingSessions((prev) => {
+        const next = new Set(prev);
+        next.delete(sessionId);
+        return next;
+      });
     }
   };
 
@@ -137,7 +154,9 @@ export default function CaptainDashboard() {
   };
 
   const pendingOrders = orders.filter((o) => o.status === "PENDING");
-  const activeOrders = orders.filter((o) => ["ACCEPTED", "PREPARING"].includes(o.status));
+  const activeOrders = orders.filter(
+    (o) => ["ACCEPTED", "PREPARING"].includes(o.status) && o.session?.status === "ACTIVE"
+  );
   const completedOrders = orders.filter((o) => ["SERVED", "CANCELLED"].includes(o.status)).slice(0, 10);
 
   if (!user) return null;
@@ -221,14 +240,22 @@ export default function CaptainDashboard() {
                         printWindow.document.close();
                         setTimeout(() => printWindow.print(), 300);
                       }
+                      setPrintedBills((prev) => new Set([...prev, bill.sessionId]));
                     }}
                     className="btn-secondary"
                   >
                     <Printer size={16} /> PRINT
                   </button>
-                  <button onClick={() => handleCloseSession(bill.sessionId)} className="btn-primary">
-                    <Check size={16} /> CLOSE
-                  </button>
+                  {printedBills.has(bill.sessionId) && (
+                    <button 
+                      onClick={() => handleCloseSession(bill.sessionId)} 
+                      disabled={closingSessions.has(bill.sessionId)}
+                      className="btn-primary"
+                    >
+                      <Check size={16} /> 
+                      {closingSessions.has(bill.sessionId) ? "CLOSING..." : "CLOSE"}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -283,8 +310,13 @@ export default function CaptainDashboard() {
                     <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--color-text-muted)" }}>
                       {new Date(order.createdAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true })}
                     </span>
-                    <button onClick={() => handleAcceptOrder(order.id)} className="btn-primary py-2 text-sm">
-                      <Check size={16} /> ACCEPT & PRINT KOT
+                    <button 
+                      onClick={() => handleAcceptOrder(order.id)} 
+                      disabled={acceptingOrders.has(order.id)}
+                      className="btn-primary py-2 text-sm"
+                    >
+                      <Check size={16} /> 
+                      {acceptingOrders.has(order.id) ? "ACCEPTING..." : "ACCEPT & PRINT KOT"}
                     </button>
                   </div>
                 </div>
@@ -299,7 +331,7 @@ export default function CaptainDashboard() {
             className="text-xl font-black mb-6 uppercase tracking-widest flex items-center gap-3"
             style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
           >
-            <ChefHat size={24} style={{ color: "var(--color-brown-900)" }} />
+            <ClipboardList size={24} style={{ color: "var(--color-brown-900)" }} />
             Active Orders
           </h2>
 
@@ -332,18 +364,7 @@ export default function CaptainDashboard() {
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-3">
-                    {order.status === "ACCEPTED" && (
-                      <button onClick={() => handleUpdateStatus(order.id, "PREPARING")} className="btn-secondary flex-1 py-2 text-sm">
-                        <ChefHat size={16} /> PREPARING
-                      </button>
-                    )}
-                    {(order.status === "ACCEPTED" || order.status === "PREPARING") && (
-                      <button onClick={() => handleUpdateStatus(order.id, "SERVED")} className="btn-primary flex-1 py-2 text-sm">
-                        <Truck size={16} /> MARK SERVED
-                      </button>
-                    )}
-                  </div>
+                
                 </div>
               ))}
             </div>

@@ -36,17 +36,25 @@ export default function RootLayout({ children }) {
         <SocketProvider>
           {children}
           <Toaster
-            position="top-right"
+            position="top-center"
+            containerClassName="responsive-toaster"
+            containerStyle={{
+              top: 80,
+              left: 16,
+              right: 16,
+            }}
             toastOptions={{
               duration: 4000,
               style: {
                 background: "#FFF8E7",
                 color: "#3D2710",
-                border: "1px solid #FFEFC7",
-                borderRadius: "12px",
+                border: "1px solid #E8891C",
+                borderRadius: "0px",
                 fontFamily: "var(--font-body)",
                 fontSize: "14px",
-                boxShadow: "0 4px 20px rgba(92,61,26,0.08)",
+                fontWeight: "600",
+                maxWidth: "360px",
+                width: "100%",
               },
               success: {
                 iconTheme: {

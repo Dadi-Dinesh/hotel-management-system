@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Utensils, Receipt, RefreshCcw } from "lucide-react";
+import { Utensils, Receipt, RefreshCcw, Star, X } from "lucide-react";
 import api from "../../../lib/api";
 import Navbar from "../../../components/Navbar";
 import OrderStatusBadge from "../../../components/OrderStatusBadge";
@@ -18,6 +18,9 @@ export default function OrdersPage() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [requestingBill, setRequestingBill] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [ratings, setRatings] = useState({});
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   const fetchSession = useCallback(async () => {
     const sessionId = localStorage.getItem(`session-${tableCode}`);
@@ -80,6 +83,47 @@ export default function OrdersPage() {
     } finally {
       setRequestingBill(false);
     }
+  };
+
+  const uniqueItemsToRate = session?.orders
+    ? Array.from(
+        new Map(
+          session.orders
+            .filter((o) => o.status !== "CANCELLED")
+            .flatMap((o) => o.items)
+            .map((i) => [i.menuItem.id, i.menuItem])
+        ).values()
+      )
+    : [];
+
+  const handleRequestBillClick = () => {
+    if (session?.feedbacks?.length > 0 || uniqueItemsToRate.length === 0) {
+      handleRequestBill();
+    } else {
+      setShowFeedbackModal(true);
+    }
+  };
+
+  const submitFeedbackAndRequestBill = async () => {
+    const feedbackData = Object.entries(ratings).map(([menuItemId, rating]) => ({
+      menuItemId,
+      rating,
+    }));
+
+    if (feedbackData.length > 0) {
+      setSubmittingFeedback(true);
+      try {
+        await api.post(`/sessions/${session.id}/feedback`, { ratings: feedbackData });
+        toast.success("Thanks for your feedback! 🌟");
+      } catch (error) {
+        console.error("Failed to submit feedback:", error);
+      } finally {
+        setSubmittingFeedback(false);
+      }
+    }
+    
+    setShowFeedbackModal(false);
+    handleRequestBill();
   };
 
   if (loading) {
@@ -283,12 +327,12 @@ export default function OrdersPage() {
               </button>
               {session.status !== "BILL_REQUESTED" ? (
                 <button
-                  onClick={handleRequestBill}
-                  disabled={requestingBill}
+                  onClick={handleRequestBillClick}
+                  disabled={requestingBill || submittingFeedback}
                   className="btn-primary flex-1 py-3"
                 >
                   <Receipt size={16} />
-                  {requestingBill ? "Requesting..." : "Request Bill"}
+                  {requestingBill || submittingFeedback ? "Processing..." : "Request Bill"}
                 </button>
               ) : (
                 <div
@@ -302,6 +346,75 @@ export default function OrdersPage() {
                   🧾 Bill Requested
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Feedback Modal */}
+      {showFeedbackModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 backdrop-blur-sm" style={{ background: "rgba(61, 39, 16, 0.4)" }} onClick={() => setShowFeedbackModal(false)} />
+          <div className="relative w-full max-w-md max-h-[85vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden animate-scale-in" style={{ background: "var(--color-cream-50)" }}>
+            <div className="p-6 border-b" style={{ borderColor: "var(--color-border-light)" }}>
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-xl font-bold" style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}>Rate your food</h3>
+                <button onClick={() => setShowFeedbackModal(false)} style={{ color: "var(--color-text-muted)" }}>
+                  <X size={20} />
+                </button>
+              </div>
+              <p className="text-sm font-medium" style={{ color: "var(--color-text-muted)" }}>How did you like the items you ordered?</p>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1">
+              <div className="space-y-6">
+                {uniqueItemsToRate.map(item => (
+                  <div key={item.id} className="flex flex-col gap-3">
+                    <span className="font-bold text-sm uppercase tracking-widest" style={{ color: "var(--color-brown-900)" }}>{item.name}</span>
+                    <div className="flex gap-2">
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <button
+                          key={star}
+                          onClick={() => setRatings(prev => ({ ...prev, [item.id]: star }))}
+                          className="transition-transform hover:scale-110 focus:outline-none"
+                        >
+                          <Star 
+                            size={32} 
+                            fill={ratings[item.id] >= star ? "var(--color-orange-500)" : "transparent"} 
+                            color={ratings[item.id] >= star ? "var(--color-orange-500)" : "var(--color-cream-300)"} 
+                            strokeWidth={ratings[item.id] >= star ? 0 : 2}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-6 border-t flex flex-col gap-3" style={{ borderColor: "var(--color-border-light)", background: "var(--color-surface)" }}>
+              <button 
+                onClick={submitFeedbackAndRequestBill}
+                disabled={submittingFeedback || Object.keys(ratings).length === 0}
+                className="btn-primary w-full py-3"
+              >
+                {submittingFeedback ? "Submitting..." : "Submit & Request Bill"}
+              </button>
+              <button 
+                onClick={() => {
+                  setShowFeedbackModal(false);
+                  handleRequestBill();
+                }}
+                disabled={submittingFeedback}
+                className="w-full py-3 text-sm font-bold uppercase tracking-widest transition-colors rounded-xl border-2"
+                style={{ 
+                  color: "var(--color-text-secondary)",
+                  borderColor: "var(--color-cream-200)",
+                  background: "transparent"
+                }}
+              >
+                Skip
+              </button>
             </div>
           </div>
         </div>

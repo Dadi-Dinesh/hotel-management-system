@@ -40,6 +40,9 @@ export default function MenuManagementPage() {
   const [itemImage, setItemImage] = useState(null);
   const [categoryName, setCategoryName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deletingCategories, setDeletingCategories] = useState(new Set());
+  const [deletingItems, setDeletingItems] = useState(new Set());
+  const [togglingItems, setTogglingItems] = useState(new Set());
 
   useEffect(() => {
     if (!isAuthenticated() || getUser()?.role !== "ADMIN") {
@@ -119,22 +122,36 @@ export default function MenuManagementPage() {
 
   const handleDeleteItem = async (item) => {
     if (!confirm(`Delete "${item.name}"?`)) return;
+    setDeletingItems((prev) => new Set([...prev, item.id]));
     try {
       await api.delete(`/menu/${item.id}`);
       toast.success(`${item.name} deleted`);
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to delete");
+    } finally {
+      setDeletingItems((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
     }
   };
 
   const handleToggleAvailability = async (item) => {
+    setTogglingItems((prev) => new Set([...prev, item.id]));
     try {
       await api.patch(`/menu/${item.id}`, { isAvailable: (!item.isAvailable).toString() });
       toast.success(`${item.name} ${!item.isAvailable ? "available" : "unavailable"}`);
       fetchData();
     } catch (error) {
       toast.error("Failed to update");
+    } finally {
+      setTogglingItems((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
     }
   };
 
@@ -174,12 +191,19 @@ export default function MenuManagementPage() {
 
   const handleDeleteCategory = async (cat) => {
     if (!confirm(`Delete category "${cat.name}"?`)) return;
+    setDeletingCategories((prev) => new Set([...prev, cat.id]));
     try {
       await api.delete(`/categories/${cat.id}`);
       toast.success(`Category "${cat.name}" deleted`);
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to delete");
+    } finally {
+      setDeletingCategories((prev) => {
+        const next = new Set(prev);
+        next.delete(cat.id);
+        return next;
+      });
     }
   };
 
@@ -214,7 +238,13 @@ export default function MenuManagementPage() {
                 <span className="text-sm font-medium" style={{ color: "var(--color-brown-900)" }}>{cat.name}</span>
                 <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "var(--color-cream-200)", color: "var(--color-text-muted)" }}>{cat._count?.items || 0}</span>
                 <button onClick={() => openEditCategory(cat)} className="ml-1" style={{ color: "var(--color-text-muted)" }}><Pencil size={12} /></button>
-                <button onClick={() => handleDeleteCategory(cat)} style={{ color: "var(--color-danger)" }}><Trash2 size={12} /></button>
+                <button 
+                  onClick={() => handleDeleteCategory(cat)} 
+                  disabled={deletingCategories.has(cat.id)}
+                  style={{ color: "var(--color-danger)", opacity: deletingCategories.has(cat.id) ? 0.5 : 1 }}
+                >
+                  <Trash2 size={12} />
+                </button>
               </div>
             ))}
           </div>
@@ -254,11 +284,24 @@ export default function MenuManagementPage() {
                     <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>{item.categoryName} · ₹{item.price}</p>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => handleToggleAvailability(item)} className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: item.isAvailable ? "#E8F5E9" : "#FFEBEE", color: item.isAvailable ? "#2E7D32" : "#C62828" }} title={item.isAvailable ? "Make unavailable" : "Make available"}>
+                    <button 
+                      onClick={() => handleToggleAvailability(item)} 
+                      disabled={togglingItems.has(item.id)}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center" 
+                      style={{ background: item.isAvailable ? "#E8F5E9" : "#FFEBEE", color: item.isAvailable ? "#2E7D32" : "#C62828", opacity: togglingItems.has(item.id) ? 0.5 : 1 }} 
+                      title={item.isAvailable ? "Make unavailable" : "Make available"}
+                    >
                       {item.isAvailable ? "✓" : "✗"}
                     </button>
                     <button onClick={() => openEditItem(item)} className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--color-cream-100)", color: "var(--color-text-secondary)" }}><Pencil size={14} /></button>
-                    <button onClick={() => handleDeleteItem(item)} className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#FFEBEE", color: "#C62828" }}><Trash2 size={14} /></button>
+                    <button 
+                      onClick={() => handleDeleteItem(item)} 
+                      disabled={deletingItems.has(item.id)}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center" 
+                      style={{ background: "#FFEBEE", color: "#C62828", opacity: deletingItems.has(item.id) ? 0.5 : 1 }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </div>
               ))}

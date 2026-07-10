@@ -4,6 +4,12 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 let socket = null;
 
+socket.on("join-captain", () => {
+  console.log("JOIN CAPTAIN EVENT RECEIVED");
+  socket.join("captains");
+  console.log(`Socket ${socket.id} joined captains room`);
+});
+
 export const getSocket = () => {
   if (!socket) {
     socket = io(SOCKET_URL, {

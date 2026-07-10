@@ -76,6 +76,7 @@ export default function CaptainDashboard() {
     socket.emit("join-captain");
 
     socket.on("new-order", (data) => {
+      console.log("NEW ORDER RECEIVED", data);
       const notif = {
         id: Date.now(),
         type: "new-order",
@@ -92,6 +93,10 @@ export default function CaptainDashboard() {
     socket.on("bill-requested", (data) => {
       fetchBillRequests();
       toast(`🧾 Bill requested for Table ${data.tableCode}`, { duration: 8000, icon: "💰" });
+    });
+
+    socket.onAny((event, ...args) => {
+      console.log("SOCKET EVENT:", event, args);
     });
 
     return () => {
@@ -247,12 +252,12 @@ export default function CaptainDashboard() {
                     <Printer size={16} /> PRINT
                   </button>
                   {printedBills.has(bill.sessionId) && (
-                    <button 
-                      onClick={() => handleCloseSession(bill.sessionId)} 
+                    <button
+                      onClick={() => handleCloseSession(bill.sessionId)}
                       disabled={closingSessions.has(bill.sessionId)}
                       className="btn-primary"
                     >
-                      <Check size={16} /> 
+                      <Check size={16} />
                       {closingSessions.has(bill.sessionId) ? "CLOSING..." : "CLOSE"}
                     </button>
                   )}
@@ -310,12 +315,12 @@ export default function CaptainDashboard() {
                     <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--color-text-muted)" }}>
                       {new Date(order.createdAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true })}
                     </span>
-                    <button 
-                      onClick={() => handleAcceptOrder(order.id)} 
+                    <button
+                      onClick={() => handleAcceptOrder(order.id)}
                       disabled={acceptingOrders.has(order.id)}
                       className="btn-primary py-2 text-sm"
                     >
-                      <Check size={16} /> 
+                      <Check size={16} />
                       {acceptingOrders.has(order.id) ? "ACCEPTING..." : "ACCEPT & PRINT KOT"}
                     </button>
                   </div>
@@ -364,7 +369,7 @@ export default function CaptainDashboard() {
                       </div>
                     ))}
                   </div>
-                
+
                 </div>
               ))}
             </div>

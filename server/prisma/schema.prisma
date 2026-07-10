@@ -7,7 +7,84 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── Enums ───────────────────────────────────────────
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(CAPTAIN)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Table {
+  id       String    @id @default(cuid())
+  code     String    @unique
+  number   Int       @unique
+  isActive Boolean   @default(true)
+  sessions Session[]
+}
+
+model Session {
+  id        String        @id @default(cuid())
+  tableId   String
+  status    SessionStatus @default(ACTIVE)
+  createdAt DateTime      @default(now())
+  closedAt  DateTime?
+  feedbacks Feedback[]
+  orders    Order[]
+  table     Table         @relation(fields: [tableId], references: [id])
+}
+
+model Category {
+  id    String     @id @default(cuid())
+  name  String     @unique
+  items MenuItem[]
+}
+
+model MenuItem {
+  id          String      @id @default(cuid())
+  name        String
+  price       Float
+  image       String?
+  isAvailable Boolean     @default(true)
+  categoryId  String
+  createdAt   DateTime    @default(now())
+  feedbacks   Feedback[]
+  category    Category    @relation(fields: [categoryId], references: [id])
+  orderItems  OrderItem[]
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  orderNumber Int         @unique @default(autoincrement())
+  sessionId   String
+  status      OrderStatus @default(PENDING)
+  createdAt   DateTime    @default(now())
+  acceptedAt  DateTime?
+  session     Session     @relation(fields: [sessionId], references: [id])
+  items       OrderItem[]
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  menuItemId String
+  quantity   Int
+  price      Float
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  order      Order    @relation(fields: [orderId], references: [id])
+}
+
+model Feedback {
+  id         String   @id @default(cuid())
+  sessionId  String
+  menuItemId String
+  rating     Int
+  createdAt  DateTime @default(now())
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  session    Session  @relation(fields: [sessionId], references: [id])
+}
 
 enum Role {
   ADMIN
@@ -26,87 +103,4 @@ enum OrderStatus {
   PREPARING
   SERVED
   CANCELLED
-}
-
-// ─── Models ──────────────────────────────────────────
-
-model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      Role     @default(CAPTAIN)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Table {
-  id       String    @id @default(cuid())
-  code     String    @unique // T01, T02, ... T12
-  number   Int       @unique // 1–12
-  isActive Boolean   @default(true)
-  sessions Session[]
-}
-
-model Session {
-  id        String        @id @default(cuid())
-  tableId   String
-  table     Table         @relation(fields: [tableId], references: [id])
-  status    SessionStatus @default(ACTIVE)
-  orders    Order[]
-  feedbacks Feedback[]
-  createdAt DateTime      @default(now())
-  closedAt  DateTime?
-}
-
-model Category {
-  id    String     @id @default(cuid())
-  name  String     @unique
-  items MenuItem[]
-}
-
-model MenuItem {
-  id          String      @id @default(cuid())
-  name        String
-  price       Float
-  image       String?
-  isAvailable Boolean     @default(true)
-  categoryId  String
-  category    Category    @relation(fields: [categoryId], references: [id])
-  orderItems  OrderItem[]
-  feedbacks   Feedback[]
-  createdAt   DateTime    @default(now())
-}
-
-model Order {
-  id          String      @id @default(cuid())
-  orderNumber Int         @default(autoincrement())
-  sessionId   String
-  session     Session     @relation(fields: [sessionId], references: [id])
-  status      OrderStatus @default(PENDING)
-  items       OrderItem[]
-  createdAt   DateTime    @default(now())
-  acceptedAt  DateTime?
-
-  @@unique([orderNumber])
-}
-
-model OrderItem {
-  id         String   @id @default(cuid())
-  orderId    String
-  order      Order    @relation(fields: [orderId], references: [id])
-  menuItemId String
-  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
-  quantity   Int
-  price      Float // price snapshot at time of ordering
-}
-
-model Feedback {
-  id         String   @id @default(cuid())
-  sessionId  String
-  session    Session  @relation(fields: [sessionId], references: [id])
-  menuItemId String
-  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
-  rating     Int
-  createdAt  DateTime @default(now())
 }

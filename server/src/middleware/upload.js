@@ -23,12 +23,12 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
 
 /**
  * Upload buffer to Cloudinary
- * Returns the secure URL of the uploaded image
+ * Returns an object with secure_url and public_id
  */
 const uploadToCloudinary = (fileBuffer, folder = "nookambika-menu") => {
   return new Promise((resolve, reject) => {
@@ -37,14 +37,17 @@ const uploadToCloudinary = (fileBuffer, folder = "nookambika-menu") => {
         folder,
         resource_type: "image",
         transformation: [
-          { width: 800, height: 600, crop: "fill", quality: "auto" },
+          { width: 800, height: 600, crop: "fill", quality: "auto", fetch_format: "auto" },
         ],
       },
       (error, result) => {
         if (error) {
           reject(error);
         } else {
-          resolve(result.secure_url);
+          resolve({
+            secure_url: result.secure_url,
+            public_id: result.public_id,
+          });
         }
       }
     );
@@ -53,15 +56,20 @@ const uploadToCloudinary = (fileBuffer, folder = "nookambika-menu") => {
 };
 
 /**
- * Delete an image from Cloudinary by URL
+ * Delete an image from Cloudinary by public ID or URL
  */
-const deleteFromCloudinary = async (imageUrl) => {
+const deleteFromCloudinary = async (identifier) => {
   try {
-    if (!imageUrl) return;
-    // Extract public_id from the URL
-    const parts = imageUrl.split("/");
-    const folderAndFile = parts.slice(-2).join("/");
-    const publicId = folderAndFile.replace(/\.[^/.]+$/, "");
+    if (!identifier) return;
+    
+    let publicId = identifier;
+    // If it's a URL, extract the public_id
+    if (identifier.startsWith("http://") || identifier.startsWith("https://")) {
+      const parts = identifier.split("/");
+      const folderAndFile = parts.slice(-2).join("/");
+      publicId = folderAndFile.replace(/\.[^/.]+$/, "");
+    }
+    
     await cloudinary.uploader.destroy(publicId);
   } catch (error) {
     console.error("Cloudinary delete error:", error);

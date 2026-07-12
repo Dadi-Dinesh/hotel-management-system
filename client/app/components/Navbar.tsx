@@ -1,11 +1,27 @@
 "use client";
 
+import React from "react";
 import { UtensilsCrossed } from "lucide-react";
 import Link from "next/link";
 
-export default function Navbar({ title, subtitle, backHref, rightContent }) {
+interface NavbarProps {
+  title?: string;
+  subtitle?: string;
+  backHref?: string;
+  rightContent?: React.ReactNode;
+}
+
+export default function Navbar({
+  title,
+  subtitle,
+  backHref,
+  rightContent,
+}: NavbarProps) {
   return (
-    <header className="sticky top-0 z-50 border-b border-brown-900" style={{ background: "var(--color-surface)" }}>
+    <header
+      className="sticky top-0 z-50 border-b border-brown-900"
+      style={{ background: "var(--color-surface)" }}
+    >
       <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
           {backHref && (

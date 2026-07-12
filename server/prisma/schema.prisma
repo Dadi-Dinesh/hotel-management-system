@@ -54,6 +54,10 @@ model MenuItem {
   category           Category    @relation(fields: [categoryId], references: [id])
   orderItems         OrderItem[]
   servingInformation String?
+  imageUrl           String?
+  publicId           String?
+  description        String?
+  calories           Int?
 }
 
 model Order {

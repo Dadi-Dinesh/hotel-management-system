@@ -62,7 +62,7 @@ const getMenuItem = async (req, res, next) => {
  */
 const addMenuItem = async (req, res, next) => {
   try {
-    const { name, price, categoryId } = req.body;
+    const { name, price, categoryId, servingInformation, description, calories, isAvailable } = req.body;
 
     if (!name || !price || !categoryId) {
       return res.status(400).json({
@@ -71,12 +71,27 @@ const addMenuItem = async (req, res, next) => {
       });
     }
 
+    let imageUrl = null;
+    let publicId = null;
+
+    if (req.file) {
+      const uploadResult = await uploadToCloudinary(req.file.buffer);
+      imageUrl = uploadResult.secure_url;
+      publicId = uploadResult.public_id;
+    }
+
     const item = await prisma.menuItem.create({
       data: {
         name,
         price: parseFloat(price),
         categoryId,
-        isAvailable: true,
+        servingInformation: servingInformation || null,
+        description: description || null,
+        calories: calories ? parseInt(calories, 10) : null,
+        imageUrl,
+        publicId,
+        image: imageUrl, // For backward compatibility
+        isAvailable: isAvailable !== undefined ? (isAvailable === "true" || isAvailable === true) : true,
       },
       include: { category: true },
     });
@@ -98,7 +113,7 @@ const addMenuItem = async (req, res, next) => {
 const updateMenuItem = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, price, categoryId } = req.body;
+    const { name, price, categoryId, servingInformation, description, calories, removeImage, isAvailable } = req.body;
 
     const existing = await prisma.menuItem.findUnique({ where: { id } });
     if (!existing) {
@@ -112,6 +127,38 @@ const updateMenuItem = async (req, res, next) => {
     if (name !== undefined) updateData.name = name;
     if (price !== undefined) updateData.price = parseFloat(price);
     if (categoryId !== undefined) updateData.categoryId = categoryId;
+    if (servingInformation !== undefined) updateData.servingInformation = servingInformation || null;
+    if (description !== undefined) updateData.description = description || null;
+    if (calories !== undefined) updateData.calories = calories ? parseInt(calories, 10) : null;
+    if (isAvailable !== undefined) {
+      updateData.isAvailable = isAvailable === "true" || isAvailable === true;
+    }
+
+    // Handle image upload / replacement / removal
+    if (req.file) {
+      // Delete old image from Cloudinary if it exists
+      if (existing.publicId) {
+        await deleteFromCloudinary(existing.publicId);
+      } else if (existing.image) {
+        await deleteFromCloudinary(existing.image);
+      }
+
+      const uploadResult = await uploadToCloudinary(req.file.buffer);
+      updateData.imageUrl = uploadResult.secure_url;
+      updateData.publicId = uploadResult.public_id;
+      updateData.image = uploadResult.secure_url; // backward compatibility
+    } else if (removeImage === "true" || removeImage === true) {
+      // Delete old image from Cloudinary if it exists
+      if (existing.publicId) {
+        await deleteFromCloudinary(existing.publicId);
+      } else if (existing.image) {
+        await deleteFromCloudinary(existing.image);
+      }
+
+      updateData.imageUrl = null;
+      updateData.publicId = null;
+      updateData.image = null;
+    }
 
     const item = await prisma.menuItem.update({
       where: { id },
@@ -143,6 +190,13 @@ const deleteMenuItem = async (req, res, next) => {
         success: false,
         message: "Menu item not found.",
       });
+    }
+
+    // Delete image from Cloudinary
+    if (existing.publicId) {
+      await deleteFromCloudinary(existing.publicId);
+    } else if (existing.image) {
+      await deleteFromCloudinary(existing.image);
     }
 
     // Delete associated feedbacks and order items first to satisfy foreign key constraints

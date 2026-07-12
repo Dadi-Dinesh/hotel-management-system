@@ -9,7 +9,7 @@ const initializeSocket = (server) => {
 
   io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL || "http://localhost:3000",
+      origin: process.env.CLIENT_URL || "https://hotel-management-system-psi-kohl.vercel.app",
       methods: ["GET", "POST"],
     },
   });

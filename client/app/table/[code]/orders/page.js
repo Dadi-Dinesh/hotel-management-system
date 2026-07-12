@@ -60,9 +60,8 @@ export default function OrdersPage() {
     });
 
     socket.on("session-closed", () => {
-      toast("Session closed. Thank you for dining with us! 🙏");
-      localStorage.removeItem(`session-${tableCode}`);
-      router.push(`/table/${tableCode}`);
+      // Redirect to the Thank You page — it handles localStorage cleanup and auto-redirect to home
+      router.push(`/table/${tableCode}/thank-you`);
     });
 
     return () => {

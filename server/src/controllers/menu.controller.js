@@ -62,7 +62,7 @@ const getMenuItem = async (req, res, next) => {
  */
 const addMenuItem = async (req, res, next) => {
   try {
-    const { name, price, categoryId, isAvailable, servingInformation } = req.body;
+    const { name, price, categoryId } = req.body;
 
     if (!name || !price || !categoryId) {
       return res.status(400).json({
@@ -71,21 +71,12 @@ const addMenuItem = async (req, res, next) => {
       });
     }
 
-    let imageUrl = null;
-
-    // Handle image upload
-    if (req.file) {
-      imageUrl = await uploadToCloudinary(req.file.buffer);
-    }
-
     const item = await prisma.menuItem.create({
       data: {
         name,
         price: parseFloat(price),
         categoryId,
-        isAvailable: isAvailable === "false" ? false : true,
-        image: imageUrl,
-        servingInformation: servingInformation || null,
+        isAvailable: true,
       },
       include: { category: true },
     });
@@ -107,7 +98,7 @@ const addMenuItem = async (req, res, next) => {
 const updateMenuItem = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, price, categoryId, isAvailable, servingInformation } = req.body;
+    const { name, price, categoryId } = req.body;
 
     const existing = await prisma.menuItem.findUnique({ where: { id } });
     if (!existing) {
@@ -121,17 +112,6 @@ const updateMenuItem = async (req, res, next) => {
     if (name !== undefined) updateData.name = name;
     if (price !== undefined) updateData.price = parseFloat(price);
     if (categoryId !== undefined) updateData.categoryId = categoryId;
-    if (isAvailable !== undefined) updateData.isAvailable = isAvailable === "true" || isAvailable === true;
-    if (servingInformation !== undefined) updateData.servingInformation = servingInformation || null;
-
-    // Handle image upload
-    if (req.file) {
-      // Delete old image from Cloudinary
-      if (existing.image) {
-        await deleteFromCloudinary(existing.image);
-      }
-      updateData.image = await uploadToCloudinary(req.file.buffer);
-    }
 
     const item = await prisma.menuItem.update({
       where: { id },
@@ -165,11 +145,11 @@ const deleteMenuItem = async (req, res, next) => {
       });
     }
 
-    // Delete image from Cloudinary
-    if (existing.image) {
-      await deleteFromCloudinary(existing.image);
-    }
+    // Delete associated feedbacks and order items first to satisfy foreign key constraints
+    await prisma.feedback.deleteMany({ where: { menuItemId: id } });
+    await prisma.orderItem.deleteMany({ where: { menuItemId: id } });
 
+    // Then delete the menu item itself
     await prisma.menuItem.delete({ where: { id } });
 
     res.json({

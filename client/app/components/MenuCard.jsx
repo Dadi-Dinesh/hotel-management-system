@@ -21,118 +21,88 @@ const getServingEmoji = (info) => {
 export default function MenuCard({ item, cartQuantity = 0, onAdd, onUpdateQuantity }) {
   return (
     <div
-      className="flex gap-4 border p-4"
+      className="flex flex-col md:flex-row md:items-center justify-between gap-4 border p-4"
       style={{ borderColor: "var(--color-brown-900)", background: "var(--color-surface)" }}
     >
-      {/* Image */}
-      <div
-        className="w-24 h-24 flex-shrink-0 flex items-center justify-center text-3xl border"
-        style={{
-          borderColor: "var(--color-brown-900)",
-          background: "var(--color-cream-200)",
-        }}
-      >
-        {item.image ? (
-          <img
-            src={item.image}
-            alt={item.name}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          "🍽️"
-        )}
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <h3
+          className="font-bold text-base uppercase tracking-wide truncate"
+          style={{
+            fontFamily: "var(--font-heading)",
+            color: "var(--color-brown-900)",
+          }}
+        >
+          {item.name}
+        </h3>
+        <p
+          className="text-xs uppercase tracking-widest mt-1"
+          style={{ color: "var(--color-text-muted)", fontWeight: 600 }}
+        >
+          {item.category?.name}
+        </p>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex flex-col justify-between min-w-0">
-        <div>
-          <h3
-            className="font-bold text-base uppercase tracking-wide truncate"
+      {/* Action Section */}
+      <div className="flex items-center justify-between md:justify-end gap-6 flex-shrink-0">
+        <span
+          className="font-bold text-lg"
+          style={{
+            fontFamily: "var(--font-heading)",
+            color: "var(--color-orange-500)",
+          }}
+        >
+          ₹{item.price}
+        </span>
+
+        {cartQuantity === 0 ? (
+          <button
+            onClick={() => onAdd(item)}
+            className="btn-primary font-bold text-xs uppercase tracking-wider"
             style={{
-              fontFamily: "var(--font-heading)",
-              color: "var(--color-brown-900)",
+              padding: "0.5rem 1.25rem",
             }}
           >
-            {item.name}
-          </h3>
-          <p
-            className="text-xs uppercase tracking-widest mt-1"
-            style={{ color: "var(--color-text-muted)", fontWeight: 600 }}
-          >
-            {item.category?.name}
-          </p>
-          {item.servingInformation && (
-            <div
-              className="flex items-center gap-1.5 mt-1 text-xs font-bold uppercase tracking-wider"
-              style={{ color: "var(--color-brown-900)" }}
-            >
-              <span className="text-sm leading-none">{getServingEmoji(item.servingInformation)}</span>
-              <span>{item.servingInformation}</span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between mt-3">
-          <span
-            className="font-bold text-lg"
+            <Plus size={14} /> ADD
+          </button>
+        ) : (
+          <div
+            className="flex items-center border"
             style={{
-              fontFamily: "var(--font-heading)",
-              color: "var(--color-orange-500)",
+              borderColor: "var(--color-brown-900)",
             }}
           >
-            ₹{item.price}
-          </span>
-
-          {cartQuantity === 0 ? (
             <button
-              onClick={() => onAdd(item)}
-              className="btn-primary"
+              onClick={() => onUpdateQuantity(item.id, cartQuantity - 1)}
+              className="flex items-center justify-center w-8 h-8 transition-colors hover:bg-orange-500 hover:text-white"
               style={{
-                padding: "0.375rem 1rem",
-                fontSize: "0.8125rem",
+                color: "var(--color-brown-900)",
+                borderRight: "1px solid var(--color-brown-900)"
               }}
             >
-              <Plus size={16} /> ADD
+              <Minus size={14} />
             </button>
-          ) : (
-            <div
-              className="flex items-center border"
+            <span
+              className="font-bold text-sm min-w-[32px] text-center"
               style={{
-                borderColor: "var(--color-brown-900)",
+                fontFamily: "var(--font-heading)",
+                color: "var(--color-brown-900)",
               }}
             >
-              <button
-                onClick={() => onUpdateQuantity(item.id, cartQuantity - 1)}
-                className="flex items-center justify-center w-8 h-8 transition-colors hover:bg-orange-500 hover:text-white"
-                style={{
-                  color: "var(--color-brown-900)",
-                  borderRight: "1px solid var(--color-brown-900)"
-                }}
-              >
-                <Minus size={14} />
-              </button>
-              <span
-                className="font-bold text-sm min-w-[32px] text-center"
-                style={{
-                  fontFamily: "var(--font-heading)",
-                  color: "var(--color-brown-900)",
-                }}
-              >
-                {cartQuantity}
-              </span>
-              <button
-                onClick={() => onUpdateQuantity(item.id, cartQuantity + 1)}
-                className="flex items-center justify-center w-8 h-8 transition-colors hover:bg-orange-500 hover:text-white"
-                style={{
-                  color: "var(--color-brown-900)",
-                  borderLeft: "1px solid var(--color-brown-900)"
-                }}
-              >
-                <Plus size={14} />
-              </button>
-            </div>
-          )}
-        </div>
+              {cartQuantity}
+            </span>
+            <button
+              onClick={() => onUpdateQuantity(item.id, cartQuantity + 1)}
+              className="flex items-center justify-center w-8 h-8 transition-colors hover:bg-orange-500 hover:text-white"
+              style={{
+                color: "var(--color-brown-900)",
+                borderLeft: "1px solid var(--color-brown-900)"
+              }}
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

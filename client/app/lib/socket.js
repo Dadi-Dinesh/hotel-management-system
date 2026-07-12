@@ -1,6 +1,16 @@
 import { io } from "socket.io-client";
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const getSocketUrl = () => {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window !== "undefined") {
+    return `http://${window.location.hostname}:4000`;
+  }
+  return "http://localhost:4000";
+};
+
+const SOCKET_URL = getSocketUrl();
 
 let socket = null;
 

@@ -8,7 +8,6 @@ import {
   Trash2,
   Search,
   X,
-  Image as ImageIcon,
   FolderPlus,
   Save,
 } from "lucide-react";
@@ -35,15 +34,11 @@ export default function MenuManagementPage() {
     name: "",
     price: "",
     categoryId: "",
-    isAvailable: true,
-    servingInformation: "",
   });
-  const [itemImage, setItemImage] = useState(null);
   const [categoryName, setCategoryName] = useState("");
   const [saving, setSaving] = useState(false);
   const [deletingCategories, setDeletingCategories] = useState(new Set());
   const [deletingItems, setDeletingItems] = useState(new Set());
-  const [togglingItems, setTogglingItems] = useState(new Set());
 
   useEffect(() => {
     if (!isAuthenticated() || getUser()?.role !== "ADMIN") {
@@ -72,8 +67,7 @@ export default function MenuManagementPage() {
 
   const openAddItem = () => {
     setEditingItem(null);
-    setItemForm({ name: "", price: "", categoryId: categories[0]?.id || "", isAvailable: true, servingInformation: "" });
-    setItemImage(null);
+    setItemForm({ name: "", price: "", categoryId: categories[0]?.id || "" });
     setShowItemModal(true);
   };
 
@@ -83,10 +77,7 @@ export default function MenuManagementPage() {
       name: item.name,
       price: item.price.toString(),
       categoryId: item.categoryId,
-      isAvailable: item.isAvailable,
-      servingInformation: item.servingInformation || "",
     });
-    setItemImage(null);
     setShowItemModal(true);
   };
 
@@ -94,25 +85,19 @@ export default function MenuManagementPage() {
     e.preventDefault();
     setSaving(true);
 
-    const formData = new FormData();
-    formData.append("name", itemForm.name);
-    formData.append("price", itemForm.price);
-    formData.append("categoryId", itemForm.categoryId);
-    formData.append("isAvailable", itemForm.isAvailable);
-    formData.append("servingInformation", itemForm.servingInformation || "");
-    if (itemImage) formData.append("image", itemImage);
+    const payload = {
+      name: itemForm.name,
+      price: parseFloat(itemForm.price),
+      categoryId: itemForm.categoryId,
+    };
 
     try {
       if (editingItem) {
-        await api.patch(`/menu/${editingItem.id}`, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        toast.success("Item updated!");
+        await api.patch(`/menu/${editingItem.id}`, payload);
+        toast.success("Item updated successfully!");
       } else {
-        await api.post("/menu", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-        toast.success("Item added!");
+        await api.post("/menu", payload);
+        toast.success("Item added successfully!");
       }
       setShowItemModal(false);
       fetchData();
@@ -124,33 +109,17 @@ export default function MenuManagementPage() {
   };
 
   const handleDeleteItem = async (item) => {
-    if (!confirm(`Delete "${item.name}"?`)) return;
+    if (!confirm(`Are you sure you want to delete "${item.name}"?`)) return;
     setDeletingItems((prev) => new Set([...prev, item.id]));
     try {
       await api.delete(`/menu/${item.id}`);
-      toast.success(`${item.name} deleted`);
+      toast.success(`${item.name} deleted successfully!`);
       fetchData();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to delete");
+      console.error(error);
+      toast.error(error.response?.data?.message || `Failed to delete ${item.name}`);
     } finally {
       setDeletingItems((prev) => {
-        const next = new Set(prev);
-        next.delete(item.id);
-        return next;
-      });
-    }
-  };
-
-  const handleToggleAvailability = async (item) => {
-    setTogglingItems((prev) => new Set([...prev, item.id]));
-    try {
-      await api.patch(`/menu/${item.id}`, { isAvailable: (!item.isAvailable).toString() });
-      toast.success(`${item.name} ${!item.isAvailable ? "available" : "unavailable"}`);
-      fetchData();
-    } catch (error) {
-      toast.error("Failed to update");
-    } finally {
-      setTogglingItems((prev) => {
         const next = new Set(prev);
         next.delete(item.id);
         return next;
@@ -217,8 +186,7 @@ export default function MenuManagementPage() {
   );
 
   const filteredItems = allItems.filter((item) =>
-    item.name.toLowerCase().includes(search.toLowerCase()) ||
-    (item.servingInformation && item.servingInformation.toLowerCase().includes(search.toLowerCase()))
+    item.name.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -274,44 +242,66 @@ export default function MenuManagementPage() {
           {loading ? (
             <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="skeleton h-16 w-full" />)}</div>
           ) : (
-            <div className="space-y-2">
-              {filteredItems.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "var(--color-surface-elevated)", border: "1px solid var(--color-border)" }}>
-                  <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 text-xl" style={{ background: "var(--color-cream-100)" }}>
-                    {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-cover rounded-lg" /> : "🍽️"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-sm truncate" style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}>{item.name}</p>
-                      {!item.isAvailable && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "#FFEBEE", color: "#C62828" }}>Unavailable</span>}
-                    </div>
-                    <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                      {item.categoryName} · ₹{item.price}
-                      {item.servingInformation && ` · 👥 ${item.servingInformation}`}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button 
-                      onClick={() => handleToggleAvailability(item)} 
-                      disabled={togglingItems.has(item.id)}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center" 
-                      style={{ background: item.isAvailable ? "#E8F5E9" : "#FFEBEE", color: item.isAvailable ? "#2E7D32" : "#C62828", opacity: togglingItems.has(item.id) ? 0.5 : 1 }} 
-                      title={item.isAvailable ? "Make unavailable" : "Make available"}
+            <div className="overflow-x-auto border-2" style={{ borderColor: "var(--color-brown-900)", background: "var(--color-surface)" }}>
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b-2 font-black uppercase tracking-wider text-xs" style={{ borderColor: "var(--color-brown-900)", background: "var(--color-cream-100)" }}>
+                    <th className="p-4" style={{ color: "var(--color-brown-900)" }}>Item Name</th>
+                    <th className="p-4" style={{ color: "var(--color-brown-900)" }}>Category</th>
+                    <th className="p-4" style={{ color: "var(--color-brown-900)" }}>Price</th>
+                    <th className="p-4 text-right" style={{ color: "var(--color-brown-900)" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredItems.map((item) => (
+                    <tr 
+                      key={item.id} 
+                      className="border-b last:border-0 hover:bg-cream-50 transition-colors text-sm"
+                      style={{ borderColor: "var(--color-border)" }}
                     >
-                      {item.isAvailable ? "✓" : "✗"}
-                    </button>
-                    <button onClick={() => openEditItem(item)} className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "var(--color-cream-100)", color: "var(--color-text-secondary)" }}><Pencil size={14} /></button>
-                    <button 
-                      onClick={() => handleDeleteItem(item)} 
-                      disabled={deletingItems.has(item.id)}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center" 
-                      style={{ background: "#FFEBEE", color: "#C62828", opacity: deletingItems.has(item.id) ? 0.5 : 1 }}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                      <td className="p-4 font-bold" style={{ color: "var(--color-brown-900)" }}>
+                        {item.name}
+                      </td>
+                      <td className="p-4 text-xs font-semibold text-gray-600">
+                        {item.categoryName}
+                      </td>
+                      <td className="p-4 font-black" style={{ color: "var(--color-orange-500)" }}>
+                        ₹{item.price}
+                      </td>
+                      <td className="p-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button 
+                            onClick={() => openEditItem(item)} 
+                            className="w-8 h-8 rounded-lg flex items-center justify-center border hover:bg-cream-100 transition-colors"
+                            style={{ borderColor: "var(--color-brown-900)", color: "var(--color-brown-900)" }}
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteItem(item)} 
+                            disabled={deletingItems.has(item.id)}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center border hover:bg-red-50 transition-colors"
+                            style={{ 
+                              borderColor: "var(--color-danger)", 
+                              color: "var(--color-danger)",
+                              opacity: deletingItems.has(item.id) ? 0.5 : 1 
+                            }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredItems.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="p-8 text-center text-xs font-bold uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
+                        No items found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           )}
         </section>
@@ -328,38 +318,21 @@ export default function MenuManagementPage() {
             </div>
             <form onSubmit={handleSaveItem} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-text-secondary)" }}>Name</label>
-                <input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} required className="input" placeholder="e.g. Chicken Biryani" />
+                <label className="block text-sm font-bold uppercase tracking-wider mb-1" style={{ color: "var(--color-brown-900)" }}>Item Name</label>
+                <input value={itemForm.name} onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })} required className="input" placeholder="e.g. Chilli Paneer" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-text-secondary)" }}>Price (₹)</label>
-                <input type="number" value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} required className="input" placeholder="250" />
+                <label className="block text-sm font-bold uppercase tracking-wider mb-1" style={{ color: "var(--color-brown-900)" }}>Price (₹)</label>
+                <input type="number" value={itemForm.price} onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })} required className="input" placeholder="e.g. 180" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-text-secondary)" }}>Category</label>
+                <label className="block text-sm font-bold uppercase tracking-wider mb-1" style={{ color: "var(--color-brown-900)" }}>Category</label>
                 <select value={itemForm.categoryId} onChange={(e) => setItemForm({ ...itemForm, categoryId: e.target.value })} required className="input">
                   <option value="">Select category</option>
                   {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-text-secondary)" }}>Image</label>
-                <input type="file" accept="image/*" onChange={(e) => setItemImage(e.target.files[0])} className="input" style={{ padding: "0.5rem" }} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-text-secondary)" }}>Serving Information (Optional)</label>
-                <input
-                  value={itemForm.servingInformation || ""}
-                  onChange={(e) => setItemForm({ ...itemForm, servingInformation: e.target.value })}
-                  className="input"
-                  placeholder="e.g. Serves 2 People, Enough for 6 Rotis, Family Pack"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <input type="checkbox" id="available" checked={itemForm.isAvailable} onChange={(e) => setItemForm({ ...itemForm, isAvailable: e.target.checked })} />
-                <label htmlFor="available" className="text-sm" style={{ color: "var(--color-text-secondary)" }}>Available</label>
-              </div>
-              <button type="submit" disabled={saving} className="btn-primary w-full py-3">
+              <button type="submit" disabled={saving} className="btn-primary w-full py-3 text-sm font-bold uppercase tracking-wider">
                 <Save size={16} /> {saving ? "Saving..." : editingItem ? "Update Item" : "Add Item"}
               </button>
             </form>
@@ -378,10 +351,10 @@ export default function MenuManagementPage() {
             </div>
             <form onSubmit={handleSaveCategory} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-text-secondary)" }}>Category Name</label>
+                <label className="block text-sm font-bold uppercase tracking-wider mb-1" style={{ color: "var(--color-brown-900)" }}>Category Name</label>
                 <input value={categoryName} onChange={(e) => setCategoryName(e.target.value)} required className="input" placeholder="e.g. Starters" />
               </div>
-              <button type="submit" disabled={saving} className="btn-primary w-full py-3">
+              <button type="submit" disabled={saving} className="btn-primary w-full py-3 text-sm font-bold uppercase tracking-wider">
                 <Save size={16} /> {saving ? "Saving..." : editingCategory ? "Update" : "Create"}
               </button>
             </form>

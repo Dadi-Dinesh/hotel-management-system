@@ -50,94 +50,130 @@ async function main() {
   });
   console.log(`   ✅ Captain: ${captain.email} / captain@123\n`);
 
+  // ─── Clean Existing Menu Data ──────────────────────
+  console.log("🧹 Cleaning old menu, orders, and sessions data...");
+  await prisma.feedback.deleteMany({});
+  await prisma.orderItem.deleteMany({});
+  await prisma.order.deleteMany({});
+  await prisma.session.deleteMany({});
+  await prisma.menuItem.deleteMany({});
+  await prisma.category.deleteMany({});
+  console.log("   ✅ Cleaned old records\n");
+
   // ─── Seed Categories ──────────────────────────────
   console.log("📂 Creating menu categories...");
   const categoryNames = [
-    "Starters",
-    "Biryanis",
-    "Main Course",
-    "Breads",
-    "Rice",
-    "Beverages",
-    "Desserts",
+    "Veg Starters",
+    "Veg Curries",
+    "Fried Rice",
+    "Rotis",
+    "Non-Veg Starters",
+    "Non-Veg Curries",
   ];
 
   const categories = {};
   for (const name of categoryNames) {
-    const category = await prisma.category.upsert({
-      where: { name },
-      update: {},
-      create: { name },
+    const category = await prisma.category.create({
+      data: { name },
     });
     categories[name] = category;
   }
   console.log(`   ✅ Created ${categoryNames.length} categories\n`);
 
   // ─── Seed Menu Items ──────────────────────────────
-  console.log("🍽️  Creating sample menu items...");
-  const menuItems = [
-    // Starters
-    { name: "Chicken 65", price: 220, categoryId: categories["Starters"].id },
-    { name: "Paneer Tikka", price: 200, categoryId: categories["Starters"].id },
-    { name: "Gobi Manchurian", price: 180, categoryId: categories["Starters"].id },
-    { name: "Fish Fry", price: 250, categoryId: categories["Starters"].id },
-    { name: "Mushroom Pepper Fry", price: 190, categoryId: categories["Starters"].id },
+  console.log("🍽️  Creating new simplified menu items...");
+  const menuData = {
+    "Veg Starters": [
+      { name: "Kaju Fry", price: 179 },
+      { name: "Chilli Paneer", price: 180 },
+      { name: "Chanaga Fry", price: 90 },
+      { name: "Chilli Mushroom", price: 180 },
+      { name: "Veg Manchuria", price: 130 }
+    ],
+    "Veg Curries": [
+      { name: "SP. Methichaman", price: 200 },
+      { name: "Saipaneer", price: 200 },
+      { name: "Kaju Tomato", price: 180 },
+      { name: "Kaju Paneer", price: 185 },
+      { name: "Kaju Mushroom", price: 185 },
+      { name: "Mushroom Curry", price: 180 },
+      { name: "Palak Paneer", price: 170 },
+      { name: "Paneer Butter Masala", price: 170 },
+      { name: "Paneer Curry", price: 170 },
+      { name: "Mixed Veg Curry", price: 170 },
+      { name: "Dhall Palak", price: 100 },
+      { name: "Dhall", price: 90 },
+      { name: "Chanaga Masala (Full)", price: 90 },
+      { name: "Chanaga Masala (Half)", price: 60 }
+    ],
+    "Fried Rice": [
+      { name: "Veg Fried Rice", price: 100 },
+      { name: "Kaju Fried Rice", price: 160 },
+      { name: "Kaju Paneer Fried Rice", price: 170 },
+      { name: "Jeera Rice", price: 100 },
+      { name: "Paneer Fried Rice", price: 160 },
+      { name: "Egg Fried Rice", price: 120 },
+      { name: "Chicken Fried Rice", price: 170 },
+      { name: "SP Chicken Fried Rice", price: 190 }
+    ],
+    "Rotis": [
+      { name: "Pulka", price: 7 }
+    ],
+    "Non-Veg Starters": [
+      { name: "Talakai Fry", price: 249 },
+      { name: "Chilli Chicken", price: 200 },
+      { name: "Chicken Wings", price: 200 },
+      { name: "Chicken Roast", price: 190 },
+      { name: "Boneless Roast Chicken", price: 200 },
+      { name: "Roast Fry Chicken", price: 210 },
+      { name: "Kaju Chicken", price: 260 },
+      { name: "Fish Fry", price: 200 },
+      { name: "Chilli Fish", price: 200 },
+      { name: "Chilli Prawns", price: 240 },
+      { name: "Loose Prawns", price: 240 },
+      { name: "Pethallu Fry", price: 239 },
+      { name: "Kouju Pitta (1)", price: 130 },
+      { name: "Kouju Pitta (2)", price: 230 }
+    ],
+    "Non-Veg Curries": [
+      { name: "Talakai Curry", price: 240 },
+      { name: "Chicken (Roast Curry)", price: 210 },
+      { name: "Chicken Wings Curry", price: 190 },
+      { name: "Kaju Chicken Curry", price: 295 },
+      { name: "Boneless Chicken", price: 190 },
+      { name: "Bone Chicken (Full) 7 pcs", price: 180 },
+      { name: "Bone Chicken (Half) 5 pcs", price: 130 },
+      { name: "Mogal Boneless Chicken", price: 220 },
+      { name: "Mogal Bone Chicken", price: 210 },
+      { name: "Fish Curry", price: 209 },
+      { name: "Prawns Curry", price: 220 },
+      { name: "Pethallu Curry", price: 240 },
+      { name: "Kouju Pitta Curry (1)", price: 130 },
+      { name: "Kouju Pitta Curry (2)", price: 230 },
+      { name: "Anda Tomato", price: 90 },
+      { name: "Anda Bujji", price: 90 },
+      { name: "Anda Keema", price: 90 },
+      { name: "Anda Tadaka", price: 100 },
+      { name: "Anda Palak", price: 100 }
+    ]
+  };
 
-    // Biryanis
-    { name: "Chicken Biryani", price: 250, categoryId: categories["Biryanis"].id },
-    { name: "Mutton Biryani", price: 320, categoryId: categories["Biryanis"].id },
-    { name: "Egg Biryani", price: 180, categoryId: categories["Biryanis"].id },
-    { name: "Veg Biryani", price: 180, categoryId: categories["Biryanis"].id },
-    { name: "Prawns Biryani", price: 350, categoryId: categories["Biryanis"].id },
-
-    // Main Course
-    { name: "Butter Chicken", price: 280, categoryId: categories["Main Course"].id },
-    { name: "Chicken Curry", price: 240, categoryId: categories["Main Course"].id },
-    { name: "Mutton Curry", price: 320, categoryId: categories["Main Course"].id },
-    { name: "Paneer Butter Masala", price: 220, categoryId: categories["Main Course"].id },
-    { name: "Dal Tadka", price: 150, categoryId: categories["Main Course"].id },
-    { name: "Fish Curry", price: 280, categoryId: categories["Main Course"].id },
-
-    // Breads
-    { name: "Butter Naan", price: 50, categoryId: categories["Breads"].id },
-    { name: "Garlic Naan", price: 60, categoryId: categories["Breads"].id },
-    { name: "Tandoori Roti", price: 30, categoryId: categories["Breads"].id },
-    { name: "Chapathi", price: 20, categoryId: categories["Breads"].id },
-    { name: "Parota", price: 40, categoryId: categories["Breads"].id },
-
-    // Rice
-    { name: "Steamed Rice", price: 80, categoryId: categories["Rice"].id },
-    { name: "Jeera Rice", price: 120, categoryId: categories["Rice"].id },
-    { name: "Chicken Fried Rice", price: 200, categoryId: categories["Rice"].id },
-    { name: "Egg Fried Rice", price: 160, categoryId: categories["Rice"].id },
-
-    // Beverages
-    { name: "Coke", price: 40, categoryId: categories["Beverages"].id },
-    { name: "Sprite", price: 40, categoryId: categories["Beverages"].id },
-    { name: "Fresh Lime Soda", price: 60, categoryId: categories["Beverages"].id },
-    { name: "Mango Lassi", price: 80, categoryId: categories["Beverages"].id },
-    { name: "Buttermilk", price: 30, categoryId: categories["Beverages"].id },
-    { name: "Water Bottle", price: 20, categoryId: categories["Beverages"].id },
-
-    // Desserts
-    { name: "Gulab Jamun", price: 60, categoryId: categories["Desserts"].id },
-    { name: "Ice Cream", price: 80, categoryId: categories["Desserts"].id },
-    { name: "Kheer", price: 70, categoryId: categories["Desserts"].id },
-  ];
-
-  for (const item of menuItems) {
-    await prisma.menuItem.upsert({
-      where: { id: `seed-${item.name.toLowerCase().replace(/\s+/g, "-")}` },
-      update: {},
-      create: {
-        name: item.name,
-        price: item.price,
-        categoryId: item.categoryId,
-        isAvailable: true,
-      },
-    });
+  let itemCount = 0;
+  for (const [catName, items] of Object.entries(menuData)) {
+    const categoryId = categories[catName].id;
+    for (const item of items) {
+      await prisma.menuItem.create({
+        data: {
+          name: item.name,
+          price: item.price,
+          categoryId,
+          isAvailable: true,
+        }
+      });
+      itemCount++;
+    }
   }
-  console.log(`   ✅ Created ${menuItems.length} menu items\n`);
+  console.log(`   ✅ Created ${itemCount} simplified menu items\n`);
 
   console.log("─".repeat(40));
   console.log("🎉 Database seeded successfully!");

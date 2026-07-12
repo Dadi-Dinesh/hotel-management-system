@@ -62,7 +62,7 @@ const getMenuItem = async (req, res, next) => {
  */
 const addMenuItem = async (req, res, next) => {
   try {
-    const { name, price, categoryId, isAvailable } = req.body;
+    const { name, price, categoryId, isAvailable, servingInformation } = req.body;
 
     if (!name || !price || !categoryId) {
       return res.status(400).json({
@@ -85,6 +85,7 @@ const addMenuItem = async (req, res, next) => {
         categoryId,
         isAvailable: isAvailable === "false" ? false : true,
         image: imageUrl,
+        servingInformation: servingInformation || null,
       },
       include: { category: true },
     });
@@ -106,7 +107,7 @@ const addMenuItem = async (req, res, next) => {
 const updateMenuItem = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, price, categoryId, isAvailable } = req.body;
+    const { name, price, categoryId, isAvailable, servingInformation } = req.body;
 
     const existing = await prisma.menuItem.findUnique({ where: { id } });
     if (!existing) {
@@ -121,6 +122,7 @@ const updateMenuItem = async (req, res, next) => {
     if (price !== undefined) updateData.price = parseFloat(price);
     if (categoryId !== undefined) updateData.categoryId = categoryId;
     if (isAvailable !== undefined) updateData.isAvailable = isAvailable === "true" || isAvailable === true;
+    if (servingInformation !== undefined) updateData.servingInformation = servingInformation || null;
 
     // Handle image upload
     if (req.file) {

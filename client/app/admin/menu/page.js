@@ -36,6 +36,7 @@ export default function MenuManagementPage() {
     price: "",
     categoryId: "",
     isAvailable: true,
+    servingInformation: "",
   });
   const [itemImage, setItemImage] = useState(null);
   const [categoryName, setCategoryName] = useState("");
@@ -71,7 +72,7 @@ export default function MenuManagementPage() {
 
   const openAddItem = () => {
     setEditingItem(null);
-    setItemForm({ name: "", price: "", categoryId: categories[0]?.id || "", isAvailable: true });
+    setItemForm({ name: "", price: "", categoryId: categories[0]?.id || "", isAvailable: true, servingInformation: "" });
     setItemImage(null);
     setShowItemModal(true);
   };
@@ -83,6 +84,7 @@ export default function MenuManagementPage() {
       price: item.price.toString(),
       categoryId: item.categoryId,
       isAvailable: item.isAvailable,
+      servingInformation: item.servingInformation || "",
     });
     setItemImage(null);
     setShowItemModal(true);
@@ -97,6 +99,7 @@ export default function MenuManagementPage() {
     formData.append("price", itemForm.price);
     formData.append("categoryId", itemForm.categoryId);
     formData.append("isAvailable", itemForm.isAvailable);
+    formData.append("servingInformation", itemForm.servingInformation || "");
     if (itemImage) formData.append("image", itemImage);
 
     try {
@@ -214,7 +217,8 @@ export default function MenuManagementPage() {
   );
 
   const filteredItems = allItems.filter((item) =>
-    item.name.toLowerCase().includes(search.toLowerCase())
+    item.name.toLowerCase().includes(search.toLowerCase()) ||
+    (item.servingInformation && item.servingInformation.toLowerCase().includes(search.toLowerCase()))
   );
 
   return (
@@ -281,7 +285,10 @@ export default function MenuManagementPage() {
                       <p className="font-semibold text-sm truncate" style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}>{item.name}</p>
                       {!item.isAvailable && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "#FFEBEE", color: "#C62828" }}>Unavailable</span>}
                     </div>
-                    <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>{item.categoryName} · ₹{item.price}</p>
+                    <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                      {item.categoryName} · ₹{item.price}
+                      {item.servingInformation && ` · 👥 ${item.servingInformation}`}
+                    </p>
                   </div>
                   <div className="flex items-center gap-1">
                     <button 
@@ -338,6 +345,15 @@ export default function MenuManagementPage() {
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-text-secondary)" }}>Image</label>
                 <input type="file" accept="image/*" onChange={(e) => setItemImage(e.target.files[0])} className="input" style={{ padding: "0.5rem" }} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: "var(--color-text-secondary)" }}>Serving Information (Optional)</label>
+                <input
+                  value={itemForm.servingInformation || ""}
+                  onChange={(e) => setItemForm({ ...itemForm, servingInformation: e.target.value })}
+                  className="input"
+                  placeholder="e.g. Serves 2 People, Enough for 6 Rotis, Family Pack"
+                />
               </div>
               <div className="flex items-center gap-2">
                 <input type="checkbox" id="available" checked={itemForm.isAvailable} onChange={(e) => setItemForm({ ...itemForm, isAvailable: e.target.checked })} />

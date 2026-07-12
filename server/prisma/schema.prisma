@@ -43,16 +43,17 @@ model Category {
 }
 
 model MenuItem {
-  id          String      @id @default(cuid())
-  name        String
-  price       Float
-  image       String?
-  isAvailable Boolean     @default(true)
-  categoryId  String
-  createdAt   DateTime    @default(now())
-  feedbacks   Feedback[]
-  category    Category    @relation(fields: [categoryId], references: [id])
-  orderItems  OrderItem[]
+  id                 String      @id @default(cuid())
+  name               String
+  price              Float
+  image              String?
+  isAvailable        Boolean     @default(true)
+  categoryId         String
+  createdAt          DateTime    @default(now())
+  feedbacks          Feedback[]
+  category           Category    @relation(fields: [categoryId], references: [id])
+  orderItems         OrderItem[]
+  servingInformation String?
 }
 
 model Order {

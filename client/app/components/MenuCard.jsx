@@ -2,6 +2,22 @@
 
 import { Plus, Minus } from "lucide-react";
 
+const getServingEmoji = (info) => {
+  if (!info) return "";
+  const lower = info.toLowerCase();
+  if (lower.includes("people") || lower.includes("person") || lower.includes("adult") || lower.includes("serves")) {
+    if (lower.includes("family")) return "👨‍👩‍👧";
+    return "👥";
+  }
+  if (lower.includes("roti") || lower.includes("pulka") || lower.includes("naan") || lower.includes("paratha") || lower.includes("phulka")) {
+    return "🫓";
+  }
+  if (lower.includes("family") || lower.includes("pack")) {
+    return "👨‍👩‍👧";
+  }
+  return "🍽️";
+};
+
 export default function MenuCard({ item, cartQuantity = 0, onAdd, onUpdateQuantity }) {
   return (
     <div
@@ -45,6 +61,15 @@ export default function MenuCard({ item, cartQuantity = 0, onAdd, onUpdateQuanti
           >
             {item.category?.name}
           </p>
+          {item.servingInformation && (
+            <div
+              className="flex items-center gap-1.5 mt-1 text-xs font-bold uppercase tracking-wider"
+              style={{ color: "var(--color-brown-900)" }}
+            >
+              <span className="text-sm leading-none">{getServingEmoji(item.servingInformation)}</span>
+              <span>{item.servingInformation}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between mt-3">

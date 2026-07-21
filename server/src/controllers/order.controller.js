@@ -177,8 +177,13 @@ const acceptOrder = async (req, res, next) => {
     const waiterKOT = generateKOTData(order, "WAITER");
 
     // Generate printable HTML for both copies
-    const kitchenHTML = generateKOTHTML(order, "KITCHEN");
-    const waiterHTML = generateKOTHTML(order, "WAITER");
+    const kitchenHTML_80mm = generateKOTHTML(order, "KITCHEN", "80mm");
+    const kitchenHTML_58mm = generateKOTHTML(order, "KITCHEN", "58mm");
+    const kitchenHTML_A4 = generateKOTHTML(order, "KITCHEN", "A4");
+
+    const waiterHTML_80mm = generateKOTHTML(order, "WAITER", "80mm");
+    const waiterHTML_58mm = generateKOTHTML(order, "WAITER", "58mm");
+    const waiterHTML_A4 = generateKOTHTML(order, "WAITER", "A4");
 
     // Notify the customer table that order was accepted
     const io = getIO();
@@ -194,8 +199,24 @@ const acceptOrder = async (req, res, next) => {
       data: {
         order,
         kot: {
-          kitchen: { data: kitchenKOT, html: kitchenHTML },
-          waiter: { data: waiterKOT, html: waiterHTML },
+          kitchen: {
+            data: kitchenKOT,
+            html: kitchenHTML_80mm,
+            formats: {
+              "80mm": kitchenHTML_80mm,
+              "58mm": kitchenHTML_58mm,
+              "A4": kitchenHTML_A4,
+            },
+          },
+          waiter: {
+            data: waiterKOT,
+            html: waiterHTML_80mm,
+            formats: {
+              "80mm": waiterHTML_80mm,
+              "58mm": waiterHTML_58mm,
+              "A4": waiterHTML_A4,
+            },
+          },
         },
       },
     });

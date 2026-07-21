@@ -25,7 +25,7 @@ initializeSocket(server);
 
 // Middleware
 app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:3000",
+  origin: true,
   credentials: true,
 }));
 app.use(express.json());

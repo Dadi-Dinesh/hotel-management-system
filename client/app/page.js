@@ -194,13 +194,17 @@ export default function HomePage() {
       <section className="flex-1 flex flex-col items-center justify-center px-6 py-16 text-center border-b" style={{ borderColor: "var(--color-brown-900)" }}>
         {/* Logo */}
         <div
-          className="w-24 h-24 border-2 flex items-center justify-center mb-8"
+          className="relative w-24 h-24 sm:w-28 sm:h-28 border-2 rounded-full overflow-hidden flex items-center justify-center mb-8 shadow-lg"
           style={{
-            background: "var(--color-orange-500)",
             borderColor: "var(--color-brown-900)",
+            background: "var(--color-cream-100)",
           }}
         >
-          <UtensilsCrossed size={48} color="white" />
+          <img
+            src="/dhaba-logo.jpg"
+            alt="Sree Nookambika Dhaba Logo"
+            className="w-full h-full object-cover"
+          />
         </div>
 
         <h1

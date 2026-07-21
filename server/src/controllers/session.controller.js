@@ -170,8 +170,16 @@ const requestBill = async (req, res, next) => {
       }
     });
 
-    // Generate bill HTML for printing
-    const billHTML = generateBillHTML(session);
+    // Generate bill HTML for printing in multiple paper formats (80mm POS, 58mm POS, A4 Document)
+    const billHTML = generateBillHTML(session, "80mm");
+    const billHTML_58mm = generateBillHTML(session, "58mm");
+    const billHTML_A4 = generateBillHTML(session, "A4");
+
+    const billFormats = {
+      "80mm": billHTML,
+      "58mm": billHTML_58mm,
+      "A4": billHTML_A4,
+    };
 
     // Notify captain about bill request
     const io = getIO();
@@ -181,12 +189,13 @@ const requestBill = async (req, res, next) => {
       tableNumber: session.table.number,
       total,
       billHTML,
+      billFormats,
     });
 
     res.json({
       success: true,
       message: "Bill requested. The waiter will bring your bill shortly.",
-      data: { session, total, billHTML },
+      data: { session, total, billHTML, billFormats },
     });
   } catch (error) {
     next(error);
@@ -221,13 +230,21 @@ const getBillRequests = async (req, res, next) => {
           });
         }
       });
-      const billHTML = generateBillHTML(session);
+      const billHTML = generateBillHTML(session, "80mm");
+      const billHTML_58mm = generateBillHTML(session, "58mm");
+      const billHTML_A4 = generateBillHTML(session, "A4");
+
       return {
         sessionId: session.id,
         tableCode: session.table.code,
         tableNumber: session.table.number,
         total,
         billHTML,
+        billFormats: {
+          "80mm": billHTML,
+          "58mm": billHTML_58mm,
+          "A4": billHTML_A4,
+        },
       };
     });
 

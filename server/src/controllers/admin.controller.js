@@ -58,6 +58,34 @@ const getStats = async (req, res, next) => {
       where: { status: { in: ["ACTIVE", "BILL_REQUESTED"] } },
     });
 
+    // Seating & Table Metrics
+    const allTablesList = await prisma.table.findMany({
+      include: {
+        sessions: {
+          where: { status: { in: ["ACTIVE", "BILL_REQUESTED"] } },
+        },
+      },
+    });
+
+    let totalCapacity = 0;
+    let occupiedSeats = 0;
+    let freeSeats = 0;
+    let occupiedTables = 0;
+    let freeTables = 0;
+
+    allTablesList.forEach((tbl) => {
+      if (tbl.isActive) {
+        totalCapacity += tbl.capacity || 4;
+        if (tbl.sessions.length > 0) {
+          occupiedTables += 1;
+          occupiedSeats += tbl.capacity || 4;
+        } else {
+          freeTables += 1;
+          freeSeats += tbl.capacity || 4;
+        }
+      }
+    });
+
     // Top selling items (all time)
     const topItems = await prisma.orderItem.groupBy({
       by: ["menuItemId"],
@@ -116,6 +144,15 @@ const getStats = async (req, res, next) => {
         },
         todayOrderCount,
         activeSessions,
+        seating: {
+          totalTables: allTablesList.length,
+          activeTables: freeTables + occupiedTables,
+          occupiedTables,
+          freeTables,
+          totalCapacity,
+          occupiedSeats,
+          freeSeats,
+        },
         topSellingItems: topItemDetails,
         topSellingCategories: topCategorySorted.slice(0, 5),
       },

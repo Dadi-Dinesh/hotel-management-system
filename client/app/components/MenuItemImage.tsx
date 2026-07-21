@@ -7,13 +7,13 @@ import { UtensilsCrossed } from "lucide-react";
 interface MenuItemImageProps {
   src?: string | null;
   alt: string;
+  onClick?: () => void;
 }
 
-export default function MenuItemImage({ src, alt }: MenuItemImageProps) {
+export default function MenuItemImage({ src, alt, onClick }: MenuItemImageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
-  // Elegant fallback placeholder when image is missing or failed to load
   const FallbackPlaceholder = () => (
     <div
       className="w-full h-full flex flex-col items-center justify-center rounded-lg"
@@ -23,16 +23,40 @@ export default function MenuItemImage({ src, alt }: MenuItemImageProps) {
       }}
     >
       <UtensilsCrossed
-        size={24}
-        className="text-[var(--color-brown-800)] opacity-40"
+        size={20}
+        className="sm:w-6 sm:h-6 text-[var(--color-brown-800)] opacity-40"
       />
     </div>
   );
 
   return (
     <div
-      className="w-20 h-20 sm:w-24 sm:h-24 relative flex-shrink-0 rounded-lg overflow-hidden border transition-all duration-300"
-      style={{ borderColor: "var(--color-brown-900)" }}
+      className="w-[72px] h-[72px] sm:w-24 sm:h-24 relative flex-shrink-0 rounded-lg overflow-hidden border transition-all duration-300"
+      style={{
+        borderColor: "var(--color-brown-900)",
+        cursor: onClick ? "pointer" : "default",
+        transform: "scale(1)",
+        transition: "transform 0.15s ease, border-color 0.15s ease",
+      }}
+      onClick={onClick}
+      onMouseEnter={(e) => {
+        if (onClick) (e.currentTarget as HTMLDivElement).style.transform = "scale(1.06)";
+      }}
+      onMouseLeave={(e) => {
+        if (onClick) (e.currentTarget as HTMLDivElement).style.transform = "scale(1)";
+      }}
+      onMouseDown={(e) => {
+        if (onClick) (e.currentTarget as HTMLDivElement).style.transform = "scale(0.95)";
+      }}
+      onMouseUp={(e) => {
+        if (onClick) (e.currentTarget as HTMLDivElement).style.transform = "scale(1.06)";
+      }}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={(e) => {
+        if (onClick && e.key === "Enter") onClick();
+      }}
+      aria-label={onClick ? `View details for ${alt}` : undefined}
     >
       {/* Loading Skeleton */}
       {isLoading && !hasError && src && (
@@ -45,7 +69,7 @@ export default function MenuItemImage({ src, alt }: MenuItemImageProps) {
           src={src}
           alt={alt}
           fill
-          sizes="(max-width: 640px) 80px, 96px"
+          sizes="(max-width: 640px) 72px, 96px"
           className={`object-cover rounded-lg transition-all duration-300 ${
             isLoading ? "scale-105 blur-sm" : "scale-100 blur-0"
           }`}

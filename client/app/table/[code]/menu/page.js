@@ -19,6 +19,8 @@ export default function MenuPage() {
   const [menu, setMenu] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState(null);
+  const [dietFilter, setDietFilter] = useState("ALL"); // "ALL", "VEG", "NON_VEG"
+  const [searchQuery, setSearchQuery] = useState("");
   const [showCart, setShowCart] = useState(false);
   const [isOrdering, setIsOrdering] = useState(false);
 
@@ -39,13 +41,24 @@ export default function MenuPage() {
     }
   };
 
-  // Get all items, optionally filtered by category
+  // Get all items, filtered by category, diet (Veg / Non-Veg), and search query
   const allItems = menu.flatMap((cat) =>
     cat.items.map((item) => ({ ...item, category: { id: cat.id, name: cat.name } }))
   );
-  const filteredItems = activeCategory
-    ? allItems.filter((item) => item.category.id === activeCategory)
-    : allItems;
+
+  const filteredItems = allItems.filter((item) => {
+    if (activeCategory && item.category.id !== activeCategory) return false;
+    if (dietFilter === "VEG" && !item.isVeg) return false;
+    if (dietFilter === "NON_VEG" && item.isVeg) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const nameMatch = item.name.toLowerCase().includes(q);
+      const catMatch = item.category?.name?.toLowerCase().includes(q);
+      const descMatch = item.description?.toLowerCase().includes(q);
+      if (!nameMatch && !catMatch && !descMatch) return false;
+    }
+    return true;
+  });
 
   const categories = menu.map((cat) => ({ id: cat.id, name: cat.name }));
 
@@ -111,9 +124,34 @@ export default function MenuPage() {
         categories={categories}
         activeCategory={activeCategory}
         onSelect={setActiveCategory}
+        dietFilter={dietFilter}
+        onDietChange={setDietFilter}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
       />
 
-      <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-4">
+      <main className="flex-1 max-w-5xl mx-auto w-full px-3 sm:px-4 py-3 sm:py-4 overflow-x-hidden">
+        {/* Search & Filter status banner */}
+        {(searchQuery || dietFilter !== "ALL" || activeCategory) && (
+          <div className="flex items-center justify-between mb-3 text-xs text-gray-600 bg-amber-50/70 border border-amber-200 px-3 py-1.5 rounded-lg">
+            <span>
+              Showing <strong>{filteredItems.length}</strong> {filteredItems.length === 1 ? "dish" : "dishes"}
+              {searchQuery && <> matching &quot;<strong>{searchQuery}</strong>&quot;</>}
+              {dietFilter !== "ALL" && <> ({dietFilter === "VEG" ? "Veg Only" : "Non-Veg Only"})</>}
+            </span>
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setDietFilter("ALL");
+                setActiveCategory(null);
+              }}
+              className="text-orange-600 font-bold uppercase tracking-wider hover:underline ml-2 flex-shrink-0"
+            >
+              Reset Filters
+            </button>
+          </div>
+        )}
+
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
@@ -122,13 +160,26 @@ export default function MenuPage() {
           </div>
         ) : filteredItems.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-4xl mb-3">🍽️</p>
+            <p className="text-4xl mb-3">🔍</p>
+            <p className="font-bold text-base text-brown-900 mb-1">
+              No dishes found
+            </p>
             <p
-              className="font-medium"
+              className="text-xs max-w-xs mx-auto"
               style={{ color: "var(--color-text-muted)" }}
             >
-              No items in this category
+              We couldn&apos;t find any items matching your current search or filters. Try clearing your search query or switching categories.
             </p>
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setDietFilter("ALL");
+                setActiveCategory(null);
+              }}
+              className="mt-4 btn-secondary text-xs font-bold px-4 py-2 uppercase tracking-wider"
+            >
+              Clear All Filters
+            </button>
           </div>
         ) : (
           <div className="grid gap-3 stagger-children">

@@ -254,7 +254,7 @@ export default function MenuManagementPage() {
     }
   };
 
-  // ─── Filtering ───────────────────────────────
+  const [dietFilter, setDietFilter] = useState<"ALL" | "VEG" | "NON_VEG">("ALL");
 
   interface ExtendedMenuItem extends MenuItem {
     categoryName: string;
@@ -268,9 +268,16 @@ export default function MenuManagementPage() {
     }))
   );
 
-  const filteredItems = allItems.filter((item) =>
-    item.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredItems = allItems.filter((item) => {
+    const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
+    const matchesDiet =
+      dietFilter === "ALL"
+        ? true
+        : dietFilter === "VEG"
+        ? item.isVeg
+        : !item.isVeg;
+    return matchesSearch && matchesDiet;
+  });
 
   return (
     <div className="min-h-screen" style={{ background: "var(--color-cream-50)" }}>
@@ -309,17 +316,62 @@ export default function MenuManagementPage() {
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold" style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}>
-              Menu Items ({allItems.length})
+              Menu Items ({filteredItems.length})
             </h2>
             <button onClick={openAddItem} className="btn-primary" style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem" }}>
               <Plus size={14} /> Add Item
             </button>
           </div>
 
-          {/* Search */}
-          <div className="relative mb-4">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--color-text-muted)" }} />
-            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search menu items..." className="input" style={{ paddingLeft: "2.5rem" }} />
+          {/* Search + Diet Filter */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--color-text-muted)" }} />
+              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search menu items..." className="input" style={{ paddingLeft: "2.5rem" }} />
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setDietFilter("ALL")}
+                className={`px-3 py-2 rounded-xl text-xs font-bold uppercase border transition-all ${
+                  dietFilter === "ALL"
+                    ? "bg-brown-900 text-white border-brown-900"
+                    : "bg-cream-100 text-brown-900 border-brown-900"
+                }`}
+                style={{
+                  background: dietFilter === "ALL" ? "var(--color-brown-900)" : "var(--color-cream-100)",
+                  color: dietFilter === "ALL" ? "white" : "var(--color-brown-900)",
+                  borderColor: "var(--color-brown-900)",
+                }}
+              >
+                All ({allItems.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDietFilter("VEG")}
+                className={`px-3 py-2 rounded-xl text-xs font-bold uppercase border transition-all ${
+                  dietFilter === "VEG"
+                    ? "bg-emerald-700 text-white border-emerald-800"
+                    : "bg-emerald-50 text-emerald-900 border-emerald-700"
+                }`}
+              >
+                🟢 Veg ({allItems.filter(i => i.isVeg).length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDietFilter("NON_VEG")}
+                className={`px-3 py-2 rounded-xl text-xs font-bold uppercase border transition-all ${
+                  dietFilter === "NON_VEG"
+                    ? "bg-amber-900 text-white border-amber-950"
+                    : "bg-amber-50 text-amber-950 border-amber-900"
+                }`}
+              >
+                🔴 Non-Veg ({allItems.filter(i => !i.isVeg).length})
+              </button>
+            </div>
           </div>
 
           {loading ? (

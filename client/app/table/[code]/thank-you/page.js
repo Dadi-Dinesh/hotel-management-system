@@ -127,7 +127,9 @@ export default function ThankYouPage() {
           className="flex items-center justify-center gap-2 mb-6"
           style={{ color: "var(--color-brown-900)" }}
         >
-          <UtensilsCrossed size={18} />
+          <div className="w-7 h-7 rounded-full overflow-hidden border border-amber-600 flex-shrink-0">
+            <img src="/dhaba-logo.jpg" alt="Logo" className="w-full h-full object-cover" />
+          </div>
           <span
             className="font-black text-sm uppercase tracking-widest"
             style={{ fontFamily: "var(--font-heading)" }}

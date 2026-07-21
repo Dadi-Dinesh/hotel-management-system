@@ -12,6 +12,7 @@ import {
   RefreshCcw,
   Receipt,
   Clock,
+  Users,
 } from "lucide-react";
 import api from "../../lib/api";
 import { getUser, clearAuth, isAuthenticated } from "../../lib/auth";
@@ -25,6 +26,8 @@ export default function CaptainDashboard() {
   const { socket } = useSocket();
   const [user, setUser] = useState(null);
   const [orders, setOrders] = useState([]);
+  const [tables, setTables] = useState([]);
+  const [tableFilter, setTableFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -32,6 +35,23 @@ export default function CaptainDashboard() {
   const [printedBills, setPrintedBills] = useState(new Set());
   const [acceptingOrders, setAcceptingOrders] = useState(new Set());
   const [closingSessions, setClosingSessions] = useState(new Set());
+  const [paperFormat, setPaperFormat] = useState("80mm"); // "80mm", "58mm", "A4"
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("printer_paper_format");
+      if (saved) setPaperFormat(saved);
+    }
+  }, []);
+
+  const handlePaperFormatChange = (fmt) => {
+    setPaperFormat(fmt);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("printer_paper_format", fmt);
+    }
+    const label = fmt === "A4" ? "A4 Document Sheet" : fmt === "58mm" ? "58mm (2-inch Thermal)" : "80mm (3-inch Thermal POS)";
+    toast.success(`Printer format set to ${label}`);
+  };
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -57,6 +77,15 @@ export default function CaptainDashboard() {
     }
   }, []);
 
+  const fetchTables = useCallback(async () => {
+    try {
+      const res = await api.get("/tables");
+      setTables(res.data.data);
+    } catch (error) {
+      console.error("Failed to fetch tables:", error);
+    }
+  }, []);
+
   const fetchBillRequests = useCallback(async () => {
     try {
       const res = await api.get("/sessions/bill-requests");
@@ -69,7 +98,8 @@ export default function CaptainDashboard() {
   useEffect(() => {
     fetchOrders();
     fetchBillRequests();
-  }, [fetchOrders, fetchBillRequests]);
+    fetchTables();
+  }, [fetchOrders, fetchBillRequests, fetchTables]);
 
   useEffect(() => {
     if (!socket) return;
@@ -88,11 +118,23 @@ export default function CaptainDashboard() {
       setShowNotifications(true);
       toast.success(`🔔 New order from Table ${data.tableCode}!`, { duration: 6000 });
       fetchOrders();
+      fetchTables();
     });
 
     socket.on("bill-requested", (data) => {
       fetchBillRequests();
+      fetchTables();
       toast(`🧾 Bill requested for Table ${data.tableCode}`, { duration: 8000, icon: "💰" });
+    });
+
+    socket.on("session-closed", () => {
+      fetchTables();
+      fetchBillRequests();
+      fetchOrders();
+    });
+
+    socket.on("table-updated", () => {
+      fetchTables();
     });
 
     socket.onAny((event, ...args) => {
@@ -102,8 +144,10 @@ export default function CaptainDashboard() {
     return () => {
       socket.off("new-order");
       socket.off("bill-requested");
+      socket.off("session-closed");
+      socket.off("table-updated");
     };
-  }, [socket, fetchOrders, fetchBillRequests]);
+  }, [socket, fetchOrders, fetchBillRequests, fetchTables]);
 
   const handleAcceptOrder = async (orderId) => {
     setAcceptingOrders((prev) => new Set([...prev, orderId]));
@@ -112,12 +156,15 @@ export default function CaptainDashboard() {
       toast.success(`Order #${res.data.data.order.orderNumber} accepted!`);
 
       const { kitchen, waiter } = res.data.data.kot;
-      const printWindow = window.open("", "_blank", "width=350,height=600");
+      const kitchenHTML = kitchen.formats?.[paperFormat] || kitchen.html;
+      const waiterHTML = waiter.formats?.[paperFormat] || waiter.html;
+
+      const printWindow = window.open("", "_blank", "width=800,height=900");
       if (printWindow) {
         printWindow.document.write(`
-          ${kitchen.html}
+          ${kitchenHTML}
           <div style="page-break-after: always;"></div>
-          ${waiter.html}
+          ${waiterHTML}
         `);
         printWindow.document.close();
         setTimeout(() => printWindow.print(), 300);
@@ -164,6 +211,35 @@ export default function CaptainDashboard() {
   );
   const completedOrders = orders.filter((o) => ["SERVED", "CANCELLED"].includes(o.status)).slice(0, 10);
 
+  // Live Seating calculations
+  let totalCapacity = 0;
+  let occupiedSeats = 0;
+  let freeSeats = 0;
+  let occupiedTablesCount = 0;
+  let availableTablesCount = 0;
+
+  tables.forEach((t) => {
+    const cap = t.capacity || 4;
+    if (t.isActive) {
+      if (t.activeSession) {
+        occupiedTablesCount++;
+        occupiedSeats += cap;
+        totalCapacity += cap;
+      } else {
+        availableTablesCount++;
+        freeSeats += cap;
+        totalCapacity += cap;
+      }
+    }
+  });
+
+  const filteredTables = tables.filter((t) => {
+    if (!t.isActive) return false;
+    if (tableFilter === "occupied") return !!t.activeSession;
+    if (tableFilter === "available") return !t.activeSession;
+    return true;
+  });
+
   if (!user) return null;
 
   return (
@@ -194,7 +270,11 @@ export default function CaptainDashboard() {
             </button>
 
             <button
-              onClick={fetchOrders}
+              onClick={() => {
+                fetchOrders();
+                fetchTables();
+                fetchBillRequests();
+              }}
               className="w-10 h-10 border flex items-center justify-center transition-colors hover:bg-brown-900 hover:text-white"
               style={{ borderColor: "var(--color-brown-900)", color: "var(--color-brown-900)" }}
             >
@@ -213,6 +293,180 @@ export default function CaptainDashboard() {
       />
 
       <main className="max-w-6xl mx-auto px-4 py-8">
+        {/* Printer Paper Format Setup */}
+        <section className="mb-6 p-4 border-2 border-brown-900 bg-cream-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-orange-500 text-white flex items-center justify-center flex-shrink-0">
+              <Printer size={18} />
+            </div>
+            <div>
+              <p className="font-bold text-xs uppercase tracking-widest text-brown-900" style={{ fontFamily: "var(--font-heading)" }}>
+                Billing & KOT Printer Paper Format
+              </p>
+              <p className="text-[11px] font-medium text-gray-600">
+                Current Active: <span className="font-bold text-orange-600 uppercase">{paperFormat === "A4" ? "A4 Document Sheet" : paperFormat === "58mm" ? "58mm (2-inch Thermal)" : "80mm (3-inch Thermal POS)"}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {[
+              { id: "80mm", label: "🖨️ POS 80mm (3\")" },
+              { id: "58mm", label: "📱 POS 58mm (2\")" },
+              { id: "A4", label: "📄 A4 Document" },
+            ].map((f) => (
+              <button
+                key={f.id}
+                onClick={() => handlePaperFormatChange(f.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border ${
+                  paperFormat === f.id
+                    ? "bg-brown-900 text-white border-brown-900 shadow-xs"
+                    : "bg-surface text-brown-900 border-brown-900 hover:bg-cream-200"
+                }`}
+                style={{
+                  background: paperFormat === f.id ? "var(--color-brown-900)" : "var(--color-surface)",
+                  color: paperFormat === f.id ? "white" : "var(--color-brown-900)",
+                  borderColor: "var(--color-brown-900)",
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Live Seating Stats Bar */}
+        <section className="mb-10 p-5 border-2 border-brown-900 bg-surface">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 mb-4 border-b border-brown-900">
+            <div>
+              <h2
+                className="text-xl font-black uppercase tracking-widest flex items-center gap-3"
+                style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
+              >
+                <Users size={24} style={{ color: "var(--color-orange-500)" }} />
+                Live Seats & Tables Occupation
+              </h2>
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mt-1">
+                Real-time dining room seating tracker
+              </p>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex gap-2">
+              {[
+                { id: "all", label: `ALL (${tables.filter((t) => t.isActive).length})` },
+                { id: "occupied", label: `OCCUPIED (${occupiedTablesCount})` },
+                { id: "available", label: `FREE (${availableTablesCount})` },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTableFilter(t.id)}
+                  className={`text-xs font-black uppercase tracking-wider px-3 py-1.5 border transition-all ${
+                    tableFilter === t.id
+                      ? "bg-brown-900 text-white border-brown-900"
+                      : "bg-surface text-brown-900 border-brown-900 hover:bg-cream-200"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick Counter Badges */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <div className="p-3 border border-brown-900 bg-cream-50">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 block">TOTAL SEATS</span>
+              <span className="text-2xl font-black text-brown-900" style={{ fontFamily: "var(--font-heading)" }}>
+                {totalCapacity}
+              </span>
+            </div>
+            <div className="p-3 border border-orange-500 bg-orange-50/50">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-orange-700 block">OCCUPIED SEATS</span>
+              <span className="text-2xl font-black text-orange-600" style={{ fontFamily: "var(--font-heading)" }}>
+                {occupiedSeats}
+              </span>
+            </div>
+            <div className="p-3 border border-green-600 bg-green-50/50">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-green-700 block">FREE SEATS</span>
+              <span className="text-2xl font-black text-green-700" style={{ fontFamily: "var(--font-heading)" }}>
+                {freeSeats}
+              </span>
+            </div>
+            <div className="p-3 border border-brown-900 bg-cream-100">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600 block">OCCUPANCY RATE</span>
+              <span className="text-2xl font-black text-brown-900" style={{ fontFamily: "var(--font-heading)" }}>
+                {totalCapacity > 0 ? Math.round((occupiedSeats / totalCapacity) * 100) : 0}%
+              </span>
+            </div>
+          </div>
+
+          {/* Table Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {filteredTables.map((table) => {
+              const isOccupied = !!table.activeSession;
+              const isBillRequested = isOccupied && table.activeSession.status === "BILL_REQUESTED";
+
+              let runningTotal = 0;
+              if (isOccupied && table.activeSession.orders) {
+                table.activeSession.orders.forEach((o) => {
+                  if (o.status !== "CANCELLED") {
+                    o.items.forEach((i) => {
+                      runningTotal += i.price * i.quantity;
+                    });
+                  }
+                });
+              }
+
+              return (
+                <div
+                  key={table.id}
+                  className={`p-3 border-2 transition-all flex flex-col justify-between ${
+                    isBillRequested
+                      ? "border-amber-500 bg-amber-50/80"
+                      : isOccupied
+                      ? "border-orange-500 bg-orange-50/40"
+                      : "border-brown-900 bg-surface"
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-black text-lg text-brown-900" style={{ fontFamily: "var(--font-heading)" }}>
+                        {table.code}
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-600">
+                        👥 {table.capacity || 4}
+                      </span>
+                    </div>
+
+                    <div className="my-1.5">
+                      {isBillRequested ? (
+                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-amber-500 text-white border border-amber-700 block text-center">
+                          🧾 BILL REQ.
+                        </span>
+                      ) : isOccupied ? (
+                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-orange-500 text-white border border-brown-900 block text-center">
+                          OCCUPIED
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-green-600 text-white border border-green-800 block text-center">
+                          FREE
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {isOccupied && (
+                    <div className="mt-2 pt-1.5 border-t border-brown-900/30 text-[11px] font-bold flex justify-between">
+                      <span className="text-gray-600">Total:</span>
+                      <span className="text-orange-600">₹{runningTotal}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
         {/* Bill Requests */}
         {billRequests.length > 0 && (
           <div className="mb-10 space-y-4">
@@ -239,9 +493,10 @@ export default function CaptainDashboard() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => {
-                      const printWindow = window.open("", "_blank", "width=350,height=600");
+                      const printWindow = window.open("", "_blank", "width=800,height=900");
                       if (printWindow) {
-                        printWindow.document.write(bill.billHTML);
+                        const htmlToPrint = bill.billFormats?.[paperFormat] || bill.billHTML;
+                        printWindow.document.write(htmlToPrint);
                         printWindow.document.close();
                         setTimeout(() => printWindow.print(), 300);
                       }
@@ -249,7 +504,7 @@ export default function CaptainDashboard() {
                     }}
                     className="btn-secondary"
                   >
-                    <Printer size={16} /> PRINT
+                    <Printer size={16} /> PRINT ({paperFormat.toUpperCase()})
                   </button>
                   {printedBills.has(bill.sessionId) && (
                     <button

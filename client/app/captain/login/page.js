@@ -45,13 +45,17 @@ export default function CaptainLoginPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+            className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center mx-auto mb-4 border-2 shadow-md"
             style={{
-              background: "var(--color-orange-500)",
-              boxShadow: "0 8px 32px rgba(232, 137, 28, 0.3)",
+              borderColor: "var(--color-orange-500)",
+              background: "var(--color-cream-100)",
             }}
           >
-            <UtensilsCrossed size={28} color="white" />
+            <img
+              src="/dhaba-logo.jpg"
+              alt="Sree Nookambika Dhaba Logo"
+              className="w-full h-full object-cover"
+            />
           </div>
           <h1
             className="text-2xl font-bold mb-1"

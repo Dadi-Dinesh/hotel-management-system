@@ -9,6 +9,13 @@ export interface MenuItem {
   description?: string | null;
   calories?: number | null;
   isAvailable: boolean;
+  isVeg?: boolean;
+  isPopular?: boolean;
+  spiceLevel?: string | null;
+  rating?: number | null;
+  displayRating?: number | null;
+  ratingCount?: number | null;
+  totalRating?: number | null;
   categoryId: string;
   createdAt: string;
   category?: {
@@ -37,4 +44,7 @@ export interface MenuItemFormState {
   imageUrl?: string | null;
   removeImage: boolean;
   isAvailable?: boolean;
+  isVeg?: boolean;
+  isPopular?: boolean;
+  spiceLevel?: string;
 }

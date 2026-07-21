@@ -30,10 +30,13 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle expired tokens
+// Handle expired tokens and network errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (!error.response && error.message === "Network Error") {
+      console.warn("API Connection Error: Backend server unreachable at", API_BASE);
+    }
     if (error.response?.status === 401) {
       if (typeof window !== "undefined") {
         const path = window.location.pathname;

@@ -21,6 +21,7 @@ model Table {
   id       String    @id @default(cuid())
   code     String    @unique
   number   Int       @unique
+  capacity Int       @default(4)
   isActive Boolean   @default(true)
   sessions Session[]
 }
@@ -48,6 +49,13 @@ model MenuItem {
   price              Float
   image              String?
   isAvailable        Boolean     @default(true)
+  isVeg              Boolean     @default(true)
+  isPopular          Boolean     @default(false)
+  spiceLevel         String?     @default("Medium")
+  rating             Float?      @default(4.2)
+  displayRating      Float?      @default(4.2)
+  ratingCount        Int?        @default(100)
+  totalRating        Float?      @default(420.0)
   categoryId         String
   createdAt          DateTime    @default(now())
   feedbacks          Feedback[]

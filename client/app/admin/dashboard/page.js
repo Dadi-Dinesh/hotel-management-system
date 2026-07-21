@@ -14,6 +14,7 @@ import {
   Award,
   IndianRupee,
   Star,
+  Sliders,
 } from "lucide-react";
 import api from "../../lib/api";
 import { getUser, clearAuth, isAuthenticated } from "../../lib/auth";
@@ -59,6 +60,12 @@ export default function AdminDashboard() {
   if (!user) return null;
 
   const navItems = [
+    {
+      href: "/admin/tables",
+      icon: <Sliders size={24} />,
+      label: "Table Management",
+      desc: "Live seats occupation, add/edit/delete tables",
+    },
     {
       href: "/admin/menu",
       icon: <UtensilsCrossed size={24} />,
@@ -185,12 +192,10 @@ export default function AdminDashboard() {
           )}
         </section>
 
-        {/* Quick Stats */}
+        {/* Quick Stats & Live Seating */}
         <section className="mb-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div
-              className="card flex items-center gap-6"
-            >
+            <div className="card flex items-center gap-6">
               <div
                 className="w-16 h-16 border flex items-center justify-center"
                 style={{
@@ -219,6 +224,46 @@ export default function AdminDashboard() {
                 </p>
               </div>
             </div>
+
+            {/* Live Seating Card */}
+            <Link
+              href="/admin/tables"
+              className="card flex items-center justify-between border-2 border-brown-900 hover:bg-cream-200 transition-colors"
+              style={{ textDecoration: "none" }}
+            >
+              <div className="flex items-center gap-6">
+                <div
+                  className="w-16 h-16 border flex items-center justify-center"
+                  style={{
+                    background: "var(--color-cream-200)",
+                    borderColor: "var(--color-brown-900)",
+                    color: "var(--color-brown-900)",
+                  }}
+                >
+                  <Users size={28} />
+                </div>
+                <div>
+                  <p
+                    className="text-3xl font-black"
+                    style={{
+                      fontFamily: "var(--font-heading)",
+                      color: "var(--color-brown-900)",
+                    }}
+                  >
+                    {stats?.seating?.occupiedSeats || 0} / {stats?.seating?.totalCapacity || 0}
+                  </p>
+                  <p
+                    className="text-sm font-bold uppercase tracking-widest mt-1"
+                    style={{ color: "var(--color-text-secondary)" }}
+                  >
+                    Occupied Seats ({stats?.seating?.freeSeats || 0} Free)
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-black uppercase tracking-wider text-orange-600 border border-brown-900 px-3 py-1 bg-surface">
+                MANAGE →
+              </span>
+            </Link>
           </div>
         </section>
 

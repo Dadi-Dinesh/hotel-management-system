@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ShoppingBag } from "lucide-react";
 import api from "../../../lib/api";
@@ -9,14 +9,17 @@ import MenuCard from "../../../components/MenuCard";
 import CategoryTabs from "../../../components/CategoryTabs";
 import CartDrawer from "../../../components/CartDrawer";
 import { useCart } from "../../../hooks/useCart";
+import { useSocket } from "../../../components/SocketProvider";
 import toast from "react-hot-toast";
 
 export default function MenuPage() {
   const params = useParams();
   const router = useRouter();
   const tableCode = params.code?.toUpperCase();
+  const { socket } = useSocket();
 
   const [menu, setMenu] = useState([]);
+  const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState(null);
   const [dietFilter, setDietFilter] = useState("ALL"); // "ALL", "VEG", "NON_VEG"
@@ -26,9 +29,39 @@ export default function MenuPage() {
 
   const cart = useCart();
 
+  const fetchSession = useCallback(async () => {
+    const sessionId = localStorage.getItem(`session-${tableCode}`);
+    if (!sessionId) return;
+    try {
+      const res = await api.get(`/sessions/${sessionId}`);
+      setSession(res.data.data);
+    } catch (error) {
+      console.error("Failed to fetch session:", error);
+    }
+  }, [tableCode]);
+
   useEffect(() => {
     fetchMenu();
-  }, []);
+    fetchSession();
+  }, [fetchSession]);
+
+  useEffect(() => {
+    if (!socket || !tableCode) return;
+
+    socket.emit("join-table", tableCode);
+
+    socket.on("order-accepted", fetchSession);
+    socket.on("order-status-update", fetchSession);
+    socket.on("session-closed", () => {
+      router.push(`/table/${tableCode}/thank-you`);
+    });
+
+    return () => {
+      socket.off("order-accepted", fetchSession);
+      socket.off("order-status-update", fetchSession);
+      socket.off("session-closed");
+    };
+  }, [socket, tableCode, fetchSession, router]);
 
   const fetchMenu = async () => {
     try {
@@ -39,6 +72,11 @@ export default function MenuPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOpenCart = () => {
+    fetchSession();
+    setShowCart(true);
   };
 
   // Get all items, filtered by category, diet (Veg / Non-Veg), and search query
@@ -83,6 +121,7 @@ export default function MenuPage() {
       toast.success(`Order #${res.data.data.orderNumber} placed! 🎉`);
       cart.clearCart();
       setShowCart(false);
+      fetchSession();
       router.push(`/table/${tableCode}/orders`);
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to place order");
@@ -90,6 +129,13 @@ export default function MenuPage() {
       setIsOrdering(false);
     }
   };
+
+  const activePlacedOrders = session?.orders?.filter((o) => o.status !== "CANCELLED") || [];
+  const runningTotal = session?.runningTotal || 0;
+  const placedItemsCount = activePlacedOrders.reduce(
+    (sum, order) => sum + order.items.reduce((s, item) => s + item.quantity, 0),
+    0
+  );
 
   return (
     <div
@@ -102,20 +148,33 @@ export default function MenuPage() {
         backHref={`/table/${tableCode}`}
         rightContent={
           <button
-            onClick={() => setShowCart(true)}
+            onClick={handleOpenCart}
             className="relative flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all"
             style={{
-              background: cart.totalItems > 0 ? "var(--color-orange-500)" : "var(--color-cream-100)",
-              color: cart.totalItems > 0 ? "white" : "var(--color-brown-800)",
-              border: cart.totalItems > 0 ? "none" : "1px solid var(--color-cream-200)",
+              background:
+                cart.totalItems > 0 || placedItemsCount > 0
+                  ? "var(--color-orange-500)"
+                  : "var(--color-cream-100)",
+              color:
+                cart.totalItems > 0 || placedItemsCount > 0
+                  ? "white"
+                  : "var(--color-brown-800)",
+              border:
+                cart.totalItems > 0 || placedItemsCount > 0
+                  ? "none"
+                  : "1px solid var(--color-cream-200)",
             }}
           >
             <ShoppingBag size={18} />
-            {cart.totalItems > 0 && (
+            {cart.totalItems > 0 ? (
               <span className="text-sm font-bold">
                 {cart.totalItems} · ₹{cart.totalPrice}
               </span>
-            )}
+            ) : placedItemsCount > 0 ? (
+              <span className="text-sm font-bold">
+                Orders ({placedItemsCount}) · ₹{runningTotal}
+              </span>
+            ) : null}
           </button>
         }
       />
@@ -199,10 +258,10 @@ export default function MenuPage() {
       </main>
 
       {/* Floating cart button (mobile) */}
-      {cart.totalItems > 0 && !showCart && (
+      {(cart.totalItems > 0 || placedItemsCount > 0) && !showCart && (
         <div className="fixed bottom-4 left-4 right-4 z-40 md:hidden animate-slide-in-up">
           <button
-            onClick={() => setShowCart(true)}
+            onClick={handleOpenCart}
             className="btn-primary w-full py-3.5 flex items-center justify-between"
             style={{
               fontSize: "1rem",
@@ -212,9 +271,13 @@ export default function MenuPage() {
           >
             <span className="flex items-center gap-2">
               <ShoppingBag size={20} />
-              {cart.totalItems} item{cart.totalItems > 1 ? "s" : ""}
+              {cart.totalItems > 0
+                ? `${cart.totalItems} item${cart.totalItems > 1 ? "s" : ""} (Draft)`
+                : `Orders (${placedItemsCount})`}
             </span>
-            <span className="font-bold">₹{cart.totalPrice} →</span>
+            <span className="font-bold">
+              ₹{cart.totalItems > 0 ? cart.totalPrice : runningTotal} →
+            </span>
           </button>
         </div>
       )}
@@ -223,11 +286,15 @@ export default function MenuPage() {
       {showCart && (
         <CartDrawer
           items={cart.items}
+          placedOrders={session?.orders || []}
+          runningTotal={runningTotal}
+          tableCode={tableCode}
           onUpdateQuantity={cart.updateQuantity}
           onRemove={cart.removeItem}
           onClose={() => setShowCart(false)}
           onPlaceOrder={handlePlaceOrder}
           isOrdering={isOrdering}
+          onViewOrders={() => router.push(`/table/${tableCode}/orders`)}
         />
       )}
     </div>

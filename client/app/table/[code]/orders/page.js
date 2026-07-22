@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import { Utensils, Receipt, RefreshCcw, Star, X } from "lucide-react";
 import api from "../../../lib/api";
 import Navbar from "../../../components/Navbar";
-import OrderStatusBadge from "../../../components/OrderStatusBadge";
 import { useSocket } from "../../../components/SocketProvider";
 import toast from "react-hot-toast";
 
@@ -147,7 +146,7 @@ export default function OrdersPage() {
   if (!session) {
     return (
       <div className="min-h-screen flex flex-col" style={{ background: "var(--color-cream-50)" }}>
-        <Navbar title="Orders" subtitle={`Table ${tableCode}`} backHref={`/table/${tableCode}`} />
+        <Navbar title="Orders" subtitle={`Table ${tableCode}`} backHref={`/table/${tableCode}/menu`} />
         <main className="flex-1 flex flex-col items-center justify-center px-6">
           <p className="text-5xl mb-4">📋</p>
           <h2
@@ -181,7 +180,7 @@ export default function OrdersPage() {
       <Navbar
         title="Your Orders"
         subtitle={`Table ${tableCode}`}
-        backHref={`/table/${tableCode}`}
+        backHref={`/table/${tableCode}/menu`}
         rightContent={
           <button
             onClick={fetchSession}
@@ -219,22 +218,18 @@ export default function OrdersPage() {
             {orders.map((order) => (
               <div
                 key={order.id}
-                className="card animate-fade-in"
-                style={{ opacity: 0 }}
+                className="card"
               >
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="text-sm font-bold"
-                      style={{
-                        fontFamily: "var(--font-heading)",
-                        color: "var(--color-brown-900)",
-                      }}
-                    >
-                      Order #{order.orderNumber}
-                    </span>
-                    <OrderStatusBadge status={order.status} />
-                  </div>
+                  <span
+                    className="text-sm font-bold"
+                    style={{
+                      fontFamily: "var(--font-heading)",
+                      color: "var(--color-brown-900)",
+                    }}
+                  >
+                    Order #{order.orderNumber}
+                  </span>
                   <span
                     className="text-xs"
                     style={{ color: "var(--color-text-muted)" }}

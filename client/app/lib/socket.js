@@ -3,8 +3,17 @@
  *
  * Singleton pattern: one socket instance shared across the entire app.
  *
- * Environment variables (set in Vercel dashboard):
- *   NEXT_PUBLIC_SOCKET_URL  → https://hotel-management-system-k5zr.onrender.com
+ * Environment variable (set in Vercel dashboard):
+ *   NEXT_PUBLIC_SOCKET_URL → https://hotel-management-system-k5zr.onrender.com
+ *
+ * WHY "websocket" ONLY (not polling first):
+ *   - When transports: ["polling", "websocket"] is used, the client sends
+ *     an HTTP XHR request FIRST (/socket.io/?transport=polling).
+ *   - If CORS is misconfigured even slightly, this XHR fails with
+ *     "xhr poll error" — the exact error you see in production.
+ *   - Render natively supports WebSockets on all plans.
+ *   - Using transports: ["websocket"] skips the fragile polling step entirely,
+ *     connecting directly via WS which is far more reliable on Render.
  *
  * Room joining is done by individual pages:
  *   socket.emit("join-table", tableCode)   → customer pages
@@ -18,14 +27,16 @@ import { io } from "socket.io-client";
  * Resolve the backend Socket.IO URL.
  *
  * Priority:
- *   1. NEXT_PUBLIC_SOCKET_URL env var (Vercel production)
- *   2. localhost:4000 fallback (local development)
+ *   1. NEXT_PUBLIC_SOCKET_URL env var (Vercel production — set in Vercel dashboard)
+ *   2. http://localhost:4000 fallback (local development only)
+ *
+ * IMPORTANT: Never use window.location.hostname — in production that resolves
+ * to the Vercel domain, not the Render backend.
  */
 const getSocketUrl = () => {
   if (process.env.NEXT_PUBLIC_SOCKET_URL) {
     return process.env.NEXT_PUBLIC_SOCKET_URL;
   }
-  // Local dev fallback — do NOT use window.location.hostname in prod
   return "http://localhost:4000";
 };
 
@@ -36,38 +47,63 @@ let socket = null;
 
 /**
  * Get (or lazily create) the singleton socket.
- * Does NOT auto-connect — call connectSocket() to open the connection.
+ * Does NOT auto-connect — connectSocket() controls when it opens.
  */
 export const getSocket = () => {
   if (!socket) {
     socket = io(SOCKET_URL, {
-      // Do not connect immediately — let SocketProvider control lifecycle
+      // Do not auto-connect — SocketProvider controls the lifecycle
       autoConnect: false,
 
-      // IMPORTANT: Start with polling, then upgrade to WebSocket.
-      // Render's free tier reverse proxy may block raw WS upgrades initially.
-      // Polling as first transport ensures the handshake always succeeds.
-      transports: ["polling", "websocket"],
+      // ── CRITICAL FIX ─────────────────────────────────────────────────
+      // Use WebSocket ONLY — skip HTTP polling entirely.
+      //
+      // "xhr poll error" is caused by the polling transport sending an
+      // HTTP XHR to /socket.io/ which then fails CORS on Render.
+      // By jumping straight to WebSocket we bypass that failure path.
+      //
+      // Render supports WebSockets natively on all tiers — no polling needed.
+      // ─────────────────────────────────────────────────────────────────
+      transports: ["websocket"],
 
-      // Reconnection settings
+      // Upgrade from polling → websocket if server supports it
+      upgrade: true,
+
+      // Reconnection settings for cold-start resilience on Render
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       reconnectionAttempts: 10,
 
-      // Credentials for CORS
+      // Include credentials so CORS works with credentials: true on server
       withCredentials: true,
 
-      // Timeout for initial connection attempt
+      // Connection timeout — Render free tier can be slow on cold start
       timeout: 20000,
     });
 
-    // Log all events in development for debugging
-    if (process.env.NODE_ENV === "development") {
-      socket.onAny((event, ...args) => {
-        console.log(`[Socket] Event: ${event}`, args);
-      });
-    }
+    // ── Debug logging ────────────────────────────────────────────────
+    socket.on("connect", () => {
+      console.log(`[Socket] ✅ Connected to ${SOCKET_URL} — id: ${socket.id}`);
+    });
+
+    socket.on("connect_error", (err) => {
+      console.error(`[Socket] ❌ Connection error: ${err.message}`);
+      console.error(`[Socket] Attempted URL: ${SOCKET_URL}`);
+      console.error(`[Socket] Transport: ${socket.io?.engine?.transport?.name}`);
+    });
+
+    socket.on("disconnect", (reason) => {
+      console.warn(`[Socket] ⚠️ Disconnected — reason: ${reason}`);
+    });
+
+    socket.io.on("reconnect", (attempt) => {
+      console.log(`[Socket] 🔄 Reconnected after ${attempt} attempt(s)`);
+    });
+
+    socket.io.on("reconnect_error", (err) => {
+      console.error(`[Socket] Reconnect error: ${err.message}`);
+    });
   }
   return socket;
 };

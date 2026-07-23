@@ -2,25 +2,44 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { UtensilsCrossed, Utensils, ClipboardList } from "lucide-react";
+import { UtensilsCrossed, Utensils, ClipboardList, BellRing } from "lucide-react";
 import api from "../../lib/api";
 import Navbar from "../../components/Navbar";
 import LoadingScreen from "../../components/LoadingScreen";
+import { useSocket } from "../../components/SocketProvider";
 import toast from "react-hot-toast";
 
 export default function TableLandingPage() {
   const params = useParams();
   const router = useRouter();
   const tableCode = params.code?.toUpperCase();
+  const { socket } = useSocket();
+
   const [table, setTable] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingFinished, setLoadingFinished] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [callingWaiter, setCallingWaiter] = useState(false);
 
   useEffect(() => {
     fetchTable();
   }, [tableCode]);
+
+  // Join table room when socket connects so session-closed can redirect
+  useEffect(() => {
+    if (!socket || !tableCode) return;
+    socket.emit("join-table", tableCode);
+
+    const handleSessionClosed = () => {
+      router.push(`/table/${tableCode}/thank-you`);
+    };
+    socket.on("session-closed", handleSessionClosed);
+
+    return () => {
+      socket.off("session-closed", handleSessionClosed);
+    };
+  }, [socket, tableCode, router]);
 
   const fetchTable = async () => {
     try {
@@ -49,6 +68,30 @@ export default function TableLandingPage() {
     } finally {
       setStarting(false);
     }
+  };
+
+  /**
+   * Send a "call-waiter" socket event to the server.
+   * The server immediately forwards it to all captains/admins rooms.
+   */
+  const handleCallWaiter = () => {
+    if (!socket || !socket.connected) {
+      toast.error("Not connected. Please refresh and try again.");
+      return;
+    }
+
+    setCallingWaiter(true);
+
+    // Emit the event — server will broadcast to captains room
+    socket.emit("call-waiter", tableCode);
+
+    toast.success("🔔 Waiter has been called! They'll be with you shortly.", {
+      duration: 4000,
+      icon: "🙋",
+    });
+
+    // Prevent rapid spamming — re-enable after 15 seconds
+    setTimeout(() => setCallingWaiter(false), 15000);
   };
 
   return (
@@ -122,6 +165,21 @@ export default function TableLandingPage() {
                     <ClipboardList size={18} />
                     VIEW ORDERS
                   </button>
+
+                  {/* Call Waiter — sends socket event instantly to captain dashboard */}
+                  <button
+                    onClick={handleCallWaiter}
+                    disabled={callingWaiter}
+                    className="w-full py-4 text-base font-black uppercase tracking-widest border-2 flex items-center justify-center gap-2 transition-all"
+                    style={{
+                      borderColor: callingWaiter ? "var(--color-text-muted)" : "#F59E0B",
+                      color: callingWaiter ? "var(--color-text-muted)" : "#92400E",
+                      background: callingWaiter ? "var(--color-cream-100)" : "#FEF3C7",
+                    }}
+                  >
+                    <BellRing size={18} />
+                    {callingWaiter ? "WAITER CALLED ✓" : "CALL WAITER"}
+                  </button>
                 </>
               ) : (
                 <button
@@ -156,7 +214,7 @@ export default function TableLandingPage() {
               className="text-sm font-bold uppercase tracking-wider leading-relaxed"
               style={{ color: "var(--color-text-muted)" }}
             >
-              The table code "{tableCode}" doesn't exist. Please check and scan again.
+              The table code &quot;{tableCode}&quot; doesn&apos;t exist. Please check and scan again.
             </p>
           </div>
         </div>

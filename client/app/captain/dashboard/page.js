@@ -13,6 +13,9 @@ import {
   Receipt,
   Clock,
   Users,
+  PhoneCall,
+  ChefHat,
+  Utensils,
 } from "lucide-react";
 import api from "../../lib/api";
 import { getUser, clearAuth, isAuthenticated } from "../../lib/auth";
@@ -21,9 +24,50 @@ import OrderStatusBadge from "../../components/OrderStatusBadge";
 import Navbar from "../../components/Navbar";
 import toast from "react-hot-toast";
 
+// ─────────────────────────────────────────
+// Notification Sound — Web Audio API beep
+// No external file needed, works in all browsers
+// ─────────────────────────────────────────
+function playNotificationSound(type = "order") {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    if (type === "waiter") {
+      // Double beep for waiter call (urgent)
+      oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+      oscillator.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
+      oscillator.frequency.setValueAtTime(880, ctx.currentTime + 0.3);
+      gainNode.gain.setValueAtTime(0.4, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.5);
+    } else {
+      // Single pleasant ding for new order
+      oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+      gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.4);
+    }
+  } catch (e) {
+    // AudioContext not supported — silently ignore
+  }
+}
+
+// Valid order status transitions captain can manually trigger
+const STATUS_ACTIONS = [
+  { status: "PREPARING", label: "Mark Preparing", icon: <ChefHat size={14} />, color: "var(--color-orange-500)" },
+  { status: "SERVED", label: "Mark Served", icon: <Utensils size={14} />, color: "var(--color-success)" },
+];
+
 export default function CaptainDashboard() {
   const router = useRouter();
-  const { socket } = useSocket();
+  const { socket, isConnected } = useSocket();
   const [user, setUser] = useState(null);
   const [orders, setOrders] = useState([]);
   const [tables, setTables] = useState([]);
@@ -34,8 +78,10 @@ export default function CaptainDashboard() {
   const [billRequests, setBillRequests] = useState([]);
   const [printedBills, setPrintedBills] = useState(new Set());
   const [acceptingOrders, setAcceptingOrders] = useState(new Set());
+  const [updatingOrders, setUpdatingOrders] = useState(new Set());
   const [closingSessions, setClosingSessions] = useState(new Set());
-  const [paperFormat, setPaperFormat] = useState("80mm"); // "80mm", "58mm", "A4"
+  const [paperFormat, setPaperFormat] = useState("80mm");
+  const notifCountRef = useRef(0);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -49,7 +95,12 @@ export default function CaptainDashboard() {
     if (typeof window !== "undefined") {
       localStorage.setItem("printer_paper_format", fmt);
     }
-    const label = fmt === "A4" ? "A4 Document Sheet" : fmt === "58mm" ? "58mm (2-inch Thermal)" : "80mm (3-inch Thermal POS)";
+    const label =
+      fmt === "A4"
+        ? "A4 Document Sheet"
+        : fmt === "58mm"
+        ? "58mm (2-inch Thermal)"
+        : "80mm (3-inch Thermal POS)";
     toast.success(`Printer format set to ${label}`);
   };
 
@@ -101,53 +152,116 @@ export default function CaptainDashboard() {
     fetchTables();
   }, [fetchOrders, fetchBillRequests, fetchTables]);
 
+  // ─────────────────────────────────────────
+  // SOCKET LISTENERS
+  // ─────────────────────────────────────────
   useEffect(() => {
     if (!socket) return;
+
+    // Join the captains room so server can emit directly to this dashboard
     socket.emit("join-captain");
 
-    socket.on("new-order", (data) => {
-      console.log("NEW ORDER RECEIVED", data);
+    // ── New Order ──────────────────────────
+    const handleNewOrder = (data) => {
+      console.log("[Captain] new-order:", data);
+      playNotificationSound("order");
+
       const notif = {
         id: Date.now(),
         type: "new-order",
+        icon: "🍛",
         message: `New order from Table ${data.tableCode}`,
+        subtext: `${data.items?.length || 0} item(s) — #${data.orderNumber}`,
         data,
         timestamp: new Date(),
       };
-      setNotifications((prev) => [notif, ...prev]);
+      setNotifications((prev) => [notif, ...prev.slice(0, 49)]);
       setShowNotifications(true);
-      toast.success(`🔔 New order from Table ${data.tableCode}!`, { duration: 6000 });
+      toast.success(`🔔 New order from Table ${data.tableCode}!`, {
+        duration: 6000,
+        id: `order-${data.orderId}`,
+      });
       fetchOrders();
       fetchTables();
-    });
+    };
 
-    socket.on("bill-requested", (data) => {
+    // ── Waiter Call ────────────────────────
+    const handleWaiterCall = (data) => {
+      console.log("[Captain] waiter-call:", data);
+      playNotificationSound("waiter");
+
+      const notif = {
+        id: Date.now(),
+        type: "waiter-call",
+        icon: "🔔",
+        message: `Table ${data.tableCode} needs assistance`,
+        subtext: new Date(data.timestamp).toLocaleTimeString("en-IN", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        }),
+        data,
+        timestamp: new Date(data.timestamp),
+        urgent: true,
+      };
+      setNotifications((prev) => [notif, ...prev.slice(0, 49)]);
+      setShowNotifications(true);
+      toast(`📣 Table ${data.tableCode} is calling for assistance!`, {
+        duration: 8000,
+        icon: "🔔",
+        id: `waiter-${data.tableCode}-${Date.now()}`,
+        style: { background: "#FEF3C7", border: "1px solid #F59E0B" },
+      });
+    };
+
+    // ── Bill Requested ─────────────────────
+    const handleBillRequested = (data) => {
+      console.log("[Captain] bill-requested:", data);
+      playNotificationSound("order");
       fetchBillRequests();
       fetchTables();
-      toast(`🧾 Bill requested for Table ${data.tableCode}`, { duration: 8000, icon: "💰" });
-    });
+      toast(`🧾 Bill requested for Table ${data.tableCode}`, {
+        duration: 8000,
+        icon: "💰",
+        id: `bill-${data.sessionId}`,
+      });
+    };
 
-    socket.on("session-closed", () => {
+    // ── Session / Table Updates ────────────
+    const handleSessionClosed = () => {
       fetchTables();
       fetchBillRequests();
       fetchOrders();
-    });
+    };
 
-    socket.on("table-updated", () => {
+    const handleTableUpdated = () => {
       fetchTables();
-    });
+    };
 
-    socket.onAny((event, ...args) => {
-      console.log("SOCKET EVENT:", event, args);
-    });
+    const handleNewSession = () => {
+      fetchTables();
+    };
+
+    socket.on("new-order", handleNewOrder);
+    socket.on("waiter-call", handleWaiterCall);
+    socket.on("bill-requested", handleBillRequested);
+    socket.on("session-closed", handleSessionClosed);
+    socket.on("table-updated", handleTableUpdated);
+    socket.on("new-session", handleNewSession);
 
     return () => {
-      socket.off("new-order");
-      socket.off("bill-requested");
-      socket.off("session-closed");
-      socket.off("table-updated");
+      socket.off("new-order", handleNewOrder);
+      socket.off("waiter-call", handleWaiterCall);
+      socket.off("bill-requested", handleBillRequested);
+      socket.off("session-closed", handleSessionClosed);
+      socket.off("table-updated", handleTableUpdated);
+      socket.off("new-session", handleNewSession);
     };
   }, [socket, fetchOrders, fetchBillRequests, fetchTables]);
+
+  // ─────────────────────────────────────────
+  // ACTIONS
+  // ─────────────────────────────────────────
 
   const handleAcceptOrder = async (orderId) => {
     setAcceptingOrders((prev) => new Set([...prev, orderId]));
@@ -181,6 +295,23 @@ export default function CaptainDashboard() {
     }
   };
 
+  const handleUpdateStatus = async (orderId, status) => {
+    setUpdatingOrders((prev) => new Set([...prev, `${orderId}-${status}`]));
+    try {
+      await api.patch(`/orders/${orderId}/status`, { status });
+      const label = status === "SERVED" ? "marked as served" : `marked as ${status.toLowerCase()}`;
+      toast.success(`Order ${label} ✅`);
+      fetchOrders();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to update status");
+    } finally {
+      setUpdatingOrders((prev) => {
+        const next = new Set(prev);
+        next.delete(`${orderId}-${status}`);
+        return next;
+      });
+    }
+  };
 
   const handleCloseSession = async (sessionId) => {
     setClosingSessions((prev) => new Set([...prev, sessionId]));
@@ -205,6 +336,7 @@ export default function CaptainDashboard() {
     router.push("/captain/login");
   };
 
+  const unreadCount = notifications.filter((n) => n.urgent).length;
   const pendingOrders = orders.filter((o) => o.status === "PENDING");
   const activeOrders = orders.filter(
     (o) => ["ACCEPTED", "PREPARING"].includes(o.status) && o.session?.status === "ACTIVE"
@@ -249,6 +381,22 @@ export default function CaptainDashboard() {
         subtitle={`Welcome, ${user.name}`}
         rightContent={
           <div className="flex items-center gap-3">
+            {/* Socket connection indicator */}
+            <div
+              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2 py-1 border"
+              style={{
+                borderColor: isConnected ? "var(--color-success)" : "var(--color-danger)",
+                color: isConnected ? "var(--color-success)" : "var(--color-danger)",
+                background: isConnected ? "#f0fdf4" : "#fef2f2",
+              }}
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ background: isConnected ? "var(--color-success)" : "var(--color-danger)" }}
+              />
+              {isConnected ? "LIVE" : "OFFLINE"}
+            </div>
+
             <button
               onClick={() => setShowNotifications(!showNotifications)}
               className="relative w-10 h-10 border flex items-center justify-center transition-colors hover:bg-brown-900 hover:text-white"
@@ -304,7 +452,10 @@ export default function CaptainDashboard() {
                 Billing & KOT Printer Paper Format
               </p>
               <p className="text-[11px] font-medium text-gray-600">
-                Current Active: <span className="font-bold text-orange-600 uppercase">{paperFormat === "A4" ? "A4 Document Sheet" : paperFormat === "58mm" ? "58mm (2-inch Thermal)" : "80mm (3-inch Thermal POS)"}</span>
+                Current Active:{" "}
+                <span className="font-bold text-orange-600 uppercase">
+                  {paperFormat === "A4" ? "A4 Document Sheet" : paperFormat === "58mm" ? "58mm (2-inch Thermal)" : "80mm (3-inch Thermal POS)"}
+                </span>
               </p>
             </div>
           </div>
@@ -318,11 +469,7 @@ export default function CaptainDashboard() {
               <button
                 key={f.id}
                 onClick={() => handlePaperFormatChange(f.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border ${
-                  paperFormat === f.id
-                    ? "bg-brown-900 text-white border-brown-900 shadow-xs"
-                    : "bg-surface text-brown-900 border-brown-900 hover:bg-cream-200"
-                }`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border`}
                 style={{
                   background: paperFormat === f.id ? "var(--color-brown-900)" : "var(--color-surface)",
                   color: paperFormat === f.id ? "white" : "var(--color-brown-900)",
@@ -351,7 +498,6 @@ export default function CaptainDashboard() {
               </p>
             </div>
 
-            {/* Filter Tabs */}
             <div className="flex gap-2">
               {[
                 { id: "all", label: `ALL (${tables.filter((t) => t.isActive).length})` },
@@ -361,11 +507,12 @@ export default function CaptainDashboard() {
                 <button
                   key={t.id}
                   onClick={() => setTableFilter(t.id)}
-                  className={`text-xs font-black uppercase tracking-wider px-3 py-1.5 border transition-all ${
-                    tableFilter === t.id
-                      ? "bg-brown-900 text-white border-brown-900"
-                      : "bg-surface text-brown-900 border-brown-900 hover:bg-cream-200"
-                  }`}
+                  className={`text-xs font-black uppercase tracking-wider px-3 py-1.5 border transition-all`}
+                  style={{
+                    background: tableFilter === t.id ? "var(--color-brown-900)" : "var(--color-surface)",
+                    color: tableFilter === t.id ? "white" : "var(--color-brown-900)",
+                    borderColor: "var(--color-brown-900)",
+                  }}
                 >
                   {t.label}
                 </button>
@@ -467,6 +614,7 @@ export default function CaptainDashboard() {
             })}
           </div>
         </section>
+
         {/* Bill Requests */}
         {billRequests.length > 0 && (
           <div className="mb-10 space-y-4">
@@ -549,10 +697,16 @@ export default function CaptainDashboard() {
                 <div key={order.id} className="card border-l-4" style={{ borderLeftColor: "var(--color-orange-500)" }}>
                   <div className="flex items-center justify-between mb-4 pb-4 border-b border-brown-900">
                     <div>
-                      <span className="font-black text-xl uppercase tracking-widest" style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}>
+                      <span
+                        className="font-black text-xl uppercase tracking-widest"
+                        style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
+                      >
                         Table {order.session.table.code}
                       </span>
-                      <span className="text-sm font-bold uppercase tracking-widest ml-3" style={{ color: "var(--color-text-muted)" }}>
+                      <span
+                        className="text-sm font-bold uppercase tracking-widest ml-3"
+                        style={{ color: "var(--color-text-muted)" }}
+                      >
                         #{order.orderNumber}
                       </span>
                     </div>
@@ -585,7 +739,7 @@ export default function CaptainDashboard() {
           )}
         </section>
 
-        {/* Active Orders */}
+        {/* Active Orders — with status update buttons */}
         <section className="mb-10">
           <h2
             className="text-xl font-black mb-6 uppercase tracking-widest flex items-center gap-3"
@@ -607,16 +761,23 @@ export default function CaptainDashboard() {
                 <div key={order.id} className="card border-l-4" style={{ borderLeftColor: "var(--color-success)" }}>
                   <div className="flex items-center justify-between mb-4 pb-4 border-b border-brown-900">
                     <div>
-                      <span className="font-black text-xl uppercase tracking-widest" style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}>
+                      <span
+                        className="font-black text-xl uppercase tracking-widest"
+                        style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
+                      >
                         Table {order.session.table.code}
                       </span>
-                      <span className="text-sm font-bold uppercase tracking-widest ml-3" style={{ color: "var(--color-text-muted)" }}>
+                      <span
+                        className="text-sm font-bold uppercase tracking-widest ml-3"
+                        style={{ color: "var(--color-text-muted)" }}
+                      >
                         #{order.orderNumber}
                       </span>
                     </div>
                     <OrderStatusBadge status={order.status} />
                   </div>
-                  <div className="space-y-2 mb-6">
+
+                  <div className="space-y-2 mb-4">
                     {order.items.map((item) => (
                       <div key={item.id} className="flex justify-between text-sm font-bold uppercase tracking-wider">
                         <span style={{ color: "var(--color-text-secondary)" }}>{item.menuItem.name}</span>
@@ -625,6 +786,32 @@ export default function CaptainDashboard() {
                     ))}
                   </div>
 
+                  {/* Status Update Buttons — captain updates order progress */}
+                  <div className="flex gap-2 flex-wrap pt-3 border-t border-brown-900/20">
+                    {STATUS_ACTIONS.map((action) => {
+                      // Don't show button for current status or for already-past statuses
+                      if (order.status === action.status) return null;
+                      if (order.status === "PREPARING" && action.status === "ACCEPTED") return null;
+                      const key = `${order.id}-${action.status}`;
+                      return (
+                        <button
+                          key={action.status}
+                          onClick={() => handleUpdateStatus(order.id, action.status)}
+                          disabled={updatingOrders.has(key)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black uppercase tracking-wider border transition-all"
+                          style={{
+                            borderColor: action.color,
+                            color: action.color,
+                            background: "var(--color-surface)",
+                            opacity: updatingOrders.has(key) ? 0.6 : 1,
+                          }}
+                        >
+                          {action.icon}
+                          {updatingOrders.has(key) ? "..." : action.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </div>
@@ -646,10 +833,16 @@ export default function CaptainDashboard() {
                 Notifications
               </h3>
               <div className="flex gap-3">
-                <button onClick={() => setNotifications([])} className="text-xs font-bold uppercase tracking-widest px-3 py-1 border border-brown-900">
+                <button
+                  onClick={() => setNotifications([])}
+                  className="text-xs font-bold uppercase tracking-widest px-3 py-1 border border-brown-900"
+                >
                   CLEAR
                 </button>
-                <button onClick={() => setShowNotifications(false)} className="w-8 h-8 border border-brown-900 flex items-center justify-center hover:bg-brown-900 hover:text-white">
+                <button
+                  onClick={() => setShowNotifications(false)}
+                  className="w-8 h-8 border border-brown-900 flex items-center justify-center hover:bg-brown-900 hover:text-white"
+                >
                   <X size={16} />
                 </button>
               </div>
@@ -661,13 +854,35 @@ export default function CaptainDashboard() {
                 </p>
               ) : (
                 notifications.map((notif) => (
-                  <div key={notif.id} className="p-4 border" style={{ borderColor: "var(--color-brown-900)" }}>
-                    <p className="text-sm font-bold uppercase tracking-widest" style={{ color: "var(--color-brown-900)" }}>
-                      {notif.message}
-                    </p>
-                    <p className="text-xs font-bold uppercase tracking-wider mt-2" style={{ color: "var(--color-text-muted)" }}>
-                      {new Date(notif.timestamp).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true })}
-                    </p>
+                  <div
+                    key={notif.id}
+                    className="p-4 border"
+                    style={{
+                      borderColor: notif.urgent ? "#F59E0B" : "var(--color-brown-900)",
+                      background: notif.urgent ? "#FFFBEB" : "var(--color-surface)",
+                    }}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl">{notif.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold uppercase tracking-widest" style={{ color: "var(--color-brown-900)" }}>
+                          {notif.message}
+                        </p>
+                        {notif.subtext && (
+                          <p className="text-xs font-medium mt-0.5" style={{ color: "var(--color-text-muted)" }}>
+                            {notif.subtext}
+                          </p>
+                        )}
+                        <p className="text-xs font-bold uppercase tracking-wider mt-2" style={{ color: "var(--color-text-muted)" }}>
+                          {new Date(notif.timestamp).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true })}
+                        </p>
+                      </div>
+                      {notif.urgent && (
+                        <span className="flex-shrink-0">
+                          <PhoneCall size={16} style={{ color: "#F59E0B" }} />
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))
               )}

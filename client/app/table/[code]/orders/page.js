@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Utensils, Receipt, RefreshCcw, Star, X } from "lucide-react";
+import { Utensils, Receipt, RefreshCcw, Star, X, BellRing } from "lucide-react";
 import api from "../../../lib/api";
 import Navbar from "../../../components/Navbar";
 import { useSocket } from "../../../components/SocketProvider";
@@ -20,6 +20,7 @@ export default function OrdersPage() {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [ratings, setRatings] = useState({});
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [callingWaiter, setCallingWaiter] = useState(false);
 
   const fetchSession = useCallback(async () => {
     const sessionId = localStorage.getItem(`session-${tableCode}`);
@@ -46,6 +47,8 @@ export default function OrdersPage() {
   useEffect(() => {
     if (!socket || !tableCode) return;
 
+    // Join the table room so server can push updates directly to this customer
+    // Room format must match server: table:<CODE>
     socket.emit("join-table", tableCode);
 
     socket.on("order-accepted", () => {
@@ -54,12 +57,13 @@ export default function OrdersPage() {
     });
 
     socket.on("order-status-update", (data) => {
-      toast.success(`Order #${data.orderNumber}: ${data.status}`);
+      // Use human-readable statusLabel from server if available
+      const message = data.statusLabel || `Order #${data.orderNumber}: ${data.status}`;
+      toast.success(message, { duration: 5000 });
       fetchSession();
     });
 
     socket.on("session-closed", () => {
-      // Redirect to the Thank You page — it handles localStorage cleanup and auto-redirect to home
       router.push(`/table/${tableCode}/thank-you`);
     });
 
@@ -69,6 +73,21 @@ export default function OrdersPage() {
       socket.off("session-closed");
     };
   }, [socket, tableCode, fetchSession, router]);
+
+  /**
+   * Call the waiter — sends socket event to captains room instantly.
+   * Only enabled during an active session.
+   */
+  const handleCallWaiter = () => {
+    if (!socket || !socket.connected) {
+      toast.error("Not connected. Please refresh.");
+      return;
+    }
+    setCallingWaiter(true);
+    socket.emit("call-waiter", tableCode);
+    toast.success("🔔 Waiter called! They'll be with you shortly.", { duration: 4000 });
+    setTimeout(() => setCallingWaiter(false), 15000);
+  };
 
   const handleRequestBill = async () => {
     setRequestingBill(true);
@@ -311,7 +330,7 @@ export default function OrdersPage() {
             </div>
 
             {/* Action buttons */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap">
               <button
                 onClick={() => router.push(`/table/${tableCode}/menu`)}
                 className="btn-secondary flex-1 py-3"
@@ -341,6 +360,20 @@ export default function OrdersPage() {
                 </div>
               )}
             </div>
+            {/* Call Waiter — also available from orders page */}
+            <button
+              onClick={handleCallWaiter}
+              disabled={callingWaiter}
+              className="w-full py-3 text-sm font-black uppercase tracking-widest border-2 flex items-center justify-center gap-2 transition-all mt-2"
+              style={{
+                borderColor: callingWaiter ? "var(--color-text-muted)" : "#F59E0B",
+                color: callingWaiter ? "var(--color-text-muted)" : "#92400E",
+                background: callingWaiter ? "var(--color-cream-100)" : "#FEF3C7",
+              }}
+            >
+              <BellRing size={16} />
+              {callingWaiter ? "WAITER CALLED ✓" : "CALL WAITER"}
+            </button>
           </div>
         </div>
       )}

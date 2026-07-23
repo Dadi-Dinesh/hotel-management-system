@@ -48,6 +48,8 @@ export default function MenuPage() {
   useEffect(() => {
     if (!socket || !tableCode) return;
 
+    // Join the table-specific socket room (format: table:<CODE>)
+    // The server emits order updates exclusively to this room
     socket.emit("join-table", tableCode);
 
     socket.on("order-accepted", fetchSession);

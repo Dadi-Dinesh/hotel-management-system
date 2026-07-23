@@ -18,14 +18,17 @@ import {
 } from "lucide-react";
 import api from "../../lib/api";
 import { getUser, clearAuth, isAuthenticated } from "../../lib/auth";
+import { useSocket } from "../../components/SocketProvider";
 import Navbar from "../../components/Navbar";
 import toast from "react-hot-toast";
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const { socket, isConnected } = useSocket();
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [liveOrderCount, setLiveOrderCount] = useState(0);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -40,6 +43,60 @@ export default function AdminDashboard() {
     setUser(u);
     fetchStats();
   }, [router]);
+
+  // ─────────────────────────────────────────
+  // REAL-TIME SOCKET LISTENERS
+  // ─────────────────────────────────────────
+  useEffect(() => {
+    if (!socket) return;
+
+    // Join admin room so server emits events directly to this dashboard
+    socket.emit("join-admin");
+
+    const handleNewOrder = (data) => {
+      console.log("[Admin] new-order:", data);
+      toast.success(`📦 New order from Table ${data.tableCode}`, { duration: 5000, id: `admin-order-${data.orderId}` });
+      // Increment live counter and refresh stats
+      setLiveOrderCount((prev) => prev + 1);
+      fetchStats();
+    };
+
+    const handleWaiterCall = (data) => {
+      toast(`🔔 Table ${data.tableCode} is calling for assistance!`, {
+        duration: 8000,
+        icon: "📣",
+        style: { background: "#FEF3C7", border: "1px solid #F59E0B" },
+        id: `admin-waiter-${data.tableCode}`,
+      });
+    };
+
+    const handleSessionClosed = () => {
+      fetchStats();
+    };
+
+    const handleBillRequested = (data) => {
+      toast(`🧾 Bill requested at Table ${data.tableCode} — ₹${data.total}`, {
+        duration: 6000,
+        icon: "💰",
+        id: `admin-bill-${data.sessionId}`,
+      });
+      fetchStats();
+    };
+
+    socket.on("new-order", handleNewOrder);
+    socket.on("waiter-call", handleWaiterCall);
+    socket.on("session-closed", handleSessionClosed);
+    socket.on("bill-requested", handleBillRequested);
+    socket.on("new-session", fetchStats);
+
+    return () => {
+      socket.off("new-order", handleNewOrder);
+      socket.off("waiter-call", handleWaiterCall);
+      socket.off("session-closed", handleSessionClosed);
+      socket.off("bill-requested", handleBillRequested);
+      socket.off("new-session", fetchStats);
+    };
+  }, [socket]);
 
   const fetchStats = async () => {
     try {
@@ -101,16 +158,33 @@ export default function AdminDashboard() {
         title="Admin Dashboard"
         subtitle="Nookambika Dhaba"
         rightContent={
-          <button
-            onClick={handleLogout}
-            className="w-10 h-10 border flex items-center justify-center transition-colors hover:bg-brown-900 hover:text-white"
-            style={{
-              borderColor: "var(--color-brown-900)",
-              color: "var(--color-danger)",
-            }}
-          >
-            <LogOut size={20} />
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Live connection badge */}
+            <div
+              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2 py-1 border"
+              style={{
+                borderColor: isConnected ? "var(--color-success)" : "var(--color-danger)",
+                color: isConnected ? "var(--color-success)" : "var(--color-danger)",
+                background: isConnected ? "#f0fdf4" : "#fef2f2",
+              }}
+            >
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ background: isConnected ? "var(--color-success)" : "var(--color-danger)" }}
+              />
+              {isConnected ? "LIVE" : "OFFLINE"}
+            </div>
+            <button
+              onClick={handleLogout}
+              className="w-10 h-10 border flex items-center justify-center transition-colors hover:bg-brown-900 hover:text-white"
+              style={{
+                borderColor: "var(--color-brown-900)",
+                color: "var(--color-danger)",
+              }}
+            >
+              <LogOut size={20} />
+            </button>
+          </div>
         }
       />
 

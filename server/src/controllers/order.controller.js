@@ -75,9 +75,8 @@ const placeOrder = async (req, res, next) => {
       },
     });
 
-    // Notify captain via Socket.IO
-    const io = getIO();
-    io.to("captains").emit("new-order", {
+    // Build the notification payload
+    const orderPayload = {
       orderId: order.id,
       orderNumber: order.orderNumber,
       tableCode: session.table.code,
@@ -88,7 +87,15 @@ const placeOrder = async (req, res, next) => {
         price: i.price,
       })),
       createdAt: order.createdAt,
-    });
+    };
+
+    // Emit "new-order" to captains room (waiter dashboard)
+    // and admins room (admin dashboard) simultaneously
+    const io = getIO();
+    io.to("captains").emit("new-order", orderPayload);
+    io.to("admins").emit("new-order", orderPayload);
+
+    console.log(`📦 New order #${order.orderNumber} from Table ${session.table.code} — notified captains + admins`);
 
     res.status(201).json({
       success: true,
@@ -185,13 +192,24 @@ const acceptOrder = async (req, res, next) => {
     const waiterHTML_58mm = generateKOTHTML(order, "WAITER", "58mm");
     const waiterHTML_A4 = generateKOTHTML(order, "WAITER", "A4");
 
-    // Notify the customer table that order was accepted
-    const io = getIO();
-    io.to(`table-${order.session.table.code}`).emit("order-accepted", {
+    const tableCode = order.session.table.code;
+    const tableRoom = `table:${tableCode}`;
+
+    const statusPayload = {
       orderId: order.id,
       orderNumber: order.orderNumber,
       status: "ACCEPTED",
-    });
+      tableCode,
+    };
+
+    // Notify the customer table that order was accepted
+    const io = getIO();
+    io.to(tableRoom).emit("order-accepted", statusPayload);
+
+    // Notify admin dashboard of status change
+    io.to("admins").emit("order-status-update", statusPayload);
+
+    console.log(`✅ Order #${order.orderNumber} accepted — notified ${tableRoom} + admins`);
 
     res.json({
       success: true,
@@ -226,7 +244,7 @@ const acceptOrder = async (req, res, next) => {
 };
 
 /**
- * Update order status
+ * Update order status (captain changes: PREPARING → SERVED etc.)
  * PATCH /api/orders/:id/status
  */
 const updateOrderStatus = async (req, res, next) => {
@@ -251,13 +269,32 @@ const updateOrderStatus = async (req, res, next) => {
       },
     });
 
-    // Notify the customer table about status change
-    const io = getIO();
-    io.to(`table-${order.session.table.code}`).emit("order-status-update", {
+    const tableCode = order.session.table.code;
+    const tableRoom = `table:${tableCode}`;
+
+    const statusPayload = {
       orderId: order.id,
       orderNumber: order.orderNumber,
       status: order.status,
-    });
+      tableCode,
+      // Human-readable label shown on the customer's screen
+      statusLabel: {
+        PREPARING: "Your order is being prepared 🍳",
+        SERVED: "Your order has been served! Enjoy your meal 🍽️",
+        CANCELLED: "Your order was cancelled",
+        ACCEPTED: "Your order has been accepted! 🎉",
+        PENDING: "Your order is pending",
+      }[order.status] || order.status,
+    };
+
+    // Notify customer table of status change
+    const io = getIO();
+    io.to(tableRoom).emit("order-status-update", statusPayload);
+
+    // Notify admin dashboard
+    io.to("admins").emit("order-status-update", statusPayload);
+
+    console.log(`🔄 Order #${order.orderNumber} → ${status} — notified ${tableRoom} + admins`);
 
     res.json({
       success: true,

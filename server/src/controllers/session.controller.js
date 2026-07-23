@@ -70,13 +70,16 @@ const startSession = async (req, res, next) => {
       },
     });
 
-    // Notify captains about new table session
+    // Notify captains and admins about new table session
     const io = getIO();
-    io.to("captains").emit("new-session", {
+    const sessionPayload = {
       tableCode: table.code,
       tableNumber: table.number,
       sessionId: session.id,
-    });
+    };
+    io.to("captains").emit("new-session", sessionPayload);
+    io.to("admins").emit("new-session", sessionPayload);
+    console.log(`🪑 New session for Table ${table.code} — notified captains + admins`);
 
     res.status(201).json({
       success: true,
@@ -181,16 +184,19 @@ const requestBill = async (req, res, next) => {
       "A4": billHTML_A4,
     };
 
-    // Notify captain about bill request
+    // Notify captains and admins about bill request
     const io = getIO();
-    io.to("captains").emit("bill-requested", {
+    const billPayload = {
       sessionId: session.id,
       tableCode: session.table.code,
       tableNumber: session.table.number,
       total,
       billHTML,
       billFormats,
-    });
+    };
+    io.to("captains").emit("bill-requested", billPayload);
+    io.to("admins").emit("bill-requested", billPayload);
+    console.log(`🧾 Bill requested for Table ${session.table.code} — notified captains + admins`);
 
     res.json({
       success: true,
@@ -278,12 +284,16 @@ const closeSession = async (req, res, next) => {
       },
     });
 
-    // Notify table that session is closed
+    // Notify the customer table and admin that session is closed
     const io = getIO();
-    io.to(`table-${session.table.code}`).emit("session-closed", {
+    const closedPayload = {
       sessionId: session.id,
       tableCode: session.table.code,
-    });
+    };
+    // Use new room format: table:<CODE>
+    io.to(`table:${session.table.code}`).emit("session-closed", closedPayload);
+    io.to("admins").emit("session-closed", closedPayload);
+    console.log(`🔒 Session closed for Table ${session.table.code} — notified table room + admins`);
 
     res.json({
       success: true,

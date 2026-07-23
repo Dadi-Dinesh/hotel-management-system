@@ -29,7 +29,16 @@ export default function TableLandingPage() {
   // Join table room when socket connects so session-closed can redirect
   useEffect(() => {
     if (!socket || !tableCode) return;
-    socket.emit("join-table", tableCode);
+
+    const joinRoom = () => {
+      console.log(`[Table ${tableCode}] Emitting join-table...`);
+      socket.emit("join-table", tableCode);
+    };
+
+    if (socket.connected) {
+      joinRoom();
+    }
+    socket.on("connect", joinRoom);
 
     const handleSessionClosed = () => {
       router.push(`/table/${tableCode}/thank-you`);
@@ -37,6 +46,7 @@ export default function TableLandingPage() {
     socket.on("session-closed", handleSessionClosed);
 
     return () => {
+      socket.off("connect", joinRoom);
       socket.off("session-closed", handleSessionClosed);
     };
   }, [socket, tableCode, router]);

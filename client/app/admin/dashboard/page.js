@@ -50,8 +50,16 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!socket) return;
 
-    // Join admin room so server emits events directly to this dashboard
-    socket.emit("join-admin");
+    const joinRoom = () => {
+      console.log("[Admin Dashboard] Emitting join-admin to join room...");
+      socket.emit("join-admin");
+    };
+
+    if (socket.connected) {
+      joinRoom();
+    }
+
+    socket.on("connect", joinRoom);
 
     const handleNewOrder = (data) => {
       console.log("[Admin] new-order:", data);
@@ -90,6 +98,7 @@ export default function AdminDashboard() {
     socket.on("new-session", fetchStats);
 
     return () => {
+      socket.off("connect", joinRoom);
       socket.off("new-order", handleNewOrder);
       socket.off("waiter-call", handleWaiterCall);
       socket.off("session-closed", handleSessionClosed);

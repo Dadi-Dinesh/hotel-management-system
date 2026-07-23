@@ -47,9 +47,15 @@ export default function OrdersPage() {
   useEffect(() => {
     if (!socket || !tableCode) return;
 
-    // Join the table room so server can push updates directly to this customer
-    // Room format must match server: table:<CODE>
-    socket.emit("join-table", tableCode);
+    const joinRoom = () => {
+      console.log(`[Orders Table ${tableCode}] Emitting join-table...`);
+      socket.emit("join-table", tableCode);
+    };
+
+    if (socket.connected) {
+      joinRoom();
+    }
+    socket.on("connect", joinRoom);
 
     socket.on("order-accepted", () => {
       toast.success("Your order has been accepted! 🎉");
@@ -68,6 +74,7 @@ export default function OrdersPage() {
     });
 
     return () => {
+      socket.off("connect", joinRoom);
       socket.off("order-accepted");
       socket.off("order-status-update");
       socket.off("session-closed");

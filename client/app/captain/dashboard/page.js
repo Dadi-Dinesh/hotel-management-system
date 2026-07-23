@@ -158,8 +158,19 @@ export default function CaptainDashboard() {
   useEffect(() => {
     if (!socket) return;
 
-    // Join the captains room so server can emit directly to this dashboard
-    socket.emit("join-captain");
+    // Join room function — safe to call on mount and on reconnect
+    const joinRoom = () => {
+      console.log("[Captain Dashboard] Emitting join-captain to join room...");
+      socket.emit("join-captain");
+    };
+
+    // If socket is already connected, join immediately
+    if (socket.connected) {
+      joinRoom();
+    }
+
+    // Always listen for connect event (reconnects or late connection)
+    socket.on("connect", joinRoom);
 
     // ── New Order ──────────────────────────
     const handleNewOrder = (data) => {
@@ -250,6 +261,7 @@ export default function CaptainDashboard() {
     socket.on("new-session", handleNewSession);
 
     return () => {
+      socket.off("connect", joinRoom);
       socket.off("new-order", handleNewOrder);
       socket.off("waiter-call", handleWaiterCall);
       socket.off("bill-requested", handleBillRequested);

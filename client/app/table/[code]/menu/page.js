@@ -48,9 +48,15 @@ export default function MenuPage() {
   useEffect(() => {
     if (!socket || !tableCode) return;
 
-    // Join the table-specific socket room (format: table:<CODE>)
-    // The server emits order updates exclusively to this room
-    socket.emit("join-table", tableCode);
+    const joinRoom = () => {
+      console.log(`[Menu Table ${tableCode}] Emitting join-table...`);
+      socket.emit("join-table", tableCode);
+    };
+
+    if (socket.connected) {
+      joinRoom();
+    }
+    socket.on("connect", joinRoom);
 
     socket.on("order-accepted", fetchSession);
     socket.on("order-status-update", fetchSession);
@@ -59,6 +65,7 @@ export default function MenuPage() {
     });
 
     return () => {
+      socket.off("connect", joinRoom);
       socket.off("order-accepted", fetchSession);
       socket.off("order-status-update", fetchSession);
       socket.off("session-closed");

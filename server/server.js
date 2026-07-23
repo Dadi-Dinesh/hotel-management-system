@@ -17,74 +17,57 @@ const adminRoutes = require("./src/routes/admin.routes");
 const feedbackRoutes = require("./src/routes/feedback.routes");
 
 const app = express();
+
+// Required HTTP server setup for Socket.IO attachment
 const server = http.createServer(app);
 
-// Render always injects PORT dynamically — 8080 is the safe fallback
-const PORT = process.env.PORT || 8080;
+// Port setup — process.env.PORT for Render deployment, default 4000
+const PORT = process.env.PORT || 4000;
 
-// ── CORS Origins ────────────────────────────────────────────────────────────
-// Always allow localhost for local development.
-// In production, CLIENT_URL must be set on Render to your Vercel domain.
-// We support BOTH as an array so neither blocks the other.
+// Allowed CORS origins
 const getAllowedOrigins = () => {
   const origins = [
-    "http://localhost:3000",   // local Next.js dev server
-    "http://localhost:3001",   // alternate local port
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://hotel-management-system-psi-kohl.vercel.app",
   ];
 
-  // Append production Vercel domain from environment variable
   if (process.env.CLIENT_URL) {
-    // CLIENT_URL may be a comma-separated list for multi-environment support
-    const clientUrls = process.env.CLIENT_URL.split(",").map((u) => u.trim());
-    origins.push(...clientUrls);
+    const urls = process.env.CLIENT_URL.split(",").map((u) => u.trim());
+    urls.forEach((url) => {
+      if (url && !origins.includes(url)) {
+        origins.push(url);
+      }
+    });
   }
 
-  // Always include the known Vercel deployment URL as a hard-coded safety net
-  // so even if CLIENT_URL is misconfigured on Render, it still works
-  const VERCEL_URL = "https://hotel-management-system-psi-kohl.vercel.app";
-  if (!origins.includes(VERCEL_URL)) {
-    origins.push(VERCEL_URL);
-  }
-
-  console.log("🌐 CORS allowed origins:", origins);
   return origins;
 };
 
 const ALLOWED_ORIGINS = getAllowedOrigins();
 
-// Initialize Socket.IO BEFORE Express middleware
-// (Socket.IO needs to attach to the raw http server)
+// Initialize Socket.IO with server and allowed origins
 initializeSocket(server, ALLOWED_ORIGINS);
 
 // Middleware
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (server-to-server, mobile apps, curl)
       if (!origin) return callback(null, true);
-
-      if (ALLOWED_ORIGINS.includes(origin)) {
+      if (ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".vercel.app")) {
         return callback(null, true);
       }
-
-      // Also allow any Vercel preview deployments (branch deploys)
-      if (origin.endsWith(".vercel.app")) {
-        return callback(null, true);
-      }
-
-      console.warn(`⛔ CORS blocked origin: ${origin}`);
       return callback(new Error(`CORS: origin ${origin} not allowed`));
     },
-    credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   })
 );
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check — also verifies Socket.IO endpoint reachability
+// Health check endpoint
 app.get("/", (req, res) => {
   res.json({
     success: true,
@@ -108,10 +91,9 @@ app.use("/api/feedbacks", feedbackRoutes);
 // Global error handler
 app.use(errorHandler);
 
-// Start server
+// Start server listening on dynamic PORT
 server.listen(PORT, () => {
   console.log(`\n🍛 Nookambika Dhaba server running on port ${PORT}`);
-  console.log(`📡 Socket.IO ready — transports: [websocket, polling]`);
-  console.log(`🔗 Health: http://localhost:${PORT}`);
-  console.log(`🔗 Socket test: http://localhost:${PORT}/socket.io/?EIO=4&transport=polling\n`);
+  console.log(`📡 Socket.IO ready for real-time connections`);
+  console.log(`🔗 Allowed origins:`, ALLOWED_ORIGINS);
 });

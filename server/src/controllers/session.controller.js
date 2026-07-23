@@ -70,16 +70,17 @@ const startSession = async (req, res, next) => {
       },
     });
 
-    // Notify captains and admins about new table session
+    // Notify waiters, captains, and admins about new table session
     const io = getIO();
     const sessionPayload = {
       tableCode: table.code,
       tableNumber: table.number,
       sessionId: session.id,
     };
+    console.log("Sending new-session event:", session.id);
+    io.to("waiters").emit("new-session", sessionPayload);
     io.to("captains").emit("new-session", sessionPayload);
     io.to("admins").emit("new-session", sessionPayload);
-    console.log(`🪑 New session for Table ${table.code} — notified captains + admins`);
 
     res.status(201).json({
       success: true,
@@ -184,7 +185,7 @@ const requestBill = async (req, res, next) => {
       "A4": billHTML_A4,
     };
 
-    // Notify captains and admins about bill request
+    // Notify waiters, captains, and admins about bill request
     const io = getIO();
     const billPayload = {
       sessionId: session.id,
@@ -194,9 +195,10 @@ const requestBill = async (req, res, next) => {
       billHTML,
       billFormats,
     };
+    console.log("Sending bill-requested event for table:", session.table.code);
+    io.to("waiters").emit("bill-requested", billPayload);
     io.to("captains").emit("bill-requested", billPayload);
     io.to("admins").emit("bill-requested", billPayload);
-    console.log(`🧾 Bill requested for Table ${session.table.code} — notified captains + admins`);
 
     res.json({
       success: true,
@@ -284,16 +286,18 @@ const closeSession = async (req, res, next) => {
       },
     });
 
-    // Notify the customer table and admin that session is closed
+    // Notify table and waiters/admins that session is closed
     const io = getIO();
     const closedPayload = {
       sessionId: session.id,
       tableCode: session.table.code,
     };
-    // Use new room format: table:<CODE>
+    console.log("Sending session-closed event for table:", session.table.code);
+    io.to(session.table.code).emit("session-closed", closedPayload);
     io.to(`table:${session.table.code}`).emit("session-closed", closedPayload);
+    io.to("waiters").emit("session-closed", closedPayload);
+    io.to("captains").emit("session-closed", closedPayload);
     io.to("admins").emit("session-closed", closedPayload);
-    console.log(`🔒 Session closed for Table ${session.table.code} — notified table room + admins`);
 
     res.json({
       success: true,
@@ -312,7 +316,7 @@ const closeSession = async (req, res, next) => {
 const submitFeedback = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { ratings } = req.body; // Array of { menuItemId, rating }
+    const { ratings } = req.body;
 
     if (!Array.isArray(ratings) || ratings.length === 0) {
       return res.status(400).json({
@@ -332,7 +336,6 @@ const submitFeedback = async (req, res, next) => {
       });
     }
 
-    // Save feedback inside a transaction
     await prisma.$transaction(
       ratings.map((rating) =>
         prisma.feedback.create({

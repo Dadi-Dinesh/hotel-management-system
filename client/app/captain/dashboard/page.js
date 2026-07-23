@@ -153,30 +153,64 @@ export default function CaptainDashboard() {
   }, [fetchOrders, fetchBillRequests, fetchTables]);
 
   // ─────────────────────────────────────────
-  // SOCKET LISTENERS
+  // SOCKET LISTENERS & REAL-TIME SYNCHRONIZATION
   // ─────────────────────────────────────────
   useEffect(() => {
     if (!socket) return;
 
+    console.log("Listening for new-order events");
+
     // Join room function — safe to call on mount and on reconnect
     const joinRoom = () => {
-      console.log("[Captain Dashboard] Emitting join-captain to join room...");
+      console.log("[Captain Dashboard] Emitting join-waiter & join-captain to join room...");
+      socket.emit("join-waiter");
       socket.emit("join-captain");
     };
 
-    // If socket is already connected, join immediately
+    // If socket is already connected, join rooms immediately
     if (socket.connected) {
       joinRoom();
     }
 
-    // Always listen for connect event (reconnects or late connection)
+    // Listen for connect event for automatic room join on reconnect
     socket.on("connect", joinRoom);
 
     // ── New Order ──────────────────────────
     const handleNewOrder = (data) => {
-      console.log("[Captain] new-order:", data);
+      console.log("New order received", data);
+      console.log("Received order:", data);
       playNotificationSound("order");
 
+      // Format incoming real-time order for immediate state merge
+      const newOrderCard = {
+        id: data.id || data.orderId,
+        orderNumber: data.orderNumber,
+        status: data.status || "PENDING",
+        createdAt: data.createdAt || new Date().toISOString(),
+        session: data.session || {
+          status: "ACTIVE",
+          table: {
+            code: data.tableCode,
+            number: data.tableNumber,
+          },
+        },
+        items: (data.items || []).map((i) => ({
+          id: i.id || `${data.orderId}-${i.name}`,
+          menuItem: i.menuItem || { name: i.name },
+          quantity: i.quantity,
+          price: i.price,
+        })),
+        ...data,
+      };
+
+      // 1. Immediately prepend to local orders state for instant UI update
+      setOrders((prev) => {
+        const exists = prev.some((o) => o.id === newOrderCard.id);
+        if (exists) return prev;
+        return [newOrderCard, ...prev];
+      });
+
+      // 2. Add notification badge
       const notif = {
         id: Date.now(),
         type: "new-order",
@@ -188,17 +222,20 @@ export default function CaptainDashboard() {
       };
       setNotifications((prev) => [notif, ...prev.slice(0, 49)]);
       setShowNotifications(true);
+
       toast.success(`🔔 New order from Table ${data.tableCode}!`, {
         duration: 6000,
-        id: `order-${data.orderId}`,
+        id: `order-${data.orderId || data.id}`,
       });
+
+      // 3. Asynchronously fetch fresh DB state to guarantee consistency
       fetchOrders();
       fetchTables();
     };
 
     // ── Waiter Call ────────────────────────
     const handleWaiterCall = (data) => {
-      console.log("[Captain] waiter-call:", data);
+      console.log("Waiter call", data);
       playNotificationSound("waiter");
 
       const notif = {
@@ -217,6 +254,7 @@ export default function CaptainDashboard() {
       };
       setNotifications((prev) => [notif, ...prev.slice(0, 49)]);
       setShowNotifications(true);
+
       toast(`📣 Table ${data.tableCode} is calling for assistance!`, {
         duration: 8000,
         icon: "🔔",

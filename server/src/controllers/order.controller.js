@@ -75,27 +75,30 @@ const placeOrder = async (req, res, next) => {
       },
     });
 
-    // Build the notification payload
+    // Full order payload for real-time state synchronization
     const orderPayload = {
+      ...order,
       orderId: order.id,
       orderNumber: order.orderNumber,
       tableCode: session.table.code,
       tableNumber: session.table.number,
       items: order.items.map((i) => ({
-        name: i.menuItem.name,
+        id: i.id,
+        menuItemId: i.menuItemId,
         quantity: i.quantity,
         price: i.price,
+        menuItem: i.menuItem,
+        name: i.menuItem.name,
       })),
       createdAt: order.createdAt,
     };
 
-    // Emit "new-order" to captains room (waiter dashboard)
-    // and admins room (admin dashboard) simultaneously
+    // Emit new-order event to waiters, captains, and admins rooms
     const io = getIO();
+    console.log("Sending new-order event:", order.id);
+    io.to("waiters").emit("new-order", orderPayload);
     io.to("captains").emit("new-order", orderPayload);
     io.to("admins").emit("new-order", orderPayload);
-
-    console.log(`📦 New order #${order.orderNumber} from Table ${session.table.code} — notified captains + admins`);
 
     res.status(201).json({
       success: true,
@@ -193,23 +196,22 @@ const acceptOrder = async (req, res, next) => {
     const waiterHTML_A4 = generateKOTHTML(order, "WAITER", "A4");
 
     const tableCode = order.session.table.code;
-    const tableRoom = `table:${tableCode}`;
 
     const statusPayload = {
+      ...order,
       orderId: order.id,
       orderNumber: order.orderNumber,
       status: "ACCEPTED",
       tableCode,
     };
 
-    // Notify the customer table that order was accepted
+    // Notify customer table, waiters, and admin
     const io = getIO();
-    io.to(tableRoom).emit("order-accepted", statusPayload);
-
-    // Notify admin dashboard of status change
+    console.log("Sending order-accepted event:", order.id);
+    io.to(tableCode).emit("order-accepted", statusPayload);
+    io.to(`table:${tableCode}`).emit("order-accepted", statusPayload);
+    io.to("waiters").emit("order-status-update", statusPayload);
     io.to("admins").emit("order-status-update", statusPayload);
-
-    console.log(`✅ Order #${order.orderNumber} accepted — notified ${tableRoom} + admins`);
 
     res.json({
       success: true,
@@ -270,14 +272,13 @@ const updateOrderStatus = async (req, res, next) => {
     });
 
     const tableCode = order.session.table.code;
-    const tableRoom = `table:${tableCode}`;
 
     const statusPayload = {
+      ...order,
       orderId: order.id,
       orderNumber: order.orderNumber,
       status: order.status,
       tableCode,
-      // Human-readable label shown on the customer's screen
       statusLabel: {
         PREPARING: "Your order is being prepared 🍳",
         SERVED: "Your order has been served! Enjoy your meal 🍽️",
@@ -287,14 +288,12 @@ const updateOrderStatus = async (req, res, next) => {
       }[order.status] || order.status,
     };
 
-    // Notify customer table of status change
     const io = getIO();
-    io.to(tableRoom).emit("order-status-update", statusPayload);
-
-    // Notify admin dashboard
+    console.log(`Sending order-status-update event (${order.status}):`, order.id);
+    io.to(tableCode).emit("order-status-update", statusPayload);
+    io.to(`table:${tableCode}`).emit("order-status-update", statusPayload);
+    io.to("waiters").emit("order-status-update", statusPayload);
     io.to("admins").emit("order-status-update", statusPayload);
-
-    console.log(`🔄 Order #${order.orderNumber} → ${status} — notified ${tableRoom} + admins`);
 
     res.json({
       success: true,

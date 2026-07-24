@@ -80,7 +80,7 @@ model Order {
 }
 
 model OrderItem {
-  id         String      @id @default(cuid())when
+  id         String      @id @default(cuid())
   orderId    String
   menuItemId String
   quantity   Int

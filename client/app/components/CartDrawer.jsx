@@ -212,37 +212,69 @@ export default function CartDrawer({
                       </p>
                     </div>
 
-                    <div
-                      className="flex items-center border"
-                      style={{
-                        borderColor: "var(--color-brown-900)",
-                      }}
-                    >
-                      <button
-                        onClick={() =>
-                          item.quantity === 1
-                            ? onRemove(item.menuItemId)
-                            : onUpdateQuantity(item.menuItemId, item.quantity - 1)
-                        }
-                        className="w-7 h-7 flex items-center justify-center hover:bg-orange-500 hover:text-white transition-colors"
-                        style={{ color: "var(--color-brown-900)", borderRight: "1px solid var(--color-brown-900)" }}
+                    {item.name?.toLowerCase().includes("pulka") || item.name?.toLowerCase().includes("phulka") ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-gray-500 uppercase">Qty:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={item.quantity}
+                          onKeyDown={(e) => {
+                            if (e.key === "." || e.key === "e" || e.key === "-" || e.key === "+") {
+                              e.preventDefault();
+                            }
+                          }}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === "") {
+                              onRemove(item.menuItemId);
+                              return;
+                            }
+                            const parsed = parseInt(raw, 10);
+                            if (isNaN(parsed) || parsed < 1) {
+                              onRemove(item.menuItemId);
+                            } else {
+                              onUpdateQuantity(item.menuItemId, Math.floor(parsed));
+                            }
+                          }}
+                          className="w-16 h-8 text-center font-black text-sm border-2 rounded-md bg-amber-50 focus:outline-none focus:border-orange-500 text-brown-900"
+                          style={{ borderColor: "var(--color-brown-900)" }}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className="flex items-center border"
+                        style={{
+                          borderColor: "var(--color-brown-900)",
+                        }}
                       >
-                        <Minus size={13} />
-                      </button>
-                      <span
-                        className="text-xs sm:text-sm font-bold min-w-[28px] text-center"
-                        style={{ color: "var(--color-brown-900)" }}
-                      >
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => onUpdateQuantity(item.menuItemId, item.quantity + 1)}
-                        className="w-7 h-7 flex items-center justify-center hover:bg-orange-500 hover:text-white transition-colors"
-                        style={{ color: "var(--color-brown-900)", borderLeft: "1px solid var(--color-brown-900)" }}
-                      >
-                        <Plus size={13} />
-                      </button>
-                    </div>
+                        <button
+                          onClick={() =>
+                            item.quantity === 1
+                              ? onRemove(item.menuItemId)
+                              : onUpdateQuantity(item.menuItemId, item.quantity - 1)
+                          }
+                          className="w-7 h-7 flex items-center justify-center hover:bg-orange-500 hover:text-white transition-colors"
+                          style={{ color: "var(--color-brown-900)", borderRight: "1px solid var(--color-brown-900)" }}
+                        >
+                          <Minus size={13} />
+                        </button>
+                        <span
+                          className="text-xs sm:text-sm font-bold min-w-[28px] text-center"
+                          style={{ color: "var(--color-brown-900)" }}
+                        >
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => onUpdateQuantity(item.menuItemId, item.quantity + 1)}
+                          className="w-7 h-7 flex items-center justify-center hover:bg-orange-500 hover:text-white transition-colors"
+                          style={{ color: "var(--color-brown-900)", borderLeft: "1px solid var(--color-brown-900)" }}
+                        >
+                          <Plus size={13} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

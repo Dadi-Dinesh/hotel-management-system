@@ -198,7 +198,7 @@ export default function MenuPage() {
         onSearchChange={setSearchQuery}
       />
 
-      <main className="flex-1 max-w-5xl mx-auto w-full px-3 sm:px-4 py-3 sm:py-4 overflow-x-hidden">
+      <main className="flex-1 max-w-5xl mx-auto w-full px-3 sm:px-4 py-3 sm:py-4 pb-28 sm:pb-36 overflow-x-hidden">
         {/* Search & Filter status banner */}
         {(searchQuery || dietFilter !== "ALL" || activeCategory) && (
           <div className="flex items-center justify-between mb-3 text-xs text-gray-600 bg-amber-50/70 border border-amber-200 px-3 py-1.5 rounded-lg">
@@ -263,6 +263,11 @@ export default function MenuPage() {
               />
             ))}
           </div>
+        )}
+
+        {/* Bottom Spacer to ensure floating order bar never overlaps the last item */}
+        {(cart.totalItems > 0 || placedItemsCount > 0) && (
+          <div className="h-24 w-full flex-shrink-0" aria-hidden="true" />
         )}
       </main>
 

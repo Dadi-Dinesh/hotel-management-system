@@ -80,13 +80,14 @@ model Order {
 }
 
 model OrderItem {
-  id         String   @id @default(cuid())
+  id         String      @id @default(cuid())when
   orderId    String
   menuItemId String
   quantity   Int
   price      Float
-  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
-  order      Order    @relation(fields: [orderId], references: [id])
+  status     OrderStatus @default(PENDING)
+  menuItem   MenuItem    @relation(fields: [menuItemId], references: [id])
+  order      Order       @relation(fields: [orderId], references: [id])
 }
 
 model Feedback {
@@ -102,6 +103,7 @@ model Feedback {
 enum Role {
   ADMIN
   CAPTAIN
+  KITCHEN
 }
 
 enum SessionStatus {

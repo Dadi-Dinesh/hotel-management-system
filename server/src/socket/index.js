@@ -77,6 +77,12 @@ const initializeSocket = (server, allowedOrigins = []) => {
       console.log(`🔑 Socket ${socket.id} joined admins room`);
     });
 
+    // Kitchen staff joins kitchen room
+    socket.on("join-kitchen", () => {
+      socket.join("kitchen");
+      console.log(`👨‍🍳 Socket ${socket.id} joined kitchen room`);
+    });
+
     // ─────────────────────────────────────────
     // CUSTOMER → WAITER EVENTS
     // ─────────────────────────────────────────

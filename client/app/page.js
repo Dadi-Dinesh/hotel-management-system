@@ -461,21 +461,28 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Staff Login Links */}
+      {/* Staff Login Links & Portal Shortcuts */}
       <footer className="py-8 bg-brown-900 text-center" style={{ background: "var(--color-brown-900)" }}>
-        <div className="flex items-center justify-center gap-8 mb-4">
+        <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 mb-4 px-4">
           <Link
             href="/captain/login"
-            className="text-xs font-bold uppercase tracking-widest text-white hover:text-orange-500 transition-colors"
+            className="text-xs font-bold uppercase tracking-widest text-white hover:text-orange-400 transition-colors flex items-center gap-1.5"
           >
-            Captain Login
+            👨‍✈️ Captain Portal
+          </Link>
+          <span className="text-white opacity-30">|</span>
+          <Link
+            href="/kitchen/login"
+            className="text-xs font-bold uppercase tracking-widest text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5"
+          >
+            👨‍🍳 Kitchen Portal
           </Link>
           <span className="text-white opacity-30">|</span>
           <Link
             href="/admin/login"
-            className="text-xs font-bold uppercase tracking-widest text-white hover:text-orange-500 transition-colors"
+            className="text-xs font-bold uppercase tracking-widest text-white hover:text-orange-400 transition-colors flex items-center gap-1.5"
           >
-            Admin Login
+            🔑 Admin Portal
           </Link>
         </div>
         <p

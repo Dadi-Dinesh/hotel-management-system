@@ -64,8 +64,15 @@ export default function OrdersPage() {
 
     socket.on("order-status-update", (data) => {
       // Use human-readable statusLabel from server if available
-      const message = data.statusLabel || `Order #${data.orderNumber}: ${data.status}`;
+      const message = data.itemServed
+        ? `'${data.itemServed.name}' has been served to your table! 🍽️`
+        : data.statusLabel || `Order #${data.orderNumber}: ${data.status}`;
       toast.success(message, { duration: 5000 });
+      fetchSession();
+    });
+
+    socket.on("item-served", (data) => {
+      toast.success(`'${data.itemName || "Dish"}' served! 🍽️`, { duration: 4000 });
       fetchSession();
     });
 
@@ -77,6 +84,7 @@ export default function OrdersPage() {
       socket.off("connect", joinRoom);
       socket.off("order-accepted");
       socket.off("order-status-update");
+      socket.off("item-served");
       socket.off("session-closed");
     };
   }, [socket, tableCode, fetchSession, router]);
@@ -269,36 +277,44 @@ export default function OrdersPage() {
                 </div>
 
                 <div className="space-y-2">
-                  {order.items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between py-1"
-                    >
-                      <div className="flex items-center gap-2">
+                  {order.items.map((item) => {
+                    const isServed = item.status === "SERVED";
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between py-1.5 border-b border-cream-200/50 last:border-0"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="text-xs font-bold px-1.5 py-0.5 rounded"
+                            style={{
+                              background: "var(--color-cream-100)",
+                              color: "var(--color-brown-800)",
+                            }}
+                          >
+                            x{item.quantity}
+                          </span>
+                          <span
+                            className="text-sm font-medium"
+                            style={{ color: "var(--color-text-secondary)" }}
+                          >
+                            {item.menuItem?.name || item.name}
+                          </span>
+                          {isServed && (
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              Served 🍽️
+                            </span>
+                          )}
+                        </div>
                         <span
-                          className="text-xs font-semibold px-1.5 py-0.5 rounded"
-                          style={{
-                            background: "var(--color-cream-100)",
-                            color: "var(--color-brown-800)",
-                          }}
+                          className="text-sm font-semibold"
+                          style={{ color: "var(--color-brown-900)" }}
                         >
-                          x{item.quantity}
-                        </span>
-                        <span
-                          className="text-sm"
-                          style={{ color: "var(--color-text-secondary)" }}
-                        >
-                          {item.menuItem.name}
+                          ₹{item.price * item.quantity}
                         </span>
                       </div>
-                      <span
-                        className="text-sm font-medium"
-                        style={{ color: "var(--color-brown-900)" }}
-                      >
-                        ₹{item.price * item.quantity}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}

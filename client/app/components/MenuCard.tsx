@@ -7,12 +7,26 @@ import FoodDetailModal from "./FoodDetailModal";
 import { VegBadge, NonVegBadge } from "./LoadingScreen";
 import { MenuItem } from "../types";
 
+import toast from "react-hot-toast";
+
 interface MenuCardProps {
   item: MenuItem;
   cartQuantity: number;
   onAdd: (item: MenuItem) => void;
   onUpdateQuantity: (id: string, qty: number) => void;
 }
+
+const isQuantityItem = (name: string = "") => {
+  const lower = name.toLowerCase();
+  return (
+    lower.includes("roti") ||
+    lower.includes("pulka") ||
+    lower.includes("phulka") ||
+    lower.includes("chapati") ||
+    lower.includes("naan") ||
+    lower.includes("paratha")
+  );
+};
 
 const getServingEmoji = (info?: string | null): string => {
   if (!info) return "";
@@ -42,9 +56,26 @@ export default function MenuCard({
   onUpdateQuantity,
 }: MenuCardProps) {
   const [showDetail, setShowDetail] = useState(false);
+  const [inputString, setInputString] = useState<string>(cartQuantity > 0 ? String(cartQuantity) : "");
 
   const displayRating = item.displayRating || (item.rating && item.rating < 3 ? 3.0 : item.rating) || 4.2;
   const ratingCount = item.ratingCount || 100;
+  const isQtyItem = isQuantityItem(item.name);
+
+  const handleApplyQuantity = () => {
+    const parsed = parseInt(inputString, 10);
+    if (isNaN(parsed) || parsed < 1) {
+      toast.error("Please enter a valid quantity (minimum 1)");
+      return;
+    }
+    const validQty = Math.floor(parsed);
+    if (cartQuantity === 0) {
+      onAdd(item);
+    }
+    onUpdateQuantity(item.id, validQty);
+    setInputString(String(validQty));
+    toast.success(`Added ${validQty}x ${item.name} to cart! 🫓`);
+  };
 
   return (
     <>
@@ -132,7 +163,7 @@ export default function MenuCard({
           </div>
 
           {/* Price & ADD Button Row */}
-          <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-6 w-full sm:w-auto">
+          <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto">
             <span
               className="font-bold text-base sm:text-lg"
               style={{ fontFamily: "var(--font-heading)", color: "var(--color-orange-500)" }}
@@ -140,7 +171,39 @@ export default function MenuCard({
               ₹{item.price}
             </span>
 
-            {cartQuantity === 0 ? (
+            {isQtyItem ? (
+              <div className="flex items-center gap-2">
+                {/* Single empty box to enter number (No - or + buttons) */}
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="Qty"
+                  value={inputString}
+                  onFocus={(e) => e.target.select()}
+                  onKeyDown={(e) => {
+                    if (e.key === "." || e.key === "e" || e.key === "-" || e.key === "+") {
+                      e.preventDefault();
+                    }
+                    if (e.key === "Enter") {
+                      handleApplyQuantity();
+                    }
+                  }}
+                  onChange={(e) => setInputString(e.target.value)}
+                  className="w-16 h-9 text-center font-extrabold text-base border-2 rounded-lg bg-amber-50/60 focus:outline-none focus:border-orange-500 text-brown-900 shadow-xs"
+                  style={{ borderColor: "var(--color-brown-900)" }}
+                />
+
+                {/* Explicit ADD button */}
+                <button
+                  type="button"
+                  onClick={handleApplyQuantity}
+                  className="btn-primary font-bold text-xs uppercase tracking-wider flex items-center gap-1 shadow-xs h-9 px-4"
+                >
+                  <Plus size={14} /> ADD
+                </button>
+              </div>
+            ) : cartQuantity === 0 ? (
               <button
                 onClick={() => onAdd(item)}
                 className="btn-primary font-bold text-xs uppercase tracking-wider flex items-center gap-1"

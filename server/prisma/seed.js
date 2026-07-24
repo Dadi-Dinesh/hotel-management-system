@@ -50,6 +50,21 @@ async function main() {
   });
   console.log(`   ✅ Captain: ${captain.email} / captain@123\n`);
 
+  // ─── Seed Kitchen Account ─────────────────────────
+  console.log("👨‍🍳 Creating kitchen account...");
+  const kitchenPassword = await bcrypt.hash("kitchen@123", 12);
+  const kitchenUser = await prisma.user.upsert({
+    where: { email: "kitchen@nookambika.com" },
+    update: {},
+    create: {
+      name: "Kitchen Master",
+      email: "kitchen@nookambika.com",
+      password: kitchenPassword,
+      role: "KITCHEN",
+    },
+  });
+  console.log(`   ✅ Kitchen: ${kitchenUser.email} / kitchen@123\n`);
+
   // ─── Clean Existing Menu Data ──────────────────────
   console.log("🧹 Cleaning old menu, orders, and sessions data...");
   await prisma.feedback.deleteMany({});

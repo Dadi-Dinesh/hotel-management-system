@@ -313,23 +313,21 @@ export default function CaptainDashboard() {
   // ACTIONS
   // ─────────────────────────────────────────
 
+  const [updatingItems, setUpdatingItems] = useState(new Set());
+
   const handleAcceptOrder = async (orderId) => {
     setAcceptingOrders((prev) => new Set([...prev, orderId]));
     try {
       const res = await api.patch(`/orders/${orderId}/accept`);
       toast.success(`Order #${res.data.data.order.orderNumber} accepted!`);
 
-      const { kitchen, waiter } = res.data.data.kot;
-      const kitchenHTML = kitchen.formats?.[paperFormat] || kitchen.html;
-      const waiterHTML = waiter.formats?.[paperFormat] || waiter.html;
+      const { waiter } = res.data.data.kot || {};
+      const waiterHTML = waiter?.formats?.[paperFormat] || waiter?.html || "";
 
+      // Single copy print: Waiter Token ONLY (Kitchen staff uses Kitchen Portal)
       const printWindow = window.open("", "_blank", "width=800,height=900");
-      if (printWindow) {
-        printWindow.document.write(`
-          ${kitchenHTML}
-          <div style="page-break-after: always;"></div>
-          ${waiterHTML}
-        `);
+      if (printWindow && waiterHTML) {
+        printWindow.document.write(waiterHTML);
         printWindow.document.close();
         setTimeout(() => printWindow.print(), 300);
       }
@@ -340,6 +338,23 @@ export default function CaptainDashboard() {
       setAcceptingOrders((prev) => {
         const next = new Set(prev);
         next.delete(orderId);
+        return next;
+      });
+    }
+  };
+
+  const handleMarkItemServed = async (itemId) => {
+    setUpdatingItems((prev) => new Set([...prev, itemId]));
+    try {
+      const res = await api.patch(`/orders/items/${itemId}/status`, { status: "SERVED" });
+      toast.success(`Item marked as served! 🍽️`);
+      fetchOrders();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to mark item served");
+    } finally {
+      setUpdatingItems((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
         return next;
       });
     }
@@ -827,13 +842,38 @@ export default function CaptainDashboard() {
                     <OrderStatusBadge status={order.status} />
                   </div>
 
-                  <div className="space-y-2 mb-4">
-                    {order.items.map((item) => (
-                      <div key={item.id} className="flex justify-between text-sm font-bold uppercase tracking-wider">
-                        <span style={{ color: "var(--color-text-secondary)" }}>{item.menuItem.name}</span>
-                        <span style={{ color: "var(--color-brown-900)" }}>X {item.quantity}</span>
-                      </div>
-                    ))}
+                  <div className="space-y-2.5 mb-4">
+                    {order.items.map((item) => {
+                      const isItemServed = item.status === "SERVED";
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between text-xs sm:text-sm font-bold uppercase tracking-wider p-2 border rounded-lg bg-amber-50/40 border-amber-200/60"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span style={{ color: "var(--color-brown-900)" }}>{item.menuItem?.name || item.name}</span>
+                            <span className="text-orange-600 font-extrabold">× {item.quantity}</span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {isItemServed ? (
+                              <span className="text-[10px] font-black px-2 py-1 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                ✓ SERVED
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => handleMarkItemServed(item.id)}
+                                disabled={updatingItems.has(item.id)}
+                                className="px-3 py-1 text-xs font-black uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white rounded border border-emerald-800 transition-all flex items-center gap-1 shadow-xs active:scale-95 disabled:opacity-50"
+                              >
+                                <Utensils size={12} />
+                                {updatingItems.has(item.id) ? "SERVING..." : "SERVED"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
 
                   {/* Status Update Buttons — captain updates order progress */}

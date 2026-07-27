@@ -36,9 +36,12 @@ export const getSocket = () => {
     console.log(`[Socket] Initializing client connecting to: ${SOCKET_URL}`);
 
     socket = io(SOCKET_URL, {
-      transports: ["websocket"],
+      transports: ["polling", "websocket"],
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      randomizationFactor: 0.5,
       timeout: 20000,
       withCredentials: true,
       autoConnect: false,
@@ -50,8 +53,7 @@ export const getSocket = () => {
     });
 
     socket.on("connect_error", (err) => {
-      console.error("Socket connect_error message:", err.message);
-      console.error(`[Socket] ❌ Connection error to ${SOCKET_URL}:`, err.message);
+      console.warn(`[Socket] ⚠️ Connection notice for ${SOCKET_URL}:`, err.message);
     });
 
     socket.on("disconnect", (reason) => {

@@ -44,12 +44,16 @@ api.interceptors.response.use(
       if (typeof window !== "undefined") {
         const path = window.location.pathname;
         // Only redirect if on protected routes
-        if (path.startsWith("/captain") || path.startsWith("/admin")) {
+        if (path.startsWith("/captain") || path.startsWith("/admin") || path.startsWith("/kitchen")) {
           localStorage.removeItem("token");
           localStorage.removeItem("user");
-          window.location.href = path.startsWith("/admin")
-            ? "/admin/login"
-            : "/captain/login";
+          if (path.startsWith("/admin")) {
+            window.location.href = "/admin/login";
+          } else if (path.startsWith("/kitchen")) {
+            window.location.href = "/kitchen/login";
+          } else {
+            window.location.href = "/captain/login";
+          }
         }
       }
     }

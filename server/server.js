@@ -15,6 +15,7 @@ const categoryRoutes = require("./src/routes/category.routes");
 const orderRoutes = require("./src/routes/order.routes");
 const adminRoutes = require("./src/routes/admin.routes");
 const feedbackRoutes = require("./src/routes/feedback.routes");
+const printerRoutes = require("./src/routes/printer.routes");
 
 const app = express();
 
@@ -52,13 +53,7 @@ initializeSocket(server, ALLOWED_ORIGINS);
 // Middleware
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      if (ALLOWED_ORIGINS.includes(origin) || origin.endsWith(".vercel.app")) {
-        return callback(null, true);
-      }
-      return callback(new Error(`CORS: origin ${origin} not allowed`));
-    },
+    origin: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
   })
@@ -87,13 +82,72 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/feedbacks", feedbackRoutes);
+app.use("/api/printer", printerRoutes);
 
 // Global error handler
 app.use(errorHandler);
 
-// Start server listening on dynamic PORT
-server.listen(PORT, () => {
-  console.log(`\n🍛 Nookambika Dhaba server running on port ${PORT}`);
-  console.log(`📡 Socket.IO ready for real-time connections`);
-  console.log(`🔗 Allowed origins:`, ALLOWED_ORIGINS);
+// Process safety & server event loggers
+server.on("error", (err) => {
+  console.error("💥 [Server] HTTP/Socket Server Error:", err.message);
 });
+
+server.on("close", () => {
+  console.warn("⚠️ [Server] HTTP/Socket Server Closed");
+});
+
+process.on("SIGINT", () => {
+  console.warn("⚠️ [Process] Received SIGINT signal");
+});
+
+process.on("SIGTERM", () => {
+  console.warn("⚠️ [Process] Received SIGTERM signal");
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("💥 [Process] Uncaught Exception:", err.message, err.stack);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("💥 [Process] Unhandled Rejection at:", promise, "reason:", reason);
+});
+
+const prisma = require("./src/config/db");
+const printerService = require("./src/services/printer/printerService");
+
+// Async non-blocking startup routine
+const startServer = async () => {
+  // 1. Database Connection Verification (5s non-blocking check)
+  try {
+    await Promise.race([
+      prisma.$connect(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Database check timeout")), 5000)),
+    ]);
+    console.log("✓ Database Connected");
+  } catch (dbErr) {
+    console.warn("⚠️ [Database Check Notice]:", dbErr.message);
+  }
+
+  // 2. Socket.IO Verification
+  console.log("✓ Socket Started");
+
+  // 3. Printer Status Check (Non-Blocking)
+  try {
+    const printerStatus = printerService.getStatus();
+    if (printerStatus && printerStatus.status === "CONNECTED") {
+      console.log(`✓ Printer Ready (${printerStatus.portPath || "Serial Hardware"})`);
+    } else {
+      console.log("✓ Printer Disabled (Hardware not detected)");
+    }
+  } catch (printerErr) {
+    console.log("✓ Printer Disabled (Hardware not detected)");
+  }
+
+  // 4. Start Listening
+  server.listen(PORT, () => {
+    console.log(`✓ Server Running on port ${PORT}\n`);
+    console.log(`🍛 Nookambika Dhaba API ready for requests on http://localhost:${PORT}`);
+  });
+};
+
+startServer();

@@ -169,6 +169,58 @@ function getFoodEmoji(name = "") {
   return "🍽️";
 }
 
+/**
+ * Extract active table orders for a specific dish name, sorted by creation timestamp (oldest first).
+ */
+function getTableBreakdownForDish(dishName, orders = []) {
+  const tableList = [];
+
+  orders.forEach((order) => {
+    // Only process active orders (not SERVED / CANCELLED)
+    if (!["PENDING", "ACCEPTED", "PREPARING"].includes(order.status)) return;
+    if (order.session?.status === "CLOSED") return;
+
+    // Check if order contains this dish item and is not SERVED
+    const matchingItems = (order.items || []).filter((i) => {
+      const name = i.menuItem?.name || i.name;
+      return name === dishName && i.status !== "SERVED";
+    });
+
+    if (matchingItems.length > 0) {
+      const totalQtyForTable = matchingItems.reduce((sum, i) => sum + i.quantity, 0);
+      const rawCode = order.session?.table?.code || (order.session?.table?.number ? `T${order.session.table.number}` : "QR");
+      
+      let tableDisplay = rawCode;
+      if (rawCode.startsWith("T") && !isNaN(parseInt(rawCode.substring(1), 10))) {
+        const num = parseInt(rawCode.substring(1), 10);
+        tableDisplay = `Table ${num}`;
+      } else if (!rawCode.toLowerCase().includes("table")) {
+        tableDisplay = `Table ${rawCode}`;
+      }
+
+      const createdAt = new Date(order.createdAt);
+      const timeStr = createdAt.toLocaleTimeString("en-IN", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+
+      tableList.push({
+        tableDisplay,
+        quantity: totalQtyForTable,
+        createdAt,
+        timeStr,
+        orderId: order.id,
+      });
+    }
+  });
+
+  // Sort chronologically (oldest order creation time first)
+  tableList.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+  return tableList;
+}
+
 export default function KitchenDashboard() {
   const router = useRouter();
   const { socket, isConnected } = useSocket();
@@ -182,6 +234,7 @@ export default function KitchenDashboard() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [updatingOrders, setUpdatingOrders] = useState(new Set());
+  const [isKitchenLive, setIsKitchenLive] = useState(true);
 
   // Verify auth on mount
   useEffect(() => {
@@ -193,33 +246,46 @@ export default function KitchenDashboard() {
     if (!["KITCHEN", "ADMIN", "CAPTAIN"].includes(u?.role)) {
       router.push("/kitchen/login");
     }
+
+    if (typeof window !== "undefined") {
+      const savedLive = localStorage.getItem("kitchen_live_mode");
+      if (savedLive !== null) {
+        setIsKitchenLive(savedLive === "true");
+      }
+    }
   }, [router]);
 
   // Fetch active order tickets and aggregated quantities
   const fetchAllKitchenData = useCallback(async () => {
     try {
-      const [ordersRes, aggRes] = await Promise.all([
-        api.get("/orders"),
-        api.get("/orders/kitchen/aggregated"),
-      ]);
+      let activeOrders = [];
+      let aggData = [];
 
-      const allOrders = ordersRes.data.data || [];
-      const active = allOrders.filter(
-        (o) =>
-          ["PENDING", "ACCEPTED", "PREPARING"].includes(o.status) &&
-          o.session?.status !== "CLOSED"
-      );
+      try {
+        const ordersRes = await api.get("/orders");
+        const allOrders = ordersRes.data.data || [];
+        activeOrders = allOrders.filter(
+          (o) =>
+            ["PENDING", "ACCEPTED", "PREPARING"].includes(o.status) &&
+            o.session?.status !== "CLOSED"
+        );
+        activeOrders.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      } catch (e) {
+        console.warn("Orders list fetch error:", e?.message);
+      }
 
-      // Sort orders oldest first (KDS queue order)
-      active.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-      setOrders(active);
+      try {
+        const aggRes = await api.get("/orders/kitchen/aggregated");
+        aggData = aggRes.data.data || [];
+      } catch (e) {
+        console.warn("Aggregated kitchen data fetch error:", e?.message);
+      }
 
-      const aggData = aggRes.data.data || [];
+      setOrders(activeOrders);
       setAggregatedItems(aggData);
       setLastUpdated(new Date());
     } catch (error) {
       console.error("Failed to fetch kitchen data:", error);
-      toast.error("Failed to update Kitchen Display");
     } finally {
       setLoading(false);
     }
@@ -270,10 +336,26 @@ export default function KitchenDashboard() {
       fetchAllKitchenData();
     };
 
+    const handleKitchenLiveModeChanged = (data) => {
+      const enabled = typeof data === "boolean" ? data : !!data?.enabled;
+      setIsKitchenLive(enabled);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("kitchen_live_mode", String(enabled));
+      }
+      if (enabled) {
+        toast.success("🔥 Kitchen Live Mode Activated by Captain!");
+      } else {
+        toast("⏸️ Kitchen Live Mode Paused by Captain", {
+          style: { background: "#FEF2F2", color: "#991B1B", border: "1px solid #FCA5A5" },
+        });
+      }
+    };
+
     socket.on("new-order", handleNewOrder);
     socket.on("kitchen-updated", handleKitchenUpdated);
     socket.on("order-status-update", handleOrderStatusUpdate);
     socket.on("item-served", handleItemServed);
+    socket.on("kitchen-live-mode-changed", handleKitchenLiveModeChanged);
 
     return () => {
       socket.off("connect", joinRoom);
@@ -281,6 +363,7 @@ export default function KitchenDashboard() {
       socket.off("kitchen-updated", handleKitchenUpdated);
       socket.off("order-status-update", handleOrderStatusUpdate);
       socket.off("item-served", handleItemServed);
+      socket.off("kitchen-live-mode-changed", handleKitchenLiveModeChanged);
     };
   }, [socket, soundEnabled, fetchAllKitchenData]);
 
@@ -414,13 +497,50 @@ export default function KitchenDashboard() {
     return "grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6";
   }, [categoryGroups.length]);
 
+  // Group pending orders by Table ID / Table Code (EXACTLY ONE CARD PER PHYSICAL TABLE)
+  const groupedTableCards = useMemo(() => {
+    const tableMap = {};
+
+    orders.forEach((order) => {
+      const tableCode = order.session?.table?.code || order.tableCode || `T${order.session?.table?.number || "01"}`;
+      const tableId = order.session?.table?.id || tableCode;
+
+      if (!tableMap[tableId]) {
+        tableMap[tableId] = {
+          tableId,
+          tableCode,
+          tableNumber: order.session?.table?.number || order.tableNumber || 1,
+          orders: [],
+        };
+      }
+
+      tableMap[tableId].orders.push(order);
+    });
+
+    const tableCards = Object.values(tableMap);
+
+    // Sort orders inside each table chronologically (oldest order first)
+    tableCards.forEach((card) => {
+      card.orders.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    });
+
+    // Sort table cards by oldest active order creation time
+    tableCards.sort((a, b) => {
+      const firstA = a.orders[0] ? new Date(a.orders[0].createdAt).getTime() : 0;
+      const firstB = b.orders[0] ? new Date(b.orders[0].createdAt).getTime() : 0;
+      return firstA - firstB;
+    });
+
+    return tableCards;
+  }, [orders]);
+
   // Dynamic grid column class for Order Tickets View
   const ticketGridClass = useMemo(() => {
-    const count = orders.length;
+    const count = groupedTableCards.length;
     if (count <= 3) return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3";
-    if (count <= 8) return "grid-cols-2 md:grid-cols-3 lg:grid-cols-4";
-    return "grid-cols-3 md:grid-cols-4 lg:grid-cols-6";
-  }, [orders.length]);
+    if (count <= 8) return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+    return "grid-cols-2 md:grid-cols-3 lg:grid-cols-4";
+  }, [groupedTableCards.length]);
 
   return (
     <div className="h-screen max-h-screen w-screen overflow-hidden flex flex-col bg-slate-900 text-slate-100 font-sans select-none relative">
@@ -488,13 +608,23 @@ export default function KitchenDashboard() {
             {/* Live Sync Indicator */}
             <div
               className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest border ${
-                isConnected
+                !isKitchenLive
+                  ? "border-amber-500/50 bg-amber-950/80 text-amber-400"
+                  : isConnected
                   ? "border-emerald-500/40 bg-emerald-950/60 text-emerald-400"
                   : "border-rose-500/40 bg-rose-950/60 text-rose-400"
               }`}
             >
-              <span className={`w-2 h-2 rounded-full ${isConnected ? "bg-emerald-400 animate-pulse" : "bg-rose-400"}`} />
-              {isConnected ? "LIVE" : "OFFLINE"}
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  !isKitchenLive
+                    ? "bg-amber-400"
+                    : isConnected
+                    ? "bg-emerald-400 animate-pulse"
+                    : "bg-rose-400"
+                }`}
+              />
+              {!isKitchenLive ? "MODE: OFF" : isConnected ? "LIVE" : "OFFLINE"}
             </div>
           </div>
 
@@ -631,36 +761,60 @@ export default function KitchenDashboard() {
                       }
 
                       return (
-                        <div className={`flex-1 h-full min-h-0 ${containerScroll} flex flex-col divide-y divide-slate-100 bg-white`}>
-                          {cat.items.map((item) => (
-                            <div
-                              key={item.name}
-                              className={`${count <= 22 ? "flex-1" : "min-h-[28px]"} flex items-center justify-between ${rowPad} hover:bg-slate-50 transition-all gap-2 min-h-0`}
-                            >
-                              {/* Item Name: Full text, wraps onto next line cleanly if needed */}
-                              <div className="flex-1 min-w-0 pr-1">
-                                <h3
-                                  className={`${nameCls} text-slate-900 uppercase tracking-wide break-words`}
-                                >
-                                  {item.name}
-                                </h3>
-                              </div>
+                        <div className="flex-1 h-full min-h-0 overflow-y-auto divide-y divide-slate-100 bg-white">
+                          {cat.items.map((item) => {
+                            const tableBreakdown = getTableBreakdownForDish(item.name, orders);
 
-                              {/* Quantity: LARGEST, MOST PROMINENT VISUAL ELEMENT */}
-                              <div className="flex items-center flex-shrink-0">
-                                <span
-                                  className={`${qtyCls} tracking-tight font-black leading-none rounded-md`}
-                                  style={{
-                                    color: "#B8860B",
-                                    background: "#FFF8EC",
-                                    border: "1px solid #E8D8B5",
-                                  }}
-                                >
-                                  ×{item.quantity}
-                                </span>
+                            return (
+                              <div
+                                key={item.name}
+                                className="p-2.5 sm:p-3 hover:bg-slate-50 transition-all flex flex-col justify-between gap-1 flex-shrink-0 min-h-[50px]"
+                              >
+                                {/* Top Row: Item Name (left) & Quantity Badge (right) */}
+                                <div className="flex items-start justify-between gap-2">
+                                  <h3 className={`${nameCls} text-slate-900 uppercase tracking-wide break-words flex-1`}>
+                                    {item.name}
+                                  </h3>
+
+                                  <span
+                                    className={`${qtyCls} tracking-tight font-black leading-none rounded-md flex-shrink-0`}
+                                    style={{
+                                      color: "#B8860B",
+                                      background: "#FFF8EC",
+                                      border: "1.5px solid #E8D8B5",
+                                    }}
+                                  >
+                                    ×{item.quantity}
+                                  </span>
+                                </div>
+
+                                {/* Table Breakdown List (Sorted Oldest First) */}
+                                {tableBreakdown.length > 0 && (
+                                  <div className="flex flex-col gap-0.5 mt-1 pt-1 border-t border-slate-100/80">
+                                    {tableBreakdown.map((tbl, idx) => (
+                                      <div
+                                        key={`${tbl.orderId}-${idx}`}
+                                        className="flex items-center justify-between text-[11px] sm:text-xs font-medium text-slate-700 bg-slate-50/80 px-2 py-0.5 rounded border border-slate-200/50"
+                                      >
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                          <span className="font-bold text-slate-900">{tbl.tableDisplay}</span>
+                                          <span className="text-slate-500 font-normal text-[10px] sm:text-[11px]">
+                                            ({tbl.timeStr})
+                                          </span>
+                                        </div>
+
+                                        {tbl.quantity > 1 && (
+                                          <span className="text-[10px] font-black text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded border border-amber-200">
+                                            x{tbl.quantity}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       );
                     })()}
@@ -671,7 +825,7 @@ export default function KitchenDashboard() {
           )
         ) : (
           /* ── MODE 2: ORDER TICKETS VIEW ── */
-          orders.length === 0 ? (
+          groupedTableCards.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-8 bg-slate-950 border border-slate-800 rounded-2xl">
               <div className="w-16 h-16 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mb-4">
                 <CheckCircle2 size={38} />
@@ -685,113 +839,131 @@ export default function KitchenDashboard() {
             </div>
           ) : (
             <div className={`grid ${ticketGridClass} gap-3 h-full overflow-y-auto pr-1`}>
-              {orders.map((order) => {
-                const tableCode = order.session?.table?.code || "QR";
-                const timeStr = new Date(order.createdAt).toLocaleTimeString("en-IN", {
-                  hour: "numeric",
-                  minute: "2-digit",
-                  hour12: true,
-                });
+              {groupedTableCards.map((tableCard) => {
+                const { tableId, tableCode, orders: tableOrders } = tableCard;
 
                 return (
                   <div
-                    key={order.id}
+                    key={tableId}
                     className="bg-white border-2 rounded-2xl p-4 flex flex-col justify-between shadow-sm border-slate-300 relative overflow-hidden"
                     style={{ maxHeight: "100%" }}
                   >
                     <div>
-                      {/* Ticket Header */}
-                      <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xl sm:text-2xl font-black uppercase tracking-wide text-slate-900">
-                              TABLE {tableCode}
-                            </span>
-                            <span className="text-xs font-extrabold text-[#B8860B] bg-[#FFF8EC] px-2 py-0.5 rounded-md border border-[#E8D8B5]">
-                              #{order.orderNumber}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-bold mt-1">
-                            <Clock size={13} className="text-slate-400" />
-                            <span>{timeStr}</span>
-                          </div>
+                      {/* Table Main Card Header (Single Card Per Physical Table) */}
+                      <div className="flex items-center justify-between pb-3 border-b-2 border-slate-300">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl sm:text-2xl font-black uppercase tracking-wide text-slate-900">
+                            TABLE {tableCode}
+                          </span>
+                          <span className="text-xs font-extrabold text-[#B8860B] bg-[#FFF8EC] px-2.5 py-0.5 rounded-md border border-[#E8D8B5]">
+                            {tableOrders.length} Order{tableOrders.length > 1 ? "s" : ""}
+                          </span>
                         </div>
-
-                        <span
-                          className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
-                            order.status === "PREPARING"
-                              ? "bg-amber-100 text-amber-900 border-amber-300"
-                              : "bg-emerald-50 text-emerald-800 border-emerald-300"
-                          }`}
-                        >
-                          {order.status}
-                        </span>
                       </div>
 
-                      {/* Ticket Items List */}
-                      <div className="my-3 overflow-y-auto max-h-[180px] pr-1 space-y-2">
-                        {order.items.map((item) => {
-                          const emoji = getFoodEmoji(item.menuItem?.name || item.name);
-                          const isItemServed = item.status === "SERVED";
+                      {/* List of Active Orders Inside This Table Card */}
+                      <div className="my-3 overflow-y-auto max-h-[420px] pr-1 space-y-4">
+                        {tableOrders.map((order, orderIdx) => {
+                          const timeStr = new Date(order.createdAt).toLocaleTimeString("en-IN", {
+                            hour: "numeric",
+                            minute: "2-digit",
+                            hour12: true,
+                          });
 
                           return (
                             <div
-                              key={item.id}
-                              className={`flex items-center justify-between p-2 rounded-xl border text-xs sm:text-sm font-bold ${
-                                isItemServed
-                                  ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                                  : "bg-slate-50 border-slate-200 text-slate-900"
-                              }`}
+                              key={order.id}
+                              className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-2.5"
                             >
-                              <div className="flex items-center gap-2 min-w-0 pr-2">
-                                <span>{emoji}</span>
-                                <span className="truncate">{item.menuItem?.name || item.name}</span>
+                              {/* Sub-order Header */}
+                              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-black text-[#B8860B] bg-white px-2 py-0.5 rounded border border-[#E8D8B5]">
+                                    Order #{order.orderNumber}
+                                  </span>
+                                  <span className="text-[11px] text-slate-500 font-bold flex items-center gap-1">
+                                    <Clock size={11} className="text-slate-400" />
+                                    {timeStr}
+                                  </span>
+                                </div>
+
+                                <span
+                                  className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${
+                                    order.status === "PREPARING"
+                                      ? "bg-amber-100 text-amber-900 border-amber-300"
+                                      : "bg-emerald-50 text-emerald-800 border-emerald-300"
+                                  }`}
+                                >
+                                  {order.status}
+                                </span>
                               </div>
 
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                <span
-                                  className="text-sm font-black px-2 py-0.5 rounded-lg"
-                                  style={{ background: "#FFF8EC", color: "#B8860B", border: "1px solid #E8D8B5" }}
+                              {/* Order Items */}
+                              <div className="space-y-1.5">
+                                {order.items.map((item) => {
+                                  const emoji = getFoodEmoji(item.menuItem?.name || item.name);
+                                  const isItemServed = item.status === "SERVED";
+
+                                  return (
+                                    <div
+                                      key={item.id}
+                                      className={`flex items-center justify-between p-1.5 rounded-lg border text-xs font-bold ${
+                                        isItemServed
+                                          ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                                          : "bg-white border-slate-200 text-slate-900"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                                        <span>{emoji}</span>
+                                        <span className="truncate">{item.menuItem?.name || item.name}</span>
+                                      </div>
+
+                                      <span
+                                        className="text-xs font-black px-1.5 py-0.5 rounded"
+                                        style={{ background: "#FFF8EC", color: "#B8860B", border: "1px solid #E8D8B5" }}
+                                      >
+                                        x{item.quantity}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Special Instructions / Notes */}
+                              {(order.notes || order.specialInstructions) && (
+                                <div className="p-1.5 bg-amber-50 border border-amber-200 rounded text-[11px] font-bold text-amber-900 flex items-start gap-1">
+                                  <span className="text-amber-600 font-extrabold flex-shrink-0">Notes:</span>
+                                  <span className="line-clamp-2">{order.notes || order.specialInstructions}</span>
+                                </div>
+                              )}
+
+                              {/* Independent Order Action Buttons */}
+                              <div className="pt-2 border-t border-slate-200 flex items-center gap-2">
+                                {order.status !== "PREPARING" && (
+                                  <button
+                                    onClick={() => handleUpdateOrderStatus(order.id, "PREPARING")}
+                                    disabled={updatingOrders.has(`${order.id}-PREPARING`)}
+                                    className="flex-1 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-lg border transition-all flex items-center justify-center gap-1 bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300"
+                                  >
+                                    <Flame size={12} />
+                                    {updatingOrders.has(`${order.id}-PREPARING`) ? "Updating..." : "Preparing"}
+                                  </button>
+                                )}
+
+                                <button
+                                  onClick={() => handleUpdateOrderStatus(order.id, "SERVED")}
+                                  disabled={updatingOrders.has(`${order.id}-SERVED`)}
+                                  className="flex-1 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-lg border transition-all flex items-center justify-center gap-1 text-white shadow-xs"
+                                  style={{ background: "#B8860B", borderColor: "#966C06" }}
                                 >
-                                  x{item.quantity}
-                                </span>
+                                  <Check size={12} />
+                                  {updatingOrders.has(`${order.id}-SERVED`) ? "Updating..." : "Served"}
+                                </button>
                               </div>
                             </div>
                           );
                         })}
                       </div>
-
-                      {/* Notes Box */}
-                      {(order.notes || order.specialInstructions) && (
-                        <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs font-bold text-amber-900 flex items-start gap-1.5">
-                          <span className="text-amber-600 font-extrabold flex-shrink-0">Notes:</span>
-                          <span className="line-clamp-2">{order.notes || order.specialInstructions}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="pt-3 border-t border-slate-200 flex items-center gap-2">
-                      {order.status !== "PREPARING" && (
-                        <button
-                          onClick={() => handleUpdateOrderStatus(order.id, "PREPARING")}
-                          disabled={updatingOrders.has(`${order.id}-PREPARING`)}
-                          className="flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-xl border transition-all flex items-center justify-center gap-1 bg-amber-100 hover:bg-amber-200 text-amber-900 border-amber-300"
-                        >
-                          <Flame size={14} />
-                          {updatingOrders.has(`${order.id}-PREPARING`) ? "Updating..." : "Preparing"}
-                        </button>
-                      )}
-
-                      <button
-                        onClick={() => handleUpdateOrderStatus(order.id, "SERVED")}
-                        disabled={updatingOrders.has(`${order.id}-SERVED`)}
-                        className="flex-1 py-2 text-xs font-black uppercase tracking-wider rounded-xl border transition-all flex items-center justify-center gap-1 text-white shadow-xs"
-                        style={{ background: "#B8860B", borderColor: "#966C06" }}
-                      >
-                        <Check size={14} />
-                        {updatingOrders.has(`${order.id}-SERVED`) ? "Updating..." : "Ready / Served"}
-                      </button>
                     </div>
                   </div>
                 );

@@ -16,6 +16,8 @@ import {
   PhoneCall,
   ChefHat,
   Utensils,
+  Flame,
+  Power,
 } from "lucide-react";
 import api from "../../lib/api";
 import { getUser, clearAuth, isAuthenticated } from "../../lib/auth";
@@ -23,6 +25,7 @@ import { useSocket } from "../../components/SocketProvider";
 import OrderStatusBadge from "../../components/OrderStatusBadge";
 import Navbar from "../../components/Navbar";
 import toast from "react-hot-toast";
+import { usePrinter } from "../../lib/printer/usePrinter";
 
 // ─────────────────────────────────────────
 // Notification Sound — Web Audio API beep
@@ -68,6 +71,7 @@ const STATUS_ACTIONS = [
 export default function CaptainDashboard() {
   const router = useRouter();
   const { socket, isConnected } = useSocket();
+  const { printBill: printSerialBill } = usePrinter();
   const [user, setUser] = useState(null);
   const [orders, setOrders] = useState([]);
   const [tables, setTables] = useState([]);
@@ -77,18 +81,46 @@ export default function CaptainDashboard() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [billRequests, setBillRequests] = useState([]);
   const [printedBills, setPrintedBills] = useState(new Set());
+  const [printingBills, setPrintingBills] = useState(new Set());
   const [acceptingOrders, setAcceptingOrders] = useState(new Set());
   const [updatingOrders, setUpdatingOrders] = useState(new Set());
+  const [updatingItems, setUpdatingItems] = useState(new Set());
   const [closingSessions, setClosingSessions] = useState(new Set());
   const [paperFormat, setPaperFormat] = useState("80mm");
+  const [isKitchenLive, setIsKitchenLive] = useState(true);
   const notifCountRef = useRef(0);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("printer_paper_format");
       if (saved) setPaperFormat(saved);
+
+      const savedLive = localStorage.getItem("kitchen_live_mode");
+      if (savedLive !== null) {
+        setIsKitchenLive(savedLive === "true");
+      }
     }
   }, []);
+
+  const handleToggleKitchenLive = () => {
+    const nextState = !isKitchenLive;
+    setIsKitchenLive(nextState);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("kitchen_live_mode", String(nextState));
+    }
+    if (socket) {
+      socket.emit("kitchen-live-mode", { enabled: nextState });
+    }
+    if (nextState) {
+      toast.success("🔥 Kitchen Live Mode Turned ON", { id: "kitchen-live-toggle" });
+    } else {
+      toast("⏸️ Kitchen Live Mode Turned OFF", {
+        icon: "⚠️",
+        id: "kitchen-live-toggle",
+        style: { background: "#FEF2F2", color: "#991B1B", border: "1px solid #FCA5A5" },
+      });
+    }
+  };
 
   const handlePaperFormatChange = (fmt) => {
     setPaperFormat(fmt);
@@ -291,12 +323,21 @@ export default function CaptainDashboard() {
       fetchTables();
     };
 
+    const handleKitchenLiveModeChanged = (data) => {
+      const enabled = typeof data === "boolean" ? data : !!data?.enabled;
+      setIsKitchenLive(enabled);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("kitchen_live_mode", String(enabled));
+      }
+    };
+
     socket.on("new-order", handleNewOrder);
     socket.on("waiter-call", handleWaiterCall);
     socket.on("bill-requested", handleBillRequested);
     socket.on("session-closed", handleSessionClosed);
     socket.on("table-updated", handleTableUpdated);
     socket.on("new-session", handleNewSession);
+    socket.on("kitchen-live-mode-changed", handleKitchenLiveModeChanged);
 
     return () => {
       socket.off("connect", joinRoom);
@@ -306,6 +347,7 @@ export default function CaptainDashboard() {
       socket.off("session-closed", handleSessionClosed);
       socket.off("table-updated", handleTableUpdated);
       socket.off("new-session", handleNewSession);
+      socket.off("kitchen-live-mode-changed", handleKitchenLiveModeChanged);
     };
   }, [socket, fetchOrders, fetchBillRequests, fetchTables]);
 
@@ -313,7 +355,7 @@ export default function CaptainDashboard() {
   // ACTIONS
   // ─────────────────────────────────────────
 
-  const [updatingItems, setUpdatingItems] = useState(new Set());
+  const { printBill, printKOT: printKOTThermal, isConnected: isPrinterConnected } = usePrinter();
 
   const handleAcceptOrder = async (orderId) => {
     setAcceptingOrders((prev) => new Set([...prev, orderId]));
@@ -321,16 +363,10 @@ export default function CaptainDashboard() {
       const res = await api.patch(`/orders/${orderId}/accept`);
       toast.success(`Order #${res.data.data.order.orderNumber} accepted!`);
 
-      const { waiter } = res.data.data.kot || {};
-      const waiterHTML = waiter?.formats?.[paperFormat] || waiter?.html || "";
+      const orderData = res.data.data.order;
 
-      // Single copy print: Waiter Token ONLY (Kitchen staff uses Kitchen Portal)
-      const printWindow = window.open("", "_blank", "width=800,height=900");
-      if (printWindow && waiterHTML) {
-        printWindow.document.write(waiterHTML);
-        printWindow.document.close();
-        setTimeout(() => printWindow.print(), 300);
-      }
+      // Print KOT to 80mm serial thermal printer via backend API
+      await printKOTThermal(orderData);
       fetchOrders();
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to accept order");
@@ -378,6 +414,72 @@ export default function CaptainDashboard() {
     }
   };
 
+  const handlePrintAndCloseBill = async (bill) => {
+    const sessionId = bill.sessionId;
+    setPrintingBills((prev) => new Set([...prev, sessionId]));
+
+    try {
+      // 1. Prepare bill order structure for ESC/POS printer builder
+      let itemsList = [];
+      if (Array.isArray(bill.items) && bill.items.length > 0) {
+        itemsList = bill.items;
+      } else if (Array.isArray(bill.orders)) {
+        bill.orders.forEach((o) => {
+          if (o.status !== "CANCELLED" && Array.isArray(o.items)) {
+            itemsList.push(...o.items);
+          }
+        });
+      }
+
+      const billOrderPayload = {
+        id: bill.sessionId,
+        orderNumber: bill.sessionNumber || bill.tableCode || "BILL",
+        tableCode: bill.tableCode,
+        tableNumber: bill.tableNumber,
+        createdAt: bill.createdAt || new Date().toISOString(),
+        items: itemsList.map((i) => ({
+          name: i.menuItem?.name || i.name || "Item",
+          quantity: Number(i.quantity || i.qty || 1),
+          price: Number(i.price !== undefined ? i.price : i.menuItem?.price || 0),
+        })),
+        orders: bill.orders,
+        paymentMethod: bill.paymentMethod || "UPI",
+        discount: bill.discount || 0,
+        tax: bill.tax || 0,
+      };
+
+      // 2. Call backend serial printer REST API (POST /api/printer/bill)
+      const printSuccess = await printSerialBill(billOrderPayload);
+
+      if (!printSuccess) {
+        toast.error("Serial Thermal Printing Failed! Session & orders remain active.");
+        return;
+      }
+
+      // 3. ONLY AFTER SUCCESSFUL PRINTING: Close session & cleanup active table orders
+      await api.patch(`/sessions/${sessionId}/close`);
+      toast.success(`Bill Printed & Table ${bill.tableCode} Closed Successfully! 🧾`);
+
+      // Emit socket notification to update Captain and Kitchen dashboards in real-time
+      if (socket) {
+        socket.emit("session-closed", { sessionId, tableCode: bill.tableCode });
+      }
+
+      // Refresh state: session closes, active orders and table card disappear automatically
+      fetchBillRequests();
+      fetchOrders();
+      fetchTables();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to complete billing & close session");
+    } finally {
+      setPrintingBills((prev) => {
+        const next = new Set(prev);
+        next.delete(sessionId);
+        return next;
+      });
+    }
+  };
+
   const handleCloseSession = async (sessionId) => {
     setClosingSessions((prev) => new Set([...prev, sessionId]));
     try {
@@ -385,6 +487,7 @@ export default function CaptainDashboard() {
       toast.success("Session closed");
       fetchBillRequests();
       fetchOrders();
+      fetchTables();
     } catch (error) {
       toast.error("Failed to close session");
     } finally {
@@ -506,46 +609,104 @@ export default function CaptainDashboard() {
       />
 
       <main className="max-w-6xl mx-auto px-4 py-8">
-        {/* Printer Paper Format Setup */}
-        <section className="mb-6 p-4 border-2 border-brown-900 bg-cream-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-orange-500 text-white flex items-center justify-center flex-shrink-0">
-              <Printer size={18} />
+        {/* Kitchen Live Mode Control & Printer Paper Format Setup Bar */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {/* Kitchen Live Mode Control Card */}
+          <div
+            className={`p-4 border-2 flex items-center justify-between shadow-sm transition-all ${
+              isKitchenLive
+                ? "border-emerald-600 bg-emerald-50/80"
+                : "border-amber-600 bg-amber-50/80"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-xs font-black transition-all ${
+                  isKitchenLive ? "bg-emerald-600" : "bg-amber-600"
+                }`}
+              >
+                <Flame size={22} className={isKitchenLive ? "animate-pulse" : ""} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <p
+                    className="font-black text-xs uppercase tracking-widest text-brown-900"
+                    style={{ fontFamily: "var(--font-heading)" }}
+                  >
+                    KITCHEN LIVE MODE
+                  </p>
+                  <span
+                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
+                      isKitchenLive
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                        : "bg-amber-100 text-amber-900 border-amber-300"
+                    }`}
+                  >
+                    {isKitchenLive ? "● LIVE ACTIVE" : "PAUSED / OFF"}
+                  </span>
+                </div>
+                <p className="text-[11px] font-medium text-gray-600 mt-0.5">
+                  {isKitchenLive
+                    ? "Real-time kitchen order dispatch is active"
+                    : "Kitchen display live updates are turned off"}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="font-bold text-xs uppercase tracking-widest text-brown-900" style={{ fontFamily: "var(--font-heading)" }}>
-                Billing & KOT Printer Paper Format
-              </p>
-              <p className="text-[11px] font-medium text-gray-600">
-                Current Active:{" "}
-                <span className="font-bold text-orange-600 uppercase">
-                  {paperFormat === "A4" ? "A4 Document Sheet" : paperFormat === "58mm" ? "58mm (2-inch Thermal)" : "80mm (3-inch Thermal POS)"}
-                </span>
-              </p>
-            </div>
+
+            <button
+              onClick={handleToggleKitchenLive}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider border-2 transition-all flex items-center gap-1.5 shadow-xs active:scale-95 ${
+                isKitchenLive
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-800"
+                  : "bg-amber-600 hover:bg-amber-700 text-white border-amber-800"
+              }`}
+            >
+              <Power size={14} />
+              {isKitchenLive ? "TURN OFF" : "TURN ON"}
+            </button>
           </div>
 
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {[
-              { id: "80mm", label: "🖨️ POS 80mm (3\")" },
-              { id: "58mm", label: "📱 POS 58mm (2\")" },
-              { id: "A4", label: "📄 A4 Document" },
-            ].map((f) => (
-              <button
-                key={f.id}
-                onClick={() => handlePaperFormatChange(f.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border`}
-                style={{
-                  background: paperFormat === f.id ? "var(--color-brown-900)" : "var(--color-surface)",
-                  color: paperFormat === f.id ? "white" : "var(--color-brown-900)",
-                  borderColor: "var(--color-brown-900)",
-                }}
-              >
-                {f.label}
-              </button>
-            ))}
+          {/* Printer Paper Format Setup */}
+          <div className="p-4 border-2 border-brown-900 bg-cream-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-lg bg-orange-500 text-white flex items-center justify-center flex-shrink-0">
+                <Printer size={18} />
+              </div>
+              <div>
+                <p className="font-bold text-xs uppercase tracking-widest text-brown-900" style={{ fontFamily: "var(--font-heading)" }}>
+                  Billing & KOT Printer Format
+                </p>
+                <p className="text-[11px] font-medium text-gray-600">
+                  Active:{" "}
+                  <span className="font-bold text-orange-600 uppercase">
+                    {paperFormat === "A4" ? "A4 Sheet" : paperFormat === "58mm" ? "58mm (2\")" : "80mm (3\")"}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {[
+                { id: "80mm", label: "🖨️ 80mm" },
+                { id: "58mm", label: "📱 58mm" },
+                { id: "A4", label: "📄 A4" },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => handlePaperFormatChange(f.id)}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border`}
+                  style={{
+                    background: paperFormat === f.id ? "var(--color-brown-900)" : "var(--color-surface)",
+                    color: paperFormat === f.id ? "white" : "var(--color-brown-900)",
+                    borderColor: "var(--color-brown-900)",
+                  }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </section>
+        </div>
 
         {/* Live Seating Stats Bar */}
         <section className="mb-10 p-5 border-2 border-brown-900 bg-surface">
@@ -686,49 +847,33 @@ export default function CaptainDashboard() {
             {billRequests.map((bill) => (
               <div
                 key={bill.sessionId}
-                className="flex items-center justify-between p-5 border-2 border-orange-500"
+                className="flex items-center justify-between p-5 border-2 border-orange-500 rounded-xl"
                 style={{ background: "var(--color-cream-200)" }}
               >
                 <div className="flex items-center gap-4">
-                  <Receipt size={24} style={{ color: "var(--color-orange-500)" }} />
+                  <Receipt size={28} style={{ color: "var(--color-orange-500)" }} />
                   <div>
                     <p
-                      className="font-black text-base uppercase tracking-widest"
-                      style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
+                      className="font-black text-lg uppercase tracking-widest text-brown-900"
+                      style={{ fontFamily: "var(--font-heading)" }}
                     >
                       Bill Requested — Table {bill.tableCode}
                     </p>
-                    <p className="text-sm font-bold uppercase tracking-widest mt-1" style={{ color: "var(--color-text-secondary)" }}>
-                      Total: ₹{bill.total}
+                    <p className="text-sm font-bold uppercase tracking-widest mt-1 text-stone-600">
+                      Total Amount: ₹{bill.total}
                     </p>
                   </div>
                 </div>
+
                 <div className="flex gap-3">
                   <button
-                    onClick={() => {
-                      const printWindow = window.open("", "_blank", "width=800,height=900");
-                      if (printWindow) {
-                        const htmlToPrint = bill.billFormats?.[paperFormat] || bill.billHTML;
-                        printWindow.document.write(htmlToPrint);
-                        printWindow.document.close();
-                        setTimeout(() => printWindow.print(), 300);
-                      }
-                      setPrintedBills((prev) => new Set([...prev, bill.sessionId]));
-                    }}
-                    className="btn-secondary"
+                    onClick={() => handlePrintAndCloseBill(bill)}
+                    disabled={printingBills.has(bill.sessionId)}
+                    className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl border border-emerald-800 transition-all flex items-center gap-2 shadow-xs disabled:opacity-50"
                   >
-                    <Printer size={16} /> PRINT ({paperFormat.toUpperCase()})
+                    <Printer size={18} />
+                    {printingBills.has(bill.sessionId) ? "PRINTING & CLOSING..." : "PRINT & CLOSE BILL"}
                   </button>
-                  {printedBills.has(bill.sessionId) && (
-                    <button
-                      onClick={() => handleCloseSession(bill.sessionId)}
-                      disabled={closingSessions.has(bill.sessionId)}
-                      className="btn-primary"
-                    >
-                      <Check size={16} />
-                      {closingSessions.has(bill.sessionId) ? "CLOSING..." : "CLOSE"}
-                    </button>
-                  )}
                 </div>
               </div>
             ))}

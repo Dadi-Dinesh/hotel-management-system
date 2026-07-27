@@ -38,7 +38,7 @@ export function SocketProvider({ children }) {
 
     const onConnectError = (err) => {
       setIsConnected(false);
-      console.error(`[Socket] Connection error ❌ ${err.message}`);
+      console.warn(`[Socket] Connection error notice ⚠️ ${err.message}`);
     };
 
     const onReconnect = (attempt) => {

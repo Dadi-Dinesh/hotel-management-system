@@ -22,23 +22,19 @@ const initializeSocket = (server, allowedOrigins = []) => {
 
   io = new Server(server, {
     cors: {
-      origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
-        if (
-          defaultOrigins.includes(origin) ||
-          origin.endsWith(".vercel.app") ||
-          origin.startsWith("http://localhost:")
-        ) {
-          return callback(null, true);
-        }
-        return callback(new Error(`Socket CORS: origin ${origin} not allowed`));
-      },
+      origin: true,
       methods: ["GET", "POST"],
       credentials: true,
     },
-    transports: ["websocket", "polling"],
-    pingTimeout: 60000,
+    transports: ["polling", "websocket"],
+    pingTimeout: 20000,
     pingInterval: 25000,
+    connectTimeout: 45000,
+    allowEIO3: true,
+  });
+
+  io.engine.on("connection_error", (err) => {
+    console.warn("⚠️ [Socket Engine] Connection notice:", err.req?.url, err.code, err.message);
   });
 
   io.on("connection", (socket) => {
@@ -81,6 +77,18 @@ const initializeSocket = (server, allowedOrigins = []) => {
     socket.on("join-kitchen", () => {
       socket.join("kitchen");
       console.log(`👨‍🍳 Socket ${socket.id} joined kitchen room`);
+    });
+
+    // ─────────────────────────────────────────
+    // KITCHEN LIVE MODE EVENT
+    // ─────────────────────────────────────────
+    socket.on("kitchen-live-mode", (payload) => {
+      const isLive = typeof payload === "boolean" ? payload : !!payload?.enabled;
+      console.log(`🔥 Kitchen Live Mode changed: ${isLive ? "ON" : "OFF"}`);
+      io.to("kitchen").emit("kitchen-live-mode-changed", { enabled: isLive });
+      io.to("captains").emit("kitchen-live-mode-changed", { enabled: isLive });
+      io.to("waiters").emit("kitchen-live-mode-changed", { enabled: isLive });
+      io.to("admins").emit("kitchen-live-mode-changed", { enabled: isLive });
     });
 
     // ─────────────────────────────────────────

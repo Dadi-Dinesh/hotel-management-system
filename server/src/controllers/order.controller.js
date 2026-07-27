@@ -96,12 +96,13 @@ const placeOrder = async (req, res, next) => {
       createdAt: order.createdAt,
     };
 
-    // Emit new-order event to waiters, captains, admins
+    // Emit new-order event to waiters, captains, admins, and kitchen
     const io = getIO();
     console.log("Sending new-order event:", order.id);
     io.to("waiters").emit("new-order", orderPayload);
     io.to("captains").emit("new-order", orderPayload);
     io.to("admins").emit("new-order", orderPayload);
+    io.to("kitchen").emit("new-order", orderPayload);
 
     // Emit real-time aggregated quantities update to kitchen room
     const aggregatedKitchen = await getKitchenAggregatedData();
@@ -209,13 +210,15 @@ const acceptOrder = async (req, res, next) => {
       tableCode,
     };
 
-    // Notify customer table, waiters, and admin
+    // Notify customer table, waiters, captains, kitchen, and admin
     const io = getIO();
     console.log("Sending order-accepted event:", order.id);
     io.to(tableCode).emit("order-accepted", statusPayload);
     io.to(`table:${tableCode}`).emit("order-accepted", statusPayload);
     io.to("waiters").emit("order-status-update", statusPayload);
+    io.to("captains").emit("order-status-update", statusPayload);
     io.to("admins").emit("order-status-update", statusPayload);
+    io.to("kitchen").emit("order-status-update", statusPayload);
 
     // Emit updated kitchen aggregated data
     const aggregatedKitchen = await getKitchenAggregatedData();
@@ -298,7 +301,9 @@ const updateOrderStatus = async (req, res, next) => {
     io.to(tableCode).emit("order-status-update", statusPayload);
     io.to(`table:${tableCode}`).emit("order-status-update", statusPayload);
     io.to("waiters").emit("order-status-update", statusPayload);
+    io.to("captains").emit("order-status-update", statusPayload);
     io.to("admins").emit("order-status-update", statusPayload);
+    io.to("kitchen").emit("order-status-update", statusPayload);
 
     // Broadcast live kitchen aggregation update
     const aggregatedKitchen = await getKitchenAggregatedData();

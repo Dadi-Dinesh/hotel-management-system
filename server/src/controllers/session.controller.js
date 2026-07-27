@@ -164,12 +164,12 @@ const requestBill = async (req, res, next) => {
       },
     });
 
-    // Calculate total
+    // Calculate total safely
     let total = 0;
     session.orders.forEach((order) => {
       if (order.status !== "CANCELLED") {
         order.items.forEach((item) => {
-          total += item.price * item.quantity;
+          total += (Number(item.price) || 0) * (Number(item.quantity) || 1);
         });
       }
     });
@@ -231,10 +231,21 @@ const getBillRequests = async (req, res, next) => {
 
     const billRequests = sessions.map((session) => {
       let total = 0;
+      const sessionItems = [];
       session.orders.forEach((order) => {
         if (order.status !== "CANCELLED") {
           order.items.forEach((item) => {
-            total += item.price * item.quantity;
+            const price = Number(item.price) || 0;
+            const quantity = Number(item.quantity) || 1;
+            const itemTotal = price * quantity;
+            total += itemTotal;
+            sessionItems.push({
+              id: item.id,
+              name: item.menuItem?.name || item.name || "Item",
+              quantity,
+              price,
+              menuItem: item.menuItem,
+            });
           });
         }
       });
@@ -247,6 +258,8 @@ const getBillRequests = async (req, res, next) => {
         tableCode: session.table.code,
         tableNumber: session.table.number,
         total,
+        items: sessionItems,
+        orders: session.orders,
         billHTML,
         billFormats: {
           "80mm": billHTML,

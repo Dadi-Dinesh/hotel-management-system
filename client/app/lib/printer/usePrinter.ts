@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import api from "../api";
+import { connectSocket } from "../socket";
 
 export type PrinterStatusState = "CONNECTED" | "CONNECTING" | "DISCONNECTED" | "ERROR";
 export type KitchenModeSetting = "LIVE" | "NORMAL";
@@ -49,13 +50,15 @@ export interface PrintOrderData {
 
 export function usePrinter() {
   const [status, setStatus] = useState<PrinterStatusState>("DISCONNECTED");
-  const [port, setPort] = useState<string>("/dev/cu.usbserial-10");
+  const [port, setPort] = useState<string>("/dev/cu.usbserial-110");
   const [baudRate, setBaudRate] = useState<number>(9600);
   const [kitchenMode, setKitchenMode] = useState<KitchenModeSetting>("LIVE");
   const [queueLength, setQueueLength] = useState<number>(0);
   const [queueMetrics, setQueueMetrics] = useState<any>({ waitingJobs: 0, completedJobs: 0, failedJobs: 0 });
   const [stats, setStats] = useState<any>({ totalPrinted: 0, failedPrinted: 0 });
   const [lastConnected, setLastConnected] = useState<string | null>(null);
+  const [lastPrinted, setLastPrinted] = useState<string | null>(null);
+  const [printerTarget, setPrinterTarget] = useState<string>("ALL");
   const [lastError, setLastError] = useState<string | null>(null);
   const [detectedPorts, setDetectedPorts] = useState<SerialPortInfo[]>([]);
   const [isPrinting, setIsPrinting] = useState<boolean>(false);
@@ -70,16 +73,18 @@ export function usePrinter() {
       const data = res.data;
       if (data) {
         setStatus(data.status || (data.connected ? "CONNECTED" : "DISCONNECTED"));
-        setPort(data.port || "/dev/cu.usbserial-10");
+        setPort(data.port || "/dev/cu.usbserial-110");
         setBaudRate(data.baudRate || 9600);
 
-        // Retrieve Kitchen Mode setting from backend printer config
+        // Retrieve Kitchen Mode & Target settings
         if (data.kitchenMode) setKitchenMode(data.kitchenMode);
+        if (data.printerTarget) setPrinterTarget(data.printerTarget);
 
         setQueueLength(data.queueLength || 0);
         if (data.queue) setQueueMetrics(data.queue);
         if (data.stats) setStats(data.stats);
         setLastConnected(data.lastConnected || null);
+        setLastPrinted(data.lastPrinted || data.queue?.lastPrinted || null);
         setLastError(data.lastError || null);
       }
     } catch (err: any) {
@@ -155,12 +160,36 @@ export function usePrinter() {
     }
   }, [fetchStatus]);
 
-  // Poll status periodically on mount
+  // Real-time Socket.IO synchronization & initial fetch
   useEffect(() => {
     fetchStatus();
     detectPorts();
-    const interval = setInterval(fetchStatus, 4000);
-    return () => clearInterval(interval);
+
+    // Connect to Socket.IO and join admin room for instant printer status broadcasts
+    const socket = connectSocket();
+    socket.emit("join-admin");
+
+    const handleSocketStatusUpdate = (data: any) => {
+      if (data) {
+        setStatus(data.status || (data.connected ? "CONNECTED" : "DISCONNECTED"));
+        if (data.port) setPort(data.port);
+        if (data.baudRate) setBaudRate(data.baudRate);
+        if (data.kitchenMode) setKitchenMode(data.kitchenMode);
+        if (data.printerTarget) setPrinterTarget(data.printerTarget);
+        setQueueLength(data.queueLength || 0);
+        if (data.queue) setQueueMetrics(data.queue);
+        if (data.stats) setStats(data.stats);
+        if (data.lastConnected) setLastConnected(data.lastConnected);
+        if (data.lastPrinted) setLastPrinted(data.lastPrinted);
+        setLastError(data.lastError || null);
+      }
+    };
+
+    socket.on("printer:status:update", handleSocketStatusUpdate);
+
+    return () => {
+      socket.off("printer:status:update", handleSocketStatusUpdate);
+    };
   }, [fetchStatus, detectPorts]);
 
   /**
@@ -245,6 +274,8 @@ export function usePrinter() {
     queueMetrics,
     stats,
     lastConnected,
+    lastPrinted,
+    printerTarget,
     lastError,
     detectedPorts,
     isLoadingPorts,

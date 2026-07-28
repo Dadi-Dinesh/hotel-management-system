@@ -6,7 +6,10 @@
  *   - captains : Captain / Waiter dashboards (alias)
  *   - admins   : Admin dashboard
  *   - tableCode: Customer table room (e.g. T01 or table:T01)
+ *   - printer-agents : Cloud Printer Agent connection room
  */
+
+const cloudPrinterGateway = require("../services/printer/cloudPrinterGateway");
 
 let io;
 
@@ -39,6 +42,44 @@ const initializeSocket = (server, allowedOrigins = []) => {
 
   io.on("connection", (socket) => {
     console.log("Socket connected:", socket.id);
+
+    // ─────────────────────────────────────────
+    // PRINTER AGENT AUTHENTICATION & CONNECTION
+    // ─────────────────────────────────────────
+    const authApiKey = socket.handshake.auth?.apiKey;
+    const isPrinterAgent = socket.handshake.auth?.agentType === "PRINTER_AGENT" || !!authApiKey;
+
+    if (isPrinterAgent) {
+      const expectedKey = process.env.PRINTER_AGENT_KEY || "nookambika_printer_secret_key_2026";
+      if (authApiKey !== expectedKey) {
+        console.error(`❌ [Socket Auth] Unauthorized Printer Agent attempt (Socket ID: ${socket.id}). Disconnecting.`);
+        socket.disconnect(true);
+        return;
+      }
+
+      console.log(`🖨️ [Socket Auth] Printer Agent Authenticated Successfully (Socket ID: ${socket.id})`);
+      socket.join("printer-agents");
+      cloudPrinterGateway.registerAgent(socket);
+
+      socket.on("printer:agent:connect", (payload) => {
+        cloudPrinterGateway.registerAgent(socket, payload);
+      });
+
+      socket.on("printer:heartbeat", (payload) => {
+        cloudPrinterGateway.updateStatus(payload);
+      });
+
+      socket.on("print:ack", (ackPayload) => {
+        cloudPrinterGateway.handleJobAck(ackPayload);
+      });
+
+      socket.on("disconnect", (reason) => {
+        cloudPrinterGateway.unregisterAgent(socket.id);
+        console.log("Printer Agent disconnected:", socket.id, "reason:", reason);
+      });
+
+      return;
+    }
 
     // ─────────────────────────────────────────
     // ROOM JOINS

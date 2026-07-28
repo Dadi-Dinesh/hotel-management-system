@@ -1,6 +1,6 @@
 {
-  "port": "/dev/cu.usbserial-110",
+  "port": "/dev/cu.usbserial-10",
   "baudRate": 19200,
   "kitchenMode": "LIVE",
-  "updatedAt": "2026-07-27T11:38:30.841Z"
+  "updatedAt": "2026-07-27T14:08:44.815Z"
 }

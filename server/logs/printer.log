@@ -3440,3 +3440,31 @@
 [2026-07-27T12:53:24.264Z] [INFO] 🔍 [PrinterService] Discovered 13 hardware serial ports.
 [2026-07-27T12:53:24.269Z] [INFO] 🔍 [PrinterService] Discovered 13 hardware serial ports.
 [2026-07-27T12:53:24.274Z] [INFO] 🔍 [PrinterService] Discovered 13 hardware serial ports.
+[2026-07-27T14:08:44.697Z] [INFO] 🖨️ [SerialPrinter] Driver configured for port: /dev/cu.usbserial-110 (Baud: 19200)
+[2026-07-27T14:08:44.815Z] [INFO] 🔍 [SerialPrinter] Auto-detected USB printer port: /dev/cu.usbserial-10
+[2026-07-27T14:08:44.815Z] [INFO] Saved new printer & kitchen mode configuration to printer.json | {"port":"/dev/cu.usbserial-10","baudRate":19200,"kitchenMode":"LIVE","updatedAt":"2026-07-27T14:08:44.815Z"}
+[2026-07-27T14:08:44.874Z] [INFO] ✅ [SerialPrinter] Connected to thermal printer at /dev/cu.usbserial-10
+[2026-07-27T14:09:03.151Z] [INFO] 🔍 [PrinterService] Discovered 14 hardware serial ports.
+[2026-07-27T14:09:03.154Z] [INFO] 🔍 [PrinterService] Discovered 14 hardware serial ports.
+[2026-07-27T14:09:03.157Z] [INFO] 🔍 [PrinterService] Discovered 14 hardware serial ports.
+[2026-07-27T14:09:03.160Z] [INFO] 🔍 [PrinterService] Discovered 14 hardware serial ports.
+[2026-07-27T14:09:57.355Z] [INFO] 🔍 [PrinterService] Discovered 14 hardware serial ports.
+[2026-07-27T14:09:57.357Z] [INFO] 🔍 [PrinterService] Discovered 14 hardware serial ports.
+[2026-07-27T14:10:52.607Z] [INFO] 📋 [KOTRoutingService] Routing order #123 (Mode: LIVE, Items: 1)
+[2026-07-27T14:10:52.613Z] [INFO] 📥 [PrintQueue] Job JOB-1785161452613-157 (KOT (WAITER COPY)) enqueued. Waiting jobs: 1
+[2026-07-27T14:10:52.614Z] [INFO] 🖨️ [PrintQueue] Processing job JOB-1785161452613-157 (KOT (WAITER COPY))...
+[2026-07-27T14:10:57.999Z] [INFO] ✅ [SerialPrinter] Sent 520 bytes successfully to /dev/cu.usbserial-10
+[2026-07-27T14:11:24.866Z] [INFO] 🔍 [PrinterService] Discovered 14 hardware serial ports.
+[2026-07-27T14:11:24.869Z] [INFO] 🔍 [PrinterService] Discovered 14 hardware serial ports.
+[2026-07-27T14:11:30.747Z] [INFO] 🔍 [PrinterService] Discovered 14 hardware serial ports.
+[2026-07-27T14:11:30.751Z] [INFO] 🔍 [PrinterService] Discovered 14 hardware serial ports.
+[2026-07-27T14:11:45.347Z] [INFO] 📋 [KOTRoutingService] Routing order #125 (Mode: LIVE, Items: 2)
+[2026-07-27T14:11:45.348Z] [INFO] 📥 [PrintQueue] Job JOB-1785161505348-346 (KOT (WAITER COPY)) enqueued. Waiting jobs: 1
+[2026-07-27T14:11:45.349Z] [INFO] 🖨️ [PrintQueue] Processing job JOB-1785161505348-346 (KOT (WAITER COPY))...
+[2026-07-27T14:11:50.773Z] [INFO] ✅ [SerialPrinter] Sent 584 bytes successfully to /dev/cu.usbserial-10
+[2026-07-27T17:21:23.979Z] [INFO] 🔍 [PrinterService] Discovered 13 hardware serial ports.
+[2026-07-27T17:21:23.984Z] [INFO] 🔍 [PrinterService] Discovered 13 hardware serial ports.
+[2026-07-28T16:56:33.171Z] [WARN] Printer Agent offline, returning cached default port
+[2026-07-28T16:56:33.175Z] [WARN] Printer Agent offline, returning cached default port
+[2026-07-28T16:56:33.178Z] [WARN] Printer Agent offline, returning cached default port
+[2026-07-28T16:56:33.179Z] [WARN] Printer Agent offline, returning cached default port

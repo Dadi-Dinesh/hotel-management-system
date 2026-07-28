@@ -1,0 +1,24 @@
+{
+  "name": "nookambika-printer-agent",
+  "version": "1.0.0",
+  "description": "Standalone Thermal Printer Agent for Sree Nookambika Family Dhaba",
+  "main": "src/agent.js",
+  "scripts": {
+    "start": "node src/agent.js",
+    "dev": "node --watch src/agent.js"
+  },
+  "keywords": [
+    "escpos",
+    "thermal-printer",
+    "serialport",
+    "socket.io-client",
+    "printer-agent"
+  ],
+  "author": "Sree Nookambika Dhaba",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "serialport": "^12.0.0",
+    "socket.io-client": "^4.7.5"
+  }
+}

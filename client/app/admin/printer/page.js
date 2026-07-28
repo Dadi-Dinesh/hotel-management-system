@@ -30,6 +30,7 @@ export default function PrinterAdminPage() {
     queueMetrics,
     stats,
     lastConnected,
+    lastPrinted,
     lastError,
     detectedPorts,
     isLoadingPorts,
@@ -244,8 +245,24 @@ export default function PrinterAdminPage() {
             </h2>
 
             <div className="flex items-center justify-between p-2 bg-stone-50 rounded-lg">
-              <span className="text-stone-600">Active Port:</span>
+              <span className="text-stone-600">Connection Status:</span>
+              <span className={`font-black uppercase text-[11px] ${status === "CONNECTED" ? "text-emerald-600" : status === "CONNECTING" ? "text-amber-600" : "text-rose-600"}`}>
+                {status === "CONNECTED" ? "🟢 Online" : status === "CONNECTING" ? "🟡 Reconnecting" : "🔴 Offline"}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between p-2 bg-stone-50 rounded-lg">
+              <span className="text-stone-600">Active USB Port:</span>
               <span className="font-mono font-bold text-brown-900">{port}</span>
+            </div>
+
+            <div className="flex items-center justify-between p-2 bg-stone-50 rounded-lg">
+              <span className="text-stone-600">Printer Name:</span>
+              <span className="font-bold text-brown-900">
+                {detectedPorts.find((p) => p.path === port)?.friendlyName ||
+                  detectedPorts.find((p) => p.path === port)?.manufacturer ||
+                  "HS-802UWB Thermal Printer"}
+              </span>
             </div>
 
             <div className="flex items-center justify-between p-2 bg-stone-50 rounded-lg">
@@ -254,14 +271,21 @@ export default function PrinterAdminPage() {
             </div>
 
             <div className="flex items-center justify-between p-2 bg-stone-50 rounded-lg">
+              <span className="text-stone-600">Queue Length:</span>
+              <span className="font-bold text-amber-700">{queueMetrics?.waitingJobs || 0} Pending Jobs</span>
+            </div>
+
+            <div className="flex items-center justify-between p-2 bg-stone-50 rounded-lg">
               <span className="text-stone-600">Total Printed:</span>
               <span className="font-bold text-emerald-700">{stats?.totalPrinted || 0} Receipts</span>
             </div>
 
-            <div className="flex items-center justify-between p-2 bg-stone-50 rounded-lg">
-              <span className="text-stone-600">FIFO Queue:</span>
-              <span className="font-bold text-amber-700">{queueMetrics?.waitingJobs || 0} Waiting</span>
-            </div>
+            {lastPrinted && (
+              <div className="flex items-center justify-between p-2 bg-stone-50 rounded-lg">
+                <span className="text-stone-600">Last Printed:</span>
+                <span className="font-bold text-stone-800">{new Date(lastPrinted).toLocaleTimeString("en-IN")}</span>
+              </div>
+            )}
 
             {lastConnected && (
               <div className="p-2 bg-emerald-50 text-emerald-800 rounded-lg text-[11px] font-medium">
@@ -271,7 +295,7 @@ export default function PrinterAdminPage() {
 
             {lastError && (
               <div className="p-2.5 bg-rose-50 text-rose-700 rounded-xl border border-rose-200 text-[11px] font-medium break-words">
-                <span className="font-bold block">Hardware Notice:</span>
+                <span className="font-bold block">Printer Error Notice:</span>
                 {lastError}
               </div>
             )}

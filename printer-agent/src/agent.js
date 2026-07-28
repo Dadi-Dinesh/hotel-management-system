@@ -10,7 +10,15 @@ const kotRoutingService = require("./formatters/kotRoutingService");
 const EscPosBuilder = require("./formatters/escposBuilder");
 const printerLogger = require("./utils/printerLogger");
 
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:4000";
+// Strict environment variable validation for BACKEND_URL (No hardcoded localhost fallback)
+const BACKEND_URL = process.env.BACKEND_URL ? process.env.BACKEND_URL.trim() : null;
+
+if (!BACKEND_URL) {
+  printerLogger.error("❌ [Agent Startup Error] BACKEND_URL environment variable is missing!");
+  printerLogger.error("   Please define BACKEND_URL in printer-agent/.env (e.g. BACKEND_URL=https://hotel-management-system-k5zr.onrender.com)");
+  process.exit(1);
+}
+
 const PRINTER_AGENT_KEY = process.env.PRINTER_AGENT_KEY || "nookambika_printer_secret_key_2026";
 
 printerLogger.info("🚀 Starting Local Thermal Printer Agent...");
@@ -58,7 +66,7 @@ function getAgentStatusPayload() {
 
 // 1. Socket Connected / Reconnected to Render Backend
 socket.on("connect", () => {
-  printerLogger.info(`✅ [Agent] Connected/Reconnected to Render Backend (Socket ID: ${socket.id})`);
+  printerLogger.info(`✅ [Agent] Connected to Render Backend at ${BACKEND_URL} (Socket ID: ${socket.id})`);
 
   // Re-emit handshake and process any unprinted items restored from local disk queue
   socket.emit("printer:agent:connect", getAgentStatusPayload());
@@ -71,7 +79,7 @@ socket.on("disconnect", (reason) => {
 });
 
 socket.on("connect_error", (err) => {
-  printerLogger.error(`❌ [Agent] Backend connection error: ${err.message}`);
+  printerLogger.error(`❌ [Agent] Backend connection error (${BACKEND_URL}): ${err.message}`);
 });
 
 // 3. Periodic Heartbeat (Every 10 seconds)

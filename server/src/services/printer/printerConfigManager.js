@@ -9,9 +9,10 @@ class PrinterConfigManager {
   constructor() {
     this.configDir = path.join(__dirname, "../../config");
     this.configFilePath = path.join(this.configDir, "printer.json");
-    this.defaultPort = process.env.PRINTER_PORT || "/dev/cu.usbserial-10";
+    this.defaultPort = process.env.PRINTER_PORT || "/dev/cu.usbserial-110";
     this.defaultBaudRate = parseInt(process.env.PRINTER_BAUD_RATE || "9600", 10);
-    this.defaultKitchenMode = "LIVE"; // LIVE | NORMAL
+    this.defaultKitchenMode = process.env.KITCHEN_MODE || "LIVE"; // LIVE | NORMAL
+    this.defaultPrinterTarget = process.env.PRINTER_TARGET || "ALL"; // ALL | RECEIPT | KOT
     this.ensureConfigDir();
   }
 
@@ -37,6 +38,7 @@ class PrinterConfigManager {
           port: data.port || this.defaultPort,
           baudRate: parseInt(data.baudRate || this.defaultBaudRate, 10),
           kitchenMode: data.kitchenMode === "NORMAL" ? "NORMAL" : "LIVE",
+          printerTarget: data.printerTarget || this.defaultPrinterTarget,
         };
       }
     } catch (err) {
@@ -47,24 +49,33 @@ class PrinterConfigManager {
       port: this.defaultPort,
       baudRate: this.defaultBaudRate,
       kitchenMode: this.defaultKitchenMode,
+      printerTarget: this.defaultPrinterTarget,
     };
   }
 
   /**
    * Save updated printer & kitchen mode settings
    */
-  saveConfig(port, baudRate, kitchenMode = "LIVE") {
+  saveConfig(port, baudRate, kitchenMode, printerTarget = "ALL") {
     const current = this.getConfig();
+    const targetKitchenMode =
+      kitchenMode !== undefined
+        ? kitchenMode === "NORMAL"
+          ? "NORMAL"
+          : "LIVE"
+        : current.kitchenMode;
+
     const config = {
       port: String(port || current.port).trim(),
       baudRate: parseInt(baudRate || current.baudRate, 10) || 9600,
-      kitchenMode: kitchenMode === "NORMAL" ? "NORMAL" : "LIVE",
+      kitchenMode: targetKitchenMode,
+      printerTarget: printerTarget || current.printerTarget || "ALL",
       updatedAt: new Date().toISOString(),
     };
 
     try {
       fs.writeFileSync(this.configFilePath, JSON.stringify(config, null, 2), "utf8");
-      printerLogger.info("Saved new printer & kitchen mode configuration to printer.json", config);
+      printerLogger.info("Saved new printer configuration to printer.json", config);
       return config;
     } catch (err) {
       printerLogger.error("Failed to write printer.json:", { error: err.message });

@@ -1,3 +1,4 @@
+const printerConfigManager = require("./printerConfigManager");
 const printerLogger = require("./printerLogger");
 
 /**
@@ -6,15 +7,17 @@ const printerLogger = require("./printerLogger");
  */
 class CloudPrinterGateway {
   constructor() {
+    const savedConfig = printerConfigManager.getConfig();
+
     this.agentSocket = null;
     this.agentStatus = {
       connected: false,
       online: false,
       status: "DISCONNECTED",
-      port: process.env.PRINTER_PORT || "/dev/cu.usbserial-110",
-      baudRate: parseInt(process.env.PRINTER_BAUD_RATE || "9600", 10),
-      kitchenMode: process.env.KITCHEN_MODE || "LIVE",
-      printerTarget: "ALL",
+      port: savedConfig.port || process.env.PRINTER_PORT || "/dev/cu.usbserial-110",
+      baudRate: savedConfig.baudRate || parseInt(process.env.PRINTER_BAUD_RATE || "9600", 10),
+      kitchenMode: savedConfig.kitchenMode || process.env.KITCHEN_MODE || "LIVE",
+      printerTarget: savedConfig.printerTarget || "ALL",
       lastConnected: null,
       lastError: "Printer Agent not connected to cloud backend",
       queueLength: 0,
@@ -42,7 +45,7 @@ class CloudPrinterGateway {
     setInterval(() => {
       const now = Date.now();
       for (const [jobId, item] of this.pendingAckMap.entries()) {
-        if (now - item.createdAt > 45000) { // 45s cutoff
+        if (now - item.createdAt > 45000) {
           clearTimeout(item.timeout);
           this.pendingAckMap.delete(jobId);
           item.reject(new Error(`Garbage collected timed out print job ${jobId}`));
@@ -53,17 +56,36 @@ class CloudPrinterGateway {
 
   /**
    * Register connected Socket.IO Printer Agent instance
+   * Synchronizes server's persisted kitchenMode to agent on initial registration
    */
   registerAgent(socket, initialPayload = {}) {
     printerLogger.info(`🔌 [CloudPrinterGateway] Printer Agent Registered (Socket ID: ${socket.id})`);
     this.agentSocket = socket;
+
+    // Load server's canonical persisted configuration
+    const savedConfig = printerConfigManager.getConfig();
+
     this.updateStatus({
       ...initialPayload,
+      port: this.agentStatus.port || savedConfig.port,
+      baudRate: this.agentStatus.baudRate || savedConfig.baudRate,
+      kitchenMode: savedConfig.kitchenMode || this.agentStatus.kitchenMode,
+      printerTarget: savedConfig.printerTarget || this.agentStatus.printerTarget,
       connected: true,
       online: true,
       lastConnected: new Date().toISOString(),
       lastError: initialPayload.lastError || null,
     });
+
+    // Immediately sync server's configured kitchenMode, port, and baudRate back to agent
+    if (this.agentSocket && this.agentSocket.connected) {
+      this.agentSocket.emit("printer:update-config", {
+        port: this.agentStatus.port,
+        baudRate: this.agentStatus.baudRate,
+        kitchenMode: this.agentStatus.kitchenMode,
+        printerTarget: this.agentStatus.printerTarget,
+      });
+    }
 
     // Flush any pending jobs queued while agent was disconnected
     this.flushOfflineJobQueue();
@@ -271,14 +293,28 @@ class CloudPrinterGateway {
   }
 
   /**
-   * Reconfigure printer settings dynamically on agent
+   * Reconfigure printer settings dynamically on agent and persist on server
    */
   async updateAgentConfig(port, baudRate, kitchenMode, printerTarget = "ALL") {
-    this.agentStatus.port = String(port || this.agentStatus.port).trim();
-    this.agentStatus.baudRate = parseInt(baudRate || this.agentStatus.baudRate, 10);
-    this.agentStatus.kitchenMode = kitchenMode === "NORMAL" ? "NORMAL" : "LIVE";
+    const targetKitchenMode =
+      kitchenMode !== undefined
+        ? kitchenMode === "NORMAL"
+          ? "NORMAL"
+          : "LIVE"
+        : this.agentStatus.kitchenMode;
+
+    const newPort = String(port || this.agentStatus.port).trim();
+    const newBaudRate = parseInt(baudRate || this.agentStatus.baudRate, 10);
+
+    // Save configuration persistently on server
+    printerConfigManager.saveConfig(newPort, newBaudRate, targetKitchenMode, printerTarget);
+
+    this.agentStatus.port = newPort;
+    this.agentStatus.baudRate = newBaudRate;
+    this.agentStatus.kitchenMode = targetKitchenMode;
     this.agentStatus.printerTarget = printerTarget || this.agentStatus.printerTarget;
 
+    // Send updated configuration to agent over Socket.IO
     if (this.agentSocket && this.agentSocket.connected) {
       this.agentSocket.emit("printer:update-config", {
         port: this.agentStatus.port,

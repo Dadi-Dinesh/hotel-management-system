@@ -2,10 +2,10 @@ const EscPosBuilder = require("./escposBuilder");
 
 /**
  * Generate 80mm Kitchen Order Ticket (KOT) ESC/POS Buffer
- * Supports CHEF COPY vs WAITER COPY label header
+ * Supports Kitchen Copy vs Captain Copy label headers
  */
-function buildKOTReceipt(order = {}, copyLabel = "WAITER COPY") {
-  const labelText = String(copyLabel || "WAITER COPY").toUpperCase();
+function buildKOTReceipt(order = {}, copyLabel = "Kitchen Copy") {
+  const labelText = String(copyLabel || "Kitchen Copy").toUpperCase();
 
   const builder = new EscPosBuilder();
 

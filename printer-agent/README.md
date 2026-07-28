@@ -46,7 +46,7 @@ Before running in production, ensure your `.env` settings match your Render back
 
 ```env
 # Render Production Express Backend URL
-BACKEND_URL=https://hotel-management-system-backend.onrender.com
+BACKEND_URL=https://hotel-management-system-k5zr.onrender.com
 
 # Shared Security API Key (Must match PRINTER_AGENT_KEY on Render)
 PRINTER_AGENT_KEY=nookambika_printer_secret_key_2026

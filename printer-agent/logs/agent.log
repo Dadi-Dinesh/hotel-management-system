@@ -1,0 +1,45 @@
+[2026-07-28T17:17:53.107Z] [INFO] 🚀 Starting Local Thermal Printer Agent...
+[2026-07-28T17:17:53.109Z] [INFO] 📡 Connecting to Backend: http://localhost:4000
+[2026-07-28T17:17:53.109Z] [INFO] 🖨️ [SerialPrinter] Driver initialized for port: /dev/cu.usbserial-110 (Baud: 9600)
+[2026-07-28T17:17:53.138Z] [INFO] ✅ [Agent] Connected/Reconnected to Render Backend (Socket ID: T4RaZqi9-8fcuuCKAAAH)
+[2026-07-28T17:17:53.194Z] [INFO] ✅ [SerialPrinter] Connected to thermal printer at /dev/cu.usbserial-110
+[2026-07-28T17:21:07.579Z] [INFO] 📥 [Agent] Received print job JOB-1785259267575-691 (Type: KOT, Target: KOT)
+[2026-07-28T17:21:07.581Z] [INFO] 📋 [KOTRoutingService] Routing order #124 (Mode: LIVE, Items: 1)
+[2026-07-28T17:21:07.616Z] [INFO] 📥 [PrintQueue] Job JOB-1785259267575-691 (KOT (WAITER COPY)) enqueued. Waiting: 1
+[2026-07-28T17:21:07.617Z] [INFO] 🖨️ [PrintQueue] Processing job JOB-1785259267575-691 (KOT (WAITER COPY))...
+[2026-07-28T17:21:13.344Z] [INFO] ✅ [SerialPrinter] Sent 520 bytes successfully to /dev/cu.usbserial-110
+[2026-07-28T17:21:13.347Z] [INFO] ✅ [Agent] Successfully processed print job JOB-1785259267575-691
+[2026-07-28T17:21:26.306Z] [INFO] 📥 [Agent] Received print job JOB-1785259286305-903 (Type: BILL, Target: RECEIPT)
+[2026-07-28T17:21:26.308Z] [INFO] 📥 [PrintQueue] Job JOB-1785259286305-903 (BILL) enqueued. Waiting: 1
+[2026-07-28T17:21:26.311Z] [INFO] 🖨️ [PrintQueue] Processing job JOB-1785259286305-903 (BILL)...
+[2026-07-28T17:21:32.803Z] [INFO] ✅ [SerialPrinter] Sent 1134 bytes successfully to /dev/cu.usbserial-110
+[2026-07-28T17:21:32.807Z] [INFO] ✅ [Agent] Successfully processed print job JOB-1785259286305-903
+[2026-07-28T17:25:49.818Z] [INFO] 📥 [Agent] Received print job JOB-1785259549815-532 (Type: KOT, Target: KOT)
+[2026-07-28T17:25:49.820Z] [INFO] 📋 [KOTRoutingService] Routing order #126 (Mode: LIVE, Items: 1)
+[2026-07-28T17:25:49.824Z] [INFO] 📥 [PrintQueue] Job JOB-1785259549815-532 (KOT (WAITER COPY)) enqueued. Waiting: 1
+[2026-07-28T17:25:49.828Z] [INFO] 🖨️ [PrintQueue] Processing job JOB-1785259549815-532 (KOT (WAITER COPY))...
+[2026-07-28T17:25:55.515Z] [INFO] ✅ [SerialPrinter] Sent 520 bytes successfully to /dev/cu.usbserial-110
+[2026-07-28T17:25:55.516Z] [INFO] ✅ [Agent] Successfully processed print job JOB-1785259549815-532
+[2026-07-28T17:30:41.580Z] [WARN] ⚠️ Stopping Printer Agent (SIGINT)...
+[2026-07-28T17:30:41.585Z] [WARN] ⚠️ [Agent] Socket disconnected from backend: io client disconnect
+[2026-07-28T17:30:52.103Z] [INFO] 🚀 Starting Local Thermal Printer Agent...
+[2026-07-28T17:30:52.105Z] [INFO] 📡 Connecting to Backend: https://hotel-management-system-k5zr.onrender.com
+[2026-07-28T17:30:52.105Z] [INFO] 🖨️ [SerialPrinter] Driver initialized for port: /dev/cu.usbserial-110 (Baud: 9600)
+[2026-07-28T17:30:52.183Z] [INFO] ✅ [SerialPrinter] Connected to thermal printer at /dev/cu.usbserial-110
+[2026-07-28T17:30:55.039Z] [INFO] ✅ [Agent] Connected to Render Backend at https://hotel-management-system-k5zr.onrender.com (Socket ID: v6LDYM_lMf7DxLXCAAAJ)
+[2026-07-28T17:36:33.096Z] [INFO] 📥 [Agent] Received print job JOB-1785260192859-130 (Type: BILL, Target: RECEIPT)
+[2026-07-28T17:36:33.146Z] [INFO] 📥 [PrintQueue] Job JOB-1785260192859-130 (BILL) enqueued. Waiting: 1
+[2026-07-28T17:36:33.147Z] [INFO] 🖨️ [PrintQueue] Processing job JOB-1785260192859-130 (BILL)...
+[2026-07-28T17:36:39.628Z] [INFO] ✅ [SerialPrinter] Sent 1134 bytes successfully to /dev/cu.usbserial-110
+[2026-07-28T17:36:39.632Z] [INFO] ✅ [Agent] Successfully processed print job JOB-1785260192859-130
+[2026-07-28T17:36:53.188Z] [INFO] 📥 [Agent] Received print job JOB-1785260213092-420 (Type: BILL, Target: RECEIPT)
+[2026-07-28T17:36:53.190Z] [INFO] 📥 [PrintQueue] Job JOB-1785260213092-420 (BILL) enqueued. Waiting: 1
+[2026-07-28T17:36:53.193Z] [INFO] 🖨️ [PrintQueue] Processing job JOB-1785260213092-420 (BILL)...
+[2026-07-28T17:36:59.438Z] [INFO] ✅ [SerialPrinter] Sent 978 bytes successfully to /dev/cu.usbserial-110
+[2026-07-28T17:36:59.441Z] [INFO] ✅ [Agent] Successfully processed print job JOB-1785260213092-420
+[2026-07-28T17:37:52.588Z] [INFO] 📥 [Agent] Received print job JOB-1785260272407-531 (Type: KOT, Target: KOT)
+[2026-07-28T17:37:52.591Z] [INFO] 📋 [KOTRoutingService] Routing order #128 (Mode: LIVE, Items: 1)
+[2026-07-28T17:37:52.594Z] [INFO] 📥 [PrintQueue] Job JOB-1785260272407-531 (KOT (Kitchen Copy)) enqueued. Waiting: 1
+[2026-07-28T17:37:52.599Z] [INFO] 🖨️ [PrintQueue] Processing job JOB-1785260272407-531 (KOT (Kitchen Copy))...
+[2026-07-28T17:37:58.286Z] [INFO] ✅ [SerialPrinter] Sent 521 bytes successfully to /dev/cu.usbserial-110
+[2026-07-28T17:37:58.289Z] [INFO] ✅ [Agent] Successfully processed print job JOB-1785260272407-531

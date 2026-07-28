@@ -2,17 +2,10 @@ const EscPosBuilder = require("./escposBuilder");
 
 /**
  * Generate 80mm Kitchen Order Ticket (KOT) ESC/POS Buffer
- * Supports CHEF COPY vs WAITER COPY label header
+ * Supports Kitchen Copy vs Captain Copy label headers
  */
-function buildKOTReceipt(order = {}, copyLabel = "WAITER COPY") {
-  const labelText = String(copyLabel || "WAITER COPY").toUpperCase();
-
-  console.log(`👨‍🍳 [kotPrinter] Building KOT ticket (${labelText}) for order object:`, {
-    id: order?.id,
-    orderNumber: order?.orderNumber,
-    tableCode: order?.tableCode || order?.session?.table?.code,
-    itemCount: order?.items?.length,
-  });
+function buildKOTReceipt(order = {}, copyLabel = "Kitchen Copy") {
+  const labelText = String(copyLabel || "Kitchen Copy").toUpperCase();
 
   const builder = new EscPosBuilder();
 
@@ -102,7 +95,6 @@ function buildKOTReceipt(order = {}, copyLabel = "WAITER COPY") {
   // 6. Paper Cut
   builder.feed(2).cut();
 
-  console.log(`✅ [kotPrinter] Generated KOT ESC/POS buffer (${builder.build().length} bytes) - Label: ${labelText}`);
   return builder.build();
 }
 

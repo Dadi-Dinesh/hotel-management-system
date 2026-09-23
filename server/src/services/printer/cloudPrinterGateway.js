@@ -121,13 +121,21 @@ class CloudPrinterGateway {
       this.agentStatus.lastPrinted = payload.lastPrinted;
     }
 
-    // Broadcast status to admin & captain socket rooms
+    // Broadcast status to admin & captain socket rooms.
+    // The physical printer agent is single-tenant for now (Phase 6 explicitly
+    // keeps printing untouched) — it always serves the demo restaurant, so
+    // status updates go to that restaurant's scoped rooms specifically.
     try {
       const { getIO } = require("../../socket");
+      const { getDemoRestaurantId } = require("../../middleware/tenant");
       const io = getIO();
       if (io) {
-        io.to("admins").emit("printer:status:update", this.getStatus());
-        io.to("captains").emit("printer:status:update", this.getStatus());
+        getDemoRestaurantId()
+          .then((demoRestaurantId) => {
+            io.to(`restaurant:${demoRestaurantId}:admins`).emit("printer:status:update", this.getStatus());
+            io.to(`restaurant:${demoRestaurantId}:captains`).emit("printer:status:update", this.getStatus());
+          })
+          .catch(() => {});
       }
     } catch (e) {
       // Quiet catch if Socket.IO server not initialized yet
@@ -166,6 +174,8 @@ class CloudPrinterGateway {
       order,
       printerTarget: extraOptions.printerTarget || "ALL",
       copyLabel: extraOptions.copyLabel,
+      paperWidth: extraOptions.paperWidth,
+      networkPrinter: extraOptions.networkPrinter,
       timestamp: new Date().toISOString(),
     };
 
@@ -325,6 +335,24 @@ class CloudPrinterGateway {
     }
 
     return this.getStatus();
+  }
+
+  /**
+   * Ask the agent to test a raw TCP connection to a network printer's IP:port
+   * (used by the "Test Connection" button before saving a network printer).
+   */
+  async testNetworkPrinter(ip, port) {
+    if (!this.agentSocket || !this.agentSocket.connected) {
+      return { success: false, error: "Printer Agent is offline — connect a local agent to test network printers." };
+    }
+
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => resolve({ success: false, error: "Timed out waiting for agent response." }), 10000);
+      this.agentSocket.emit("printer:network-test", { ip, port }, (res) => {
+        clearTimeout(timeout);
+        resolve(res || { success: false, error: "No response from agent." });
+      });
+    });
   }
 
   /**

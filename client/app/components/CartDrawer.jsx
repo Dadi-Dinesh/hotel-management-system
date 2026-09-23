@@ -1,6 +1,8 @@
 "use client";
 
-import { X, Minus, Plus, ShoppingBag, Receipt, ArrowRight, Utensils } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { X, Minus, Plus, ShoppingBag, ShoppingCart, Receipt, ArrowRight, Utensils } from "lucide-react";
+import EmptyState from "./EmptyState";
 
 export default function CartDrawer({
   items = [],
@@ -22,15 +24,27 @@ export default function CartDrawer({
     0
   );
   const totalItemsCount = draftItemsCount + placedItemsCount;
+  const shouldReduceMotion = useReducedMotion();
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-50 flex justify-end"
+      onClick={onClose}
+    >
       {/* Overlay */}
       <div className="absolute inset-0" style={{ background: "rgba(61, 39, 16, 0.7)" }} />
 
       {/* Drawer */}
-      <div
-        className="relative w-full max-w-md h-full flex flex-col border-l-2 shadow-2xl animate-slide-in-right"
+      <motion.div
+        initial={shouldReduceMotion ? false : { x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
+        className="relative w-full max-w-md h-full flex flex-col border-l-2 shadow-2xl"
         style={{
           background: "var(--color-surface)",
           borderColor: "var(--color-brown-900)"
@@ -185,10 +199,16 @@ export default function CartDrawer({
               </div>
 
               <div className="space-y-3">
+                <AnimatePresence initial={false}>
                 {items.map((item) => (
-                  <div
+                  <motion.div
                     key={item.menuItemId}
-                    className="flex items-center gap-3 p-3 sm:p-4 border shadow-xs"
+                    layout={!shouldReduceMotion}
+                    initial={shouldReduceMotion ? false : { opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, height: 0, marginTop: 0 }}
+                    transition={{ duration: 0.22, ease: "easeOut" }}
+                    className="flex items-center gap-3 p-3 sm:p-4 border shadow-xs overflow-hidden"
                     style={{
                       background: "var(--color-surface)",
                       borderColor: "var(--color-brown-900)",
@@ -275,26 +295,20 @@ export default function CartDrawer({
                         </button>
                       </div>
                     )}
-                  </div>
+                  </motion.div>
                 ))}
+                </AnimatePresence>
               </div>
             </div>
           )}
 
           {/* Section 3: Empty State (No draft items AND no placed orders) */}
           {items.length === 0 && activePlacedOrders.length === 0 && (
-            <div className="text-center py-16 border border-dashed border-brown-900/40 p-6">
-              <p className="text-5xl mb-4">🛒</p>
-              <p
-                className="font-bold text-base uppercase tracking-widest mb-1"
-                style={{ color: "var(--color-brown-900)" }}
-              >
-                Cart is empty
-              </p>
-              <p className="text-xs text-gray-500 max-w-xs mx-auto">
-                No draft items or active orders yet. Browse our menu and add items to start ordering!
-              </p>
-            </div>
+            <EmptyState
+              icon={<ShoppingCart size={30} style={{ color: "var(--color-text-muted)" }} />}
+              title="No Cart Items"
+              description="No draft items or active orders yet. Browse our menu and add items to start ordering!"
+            />
           )}
         </div>
 
@@ -382,7 +396,7 @@ export default function CartDrawer({
             </div>
           ) : null}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { notifyNetworkError } from "./pwa/networkEvents";
 
 const getApiBase = () => {
   if (process.env.NEXT_PUBLIC_API_URL) {
@@ -29,6 +30,13 @@ api.interceptors.request.use((config) => {
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // Platform Owners only: which restaurant the RestaurantSwitcher has selected.
+    // Restaurant-scoped staff ignore this — the server always trusts their own
+    // account's restaurantId over any client-supplied header.
+    const selectedRestaurantId = localStorage.getItem("selectedRestaurantId");
+    if (selectedRestaurantId) {
+      config.headers["X-Restaurant-Id"] = selectedRestaurantId;
+    }
   }
   return config;
 });
@@ -39,6 +47,7 @@ api.interceptors.response.use(
   (error) => {
     if (!error.response && error.message === "Network Error") {
       console.warn("API Connection Error: Backend server unreachable at", API_BASE);
+      notifyNetworkError();
     }
     if (error.response?.status === 401) {
       if (typeof window !== "undefined") {

@@ -7,6 +7,55 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Restaurant {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  shortName      String?
+  logo           String?
+  coverImage     String?
+  phone          String?
+  email          String?
+  address        String?
+  cuisine        String?
+  primaryColor   String?  @default("#E8891C")
+  secondaryColor String?  @default("#3D2710")
+  accentColor    String?  @default("#0EA5E9")
+  receiptFooter  String?
+  welcomeMessage String?
+  currency       String   @default("INR")
+  timeZone       String   @default("Asia/Kolkata")
+  taxPercent     Float    @default(0)
+  serviceChargePercent Float @default(0)
+  isActive       Boolean  @default(true)
+
+  // Billing foundation only — no payment provider integration yet.
+  plan               String    @default("FREE_TRIAL")
+  subscriptionStatus String    @default("TRIALING")
+  trialEndsAt         DateTime?
+  // Phase 11 — where a future billing provider would send invoices/receipts.
+  // Nullable and unused until Stripe (or similar) is actually integrated.
+  billingEmail        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users      User[]
+  tables     Table[]
+  categories Category[]
+  menuItems  MenuItem[]
+  sessions   Session[]
+  orders     Order[]
+  feedbacks  Feedback[]
+  offers     Offer[]
+  invites    Invite[]
+  auditLogs  AuditLog[]
+  printerSettings PrinterSettings?
+  printJobs       PrintJob[]
+
+  @@index([slug])
+}
+
 model User {
   id        String   @id @default(cuid())
   name      String
@@ -15,35 +64,73 @@ model User {
   role      Role     @default(CAPTAIN)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Nullable on purpose: null = Platform Owner (sees every restaurant).
+  // Non-null = this user belongs to exactly one restaurant.
+  restaurantId String?
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id])
+
+  // Analytics-only back-relations — who accepted an order / closed a session.
+  acceptedOrders Order[]   @relation("OrderAcceptedBy")
+  closedSessions Session[] @relation("SessionClosedBy")
+
+  @@index([restaurantId])
 }
 
 model Table {
   id       String    @id @default(cuid())
-  code     String    @unique
-  number   Int       @unique
+  code     String
+  number   Int
   capacity Int       @default(4)
   isActive Boolean   @default(true)
   sessions Session[]
+
+  // Secure QR (Phase 7) — null means "legacy/open mode": no token required,
+  // exactly like every table before this phase. Setting qrTokenHash opts a
+  // table into requiring a matching ?token= on every table lookup/session
+  // start. The raw token is never stored — only its SHA-256 hash.
+  qrTokenHash          String?
+  qrTokenRegeneratedAt DateTime?
+  lastScannedAt        DateTime?
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  @@unique([restaurantId, code])
+  @@unique([restaurantId, number])
+  @@index([restaurantId])
 }
 
 model Session {
-  id        String        @id @default(cuid())
-  tableId   String
-  status    SessionStatus @default(ACTIVE)
-  createdAt DateTime      @default(now())
-  closedAt  DateTime?
-  feedbacks Feedback[]
-  orders    Order[]
-  table     Table         @relation(fields: [tableId], references: [id])
+  id            String        @id @default(cuid())
+  tableId       String
+  status        SessionStatus @default(ACTIVE)
+  createdAt     DateTime      @default(now())
+  closedAt      DateTime?
+  feedbacks     Feedback[]
+  orders        Order[]
+  table         Table         @relation(fields: [tableId], references: [id])
+  closedByUserId String?
+  closedBy      User?         @relation("SessionClosedBy", fields: [closedByUserId], references: [id])
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
   @@index([tableId])
   @@index([status])
+  @@index([restaurantId])
 }
 
 model Category {
   id    String     @id @default(cuid())
-  name  String     @unique
+  name  String
   items MenuItem[]
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  @@unique([restaurantId, name])
+  @@index([restaurantId])
 }
 
 model MenuItem {
@@ -70,21 +157,35 @@ model MenuItem {
   description        String?
   calories           Int?
 
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
   @@index([categoryId])
+  @@index([restaurantId])
 }
 
 model Order {
-  id          String      @id @default(cuid())
-  orderNumber Int         @unique @default(autoincrement())
-  sessionId   String
-  status      OrderStatus @default(PENDING)
-  createdAt   DateTime    @default(now())
-  acceptedAt  DateTime?
-  session     Session     @relation(fields: [sessionId], references: [id])
-  items       OrderItem[]
+  id              String      @id @default(cuid())
+  orderNumber     Int         @unique @default(autoincrement())
+  sessionId       String
+  status          OrderStatus @default(PENDING)
+  createdAt       DateTime    @default(now())
+  acceptedAt      DateTime?
+  // Phase 10 — set the moment every item in the order is SERVED (never
+  // backfilled for historical orders, so it's null there — the AI Copilot's
+  // kitchen-performance insights simply treat those as "not enough data").
+  servedAt        DateTime?
+  session         Session     @relation(fields: [sessionId], references: [id])
+  items           OrderItem[]
+  acceptedByUserId String?
+  acceptedBy      User?       @relation("OrderAcceptedBy", fields: [acceptedByUserId], references: [id])
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
 
   @@index([sessionId])
   @@index([status])
+  @@index([restaurantId])
 }
 
 model OrderItem {
@@ -106,13 +207,159 @@ model Feedback {
   sessionId  String
   menuItemId String
   rating     Int
+  // Phase 10 — optional free-text note a customer can leave alongside their
+  // star rating. Nullable so every pre-existing row (rating-only) is
+  // unaffected; the AI Copilot's keyword-based compliment/complaint
+  // grouping only runs over rows that actually have one.
+  comment    String?
   createdAt  DateTime @default(now())
   menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
   session    Session  @relation(fields: [sessionId], references: [id])
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  @@index([restaurantId])
+}
+
+model Offer {
+  id            String       @id @default(cuid())
+  title         String
+  description   String?
+  discountType  DiscountType @default(PERCENTAGE)
+  discountValue Float
+  code          String?
+  startsAt      DateTime?
+  endsAt        DateTime?
+  isEnabled     Boolean      @default(true)
+  usageCount    Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  @@unique([restaurantId, code])
+  @@index([isEnabled])
+  @@index([restaurantId])
+}
+
+model Invite {
+  id        String       @id @default(cuid())
+  name      String
+  phone     String?
+  email     String?
+  code      String       @unique
+  role      Role         @default(CAPTAIN)
+  status    InviteStatus @default(PENDING)
+  expiresAt DateTime
+  createdAt DateTime     @default(now())
+
+  acceptedByUserId String?
+  acceptedAt       DateTime?
+
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  @@index([restaurantId])
+  @@index([code])
+}
+
+/** Lightweight audit trail — a hook, not a full compliance system. */
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  restaurantId String?
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id])
+  userId       String?
+
+  @@index([restaurantId])
+  @@index([action])
+}
+
+/**
+ * Per-restaurant print preferences (Phase 8 — Universal Print Engine).
+ * One row per restaurant, created lazily on first read/write. Every field
+ * has a safe default so a restaurant with no row yet behaves exactly like
+ * today: browser-print fallback, 80mm, no auto-print.
+ */
+model PrinterSettings {
+  id           String @id @default(cuid())
+  restaurantId String @unique
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  // Adapter chosen per document type — THERMAL_AGENT | BROWSER | PDF | NETWORK | BLUETOOTH
+  billPrinterType    String @default("BROWSER")
+  kitchenPrinterType String @default("BROWSER")
+
+  billPaperWidth String @default("80mm") // 58mm | 80mm | A4
+  kotPaperWidth  String @default("80mm")
+
+  copies        Int     @default(1)
+  autoPrintKOT  Boolean @default(false)
+  autoPrintBill Boolean @default(false)
+
+  // Optional network (TCP/IP, port 9100 ESC/POS raw-socket) printer target.
+  networkPrinterIp   String?
+  networkPrinterPort Int?    @default(9100)
+
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId])
+}
+
+/**
+ * Durable print job record — the Print Queue and Print History views both
+ * read from this table, regardless of which adapter actually executed the
+ * job. Rows are never deleted, only status-updated, so history is permanent.
+ */
+model PrintJob {
+  id           String @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  documentType String // BILL | KOT | TEST
+  adapter      String // THERMAL_AGENT | BROWSER | PDF | NETWORK | BLUETOOTH
+  status       String @default("PENDING") // PENDING | PRINTING | COMPLETED | FAILED
+
+  tableCode    String?
+  orderNumber  String?
+  sessionId    String?
+  printerName  String?
+  errorMessage String?
+
+  // Minimal snapshot of what was printed, so History can offer "Reprint"
+  // without needing the original order/session to still be in that state.
+  payloadSnapshot Json?
+
+  retryCount Int @default(0)
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([restaurantId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FLAT
 }
 
 enum Role {
   ADMIN
+  MANAGER
   CAPTAIN
   KITCHEN
 }

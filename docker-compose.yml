@@ -1,0 +1,64 @@
+# ServeSync — local Docker Compose stack.
+#
+# Runs the whole platform (Postgres + API server + Next.js client) with one
+# command: `docker compose up --build`. The client talks to the server on
+# localhost — NEXT_PUBLIC_* vars are baked into the client's browser bundle
+# at build time, so they must point wherever your own browser can reach the
+# server, not the internal Docker network name.
+#
+# To use a real database (Neon, etc.) instead of the bundled Postgres,
+# override DATABASE_URL for the `server` service and remove its `depends_on: db`.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: servesync
+      POSTGRES_PASSWORD: servesync_local_dev
+      POSTGRES_DB: servesync
+    ports:
+      - "5432:5432"
+    volumes:
+      - servesync_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U servesync"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://servesync:servesync_local_dev@db:5432/servesync
+      JWT_SECRET: local_dev_jwt_secret_change_me_please_32chars
+      PORT: 4000
+      CLIENT_URL: http://localhost:3000
+      # Cloudinary/PRINTER_AGENT_KEY intentionally left unset here — the
+      # server starts fine without them (see src/config/validateEnv.js),
+      # just with image upload and the physical printer agent disabled.
+    ports:
+      - "4000:4000"
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:4000/api
+        NEXT_PUBLIC_SOCKET_URL: http://localhost:4000
+        NEXT_PUBLIC_SITE_URL: http://localhost:3000
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "3000:3000"
+
+volumes:
+  servesync_db_data:

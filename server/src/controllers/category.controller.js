@@ -2,11 +2,12 @@ const prisma = require("../config/db");
 
 /**
  * Get all categories
- * GET /api/categories
+ * GET /api/categories (legacy, demo-scoped) | GET /api/restaurants/:slug/categories
  */
 const getCategories = async (req, res, next) => {
   try {
     const categories = await prisma.category.findMany({
+      where: { restaurantId: req.restaurantId },
       orderBy: { name: "asc" },
       include: {
         _count: { select: { items: true } },
@@ -20,12 +21,16 @@ const getCategories = async (req, res, next) => {
 };
 
 /**
- * Create a new category
+ * Create a new category — stamped with req.restaurantId (staff).
  * POST /api/categories
  */
 const createCategory = async (req, res, next) => {
   try {
     const { name } = req.body;
+
+    if (!req.restaurantId) {
+      return res.status(400).json({ success: false, message: "Select a restaurant before managing the menu." });
+    }
 
     if (!name || !name.trim()) {
       return res.status(400).json({
@@ -35,7 +40,7 @@ const createCategory = async (req, res, next) => {
     }
 
     const category = await prisma.category.create({
-      data: { name: name.trim() },
+      data: { name: name.trim(), restaurantId: req.restaurantId },
     });
 
     res.status(201).json({
@@ -49,7 +54,7 @@ const createCategory = async (req, res, next) => {
 };
 
 /**
- * Update a category
+ * Update a category — restaurant-scoped.
  * PATCH /api/categories/:id
  */
 const updateCategory = async (req, res, next) => {
@@ -62,6 +67,11 @@ const updateCategory = async (req, res, next) => {
         success: false,
         message: "Category name is required.",
       });
+    }
+
+    const existing = await prisma.category.findUnique({ where: { id } });
+    if (!existing || (req.restaurantId && existing.restaurantId !== req.restaurantId)) {
+      return res.status(404).json({ success: false, message: "Category not found." });
     }
 
     const category = await prisma.category.update({
@@ -80,12 +90,17 @@ const updateCategory = async (req, res, next) => {
 };
 
 /**
- * Delete a category
+ * Delete a category — restaurant-scoped.
  * DELETE /api/categories/:id
  */
 const deleteCategory = async (req, res, next) => {
   try {
     const { id } = req.params;
+
+    const existing = await prisma.category.findUnique({ where: { id } });
+    if (!existing || (req.restaurantId && existing.restaurantId !== req.restaurantId)) {
+      return res.status(404).json({ success: false, message: "Category not found." });
+    }
 
     // Check if category has menu items
     const itemCount = await prisma.menuItem.count({

@@ -17,6 +17,7 @@ import {
   Activity,
 } from "lucide-react";
 import { usePrinter } from "../../lib/printer/usePrinter";
+import PrinterNav from "../../components/admin/PrinterNav";
 import toast from "react-hot-toast";
 
 export default function PrinterAdminPage() {
@@ -83,6 +84,10 @@ export default function PrinterAdminPage() {
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-900 font-sans p-4 sm:p-6 md:p-8 max-w-6xl mx-auto">
+      <div className="mb-6">
+        <PrinterNav active="/admin/printer" />
+      </div>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-stone-200">
         <div className="flex items-center gap-3">

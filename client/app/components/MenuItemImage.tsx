@@ -8,48 +8,66 @@ interface MenuItemImageProps {
   src?: string | null;
   alt: string;
   onClick?: () => void;
+  /** "thumbnail" (default, existing compact row size) or "large" (premium card image) */
+  variant?: "thumbnail" | "large";
 }
 
-export default function MenuItemImage({ src, alt, onClick }: MenuItemImageProps) {
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
+const VARIANT_STYLES = {
+  thumbnail: {
+    wrapperClass: "w-[72px] h-[72px] sm:w-24 sm:h-24 flex-shrink-0 rounded-lg",
+    sizes: "(max-width: 640px) 72px, 96px",
+    iconSize: 20,
+  },
+  large: {
+    wrapperClass: "w-full aspect-[4/3] rounded-t-2xl",
+    sizes: "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw",
+    iconSize: 40,
+  },
+};
 
-  const FallbackPlaceholder = () => (
+function FallbackPlaceholder({ variant, iconSize }: { variant: "thumbnail" | "large"; iconSize: number }) {
+  return (
     <div
-      className="w-full h-full flex flex-col items-center justify-center rounded-lg"
+      className="w-full h-full flex flex-col items-center justify-center"
       style={{
         background: "linear-gradient(135deg, var(--color-cream-200), var(--color-cream-300))",
-        border: "1px solid var(--color-cream-300)",
+        border: variant === "thumbnail" ? "1px solid var(--color-cream-300)" : "none",
       }}
     >
       <UtensilsCrossed
-        size={20}
-        className="sm:w-6 sm:h-6 text-[var(--color-brown-800)] opacity-40"
+        size={iconSize}
+        style={{ color: "var(--color-brown-800)", opacity: 0.4 }}
       />
     </div>
   );
+}
+
+export default function MenuItemImage({ src, alt, onClick, variant = "thumbnail" }: MenuItemImageProps) {
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const styles = VARIANT_STYLES[variant];
 
   return (
     <div
-      className="w-[72px] h-[72px] sm:w-24 sm:h-24 relative flex-shrink-0 rounded-lg overflow-hidden border transition-all duration-300"
+      className={`relative overflow-hidden border transition-all duration-300 ${styles.wrapperClass}`}
       style={{
-        borderColor: "var(--color-brown-900)",
+        borderColor: variant === "large" ? "transparent" : "var(--color-brown-900)",
         cursor: onClick ? "pointer" : "default",
         transform: "scale(1)",
         transition: "transform 0.15s ease, border-color 0.15s ease",
       }}
       onClick={onClick}
       onMouseEnter={(e) => {
-        if (onClick) (e.currentTarget as HTMLDivElement).style.transform = "scale(1.06)";
+        if (onClick && variant === "thumbnail") (e.currentTarget as HTMLDivElement).style.transform = "scale(1.06)";
       }}
       onMouseLeave={(e) => {
-        if (onClick) (e.currentTarget as HTMLDivElement).style.transform = "scale(1)";
+        if (onClick && variant === "thumbnail") (e.currentTarget as HTMLDivElement).style.transform = "scale(1)";
       }}
       onMouseDown={(e) => {
-        if (onClick) (e.currentTarget as HTMLDivElement).style.transform = "scale(0.95)";
+        if (onClick && variant === "thumbnail") (e.currentTarget as HTMLDivElement).style.transform = "scale(0.95)";
       }}
       onMouseUp={(e) => {
-        if (onClick) (e.currentTarget as HTMLDivElement).style.transform = "scale(1.06)";
+        if (onClick && variant === "thumbnail") (e.currentTarget as HTMLDivElement).style.transform = "scale(1.06)";
       }}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
@@ -60,7 +78,7 @@ export default function MenuItemImage({ src, alt, onClick }: MenuItemImageProps)
     >
       {/* Loading Skeleton */}
       {isLoading && !hasError && src && (
-        <div className="absolute inset-0 skeleton animate-pulse rounded-lg" />
+        <div className="absolute inset-0 animate-pulse" style={{ background: "var(--color-cream-200)" }} />
       )}
 
       {/* Optimized Lazy-loaded Image */}
@@ -69,8 +87,8 @@ export default function MenuItemImage({ src, alt, onClick }: MenuItemImageProps)
           src={src}
           alt={alt}
           fill
-          sizes="(max-width: 640px) 72px, 96px"
-          className={`object-cover rounded-lg transition-all duration-300 ${
+          sizes={styles.sizes}
+          className={`object-cover transition-all duration-300 ${
             isLoading ? "scale-105 blur-sm" : "scale-100 blur-0"
           }`}
           onLoad={() => setIsLoading(false)}
@@ -78,7 +96,7 @@ export default function MenuItemImage({ src, alt, onClick }: MenuItemImageProps)
           loading="lazy"
         />
       ) : (
-        <FallbackPlaceholder />
+        <FallbackPlaceholder variant={variant} iconSize={styles.iconSize} />
       )}
     </div>
   );

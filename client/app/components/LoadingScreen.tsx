@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
+import Image from "next/image";
+import { PLATFORM_NAME, DEMO_RESTAURANT } from "../lib/branding";
 
 // ── Types ──
 interface LoadingScreenProps {
@@ -251,9 +253,11 @@ export function RestaurantLogo({ className = "" }: { className?: string }) {
         boxShadow: "0 0 15px rgba(245, 158, 11, 0.6), inset 0 0 8px rgba(254, 240, 138, 0.4)",
       }}
     >
-      <img
-        src="/dhaba-logo.jpg"
-        alt="Sree Nookambika Dhaba Logo"
+      <Image
+        src={DEMO_RESTAURANT.logo}
+        alt={`${DEMO_RESTAURANT.name} Logo`}
+        width={64}
+        height={64}
         className="w-full h-full object-cover"
       />
     </div>
@@ -409,11 +413,6 @@ export function WelcomeText({ step }: { step: number }) {
         opacity: showText ? 1 : 0,
       }}
     >
-      {/* Welcome Header */}
-      <p className="text-xl sm:text-2xl mb-1 tracking-wider animate-pulse">
-        🙏 <span className="font-medium text-[#fef08a]">Welcome</span>
-      </p>
-
       {/* Main Title */}
       <h1
         className="text-2xl sm:text-3xl md:text-4xl font-black uppercase tracking-tight mb-2"
@@ -422,14 +421,15 @@ export function WelcomeText({ step }: { step: number }) {
           background: "linear-gradient(180deg, #ffffff 0%, #fef08a 60%, #f59e0b 100%)",
           WebkitBackgroundClip: "text",
           WebkitTextFillColor: "transparent",
+          textShadow: "0 4px 24px rgba(245, 158, 11, 0.35)",
         }}
       >
-        Sree Nookambika Family Dhaba
+        Welcome to {PLATFORM_NAME}
       </h1>
 
       {/* Sub-tagline */}
       <p className="text-xs sm:text-sm font-semibold uppercase tracking-widest text-[#f59e0b] mb-4">
-        Authentic Taste • Fresh Food • Warm Hospitality
+        Powered by {DEMO_RESTAURANT.name} Demo
       </p>
 
       {/* Preparing Status */}

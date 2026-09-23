@@ -20,12 +20,17 @@ import {
   Power,
 } from "lucide-react";
 import api from "../../lib/api";
-import { getUser, clearAuth, isAuthenticated } from "../../lib/auth";
+import { getUser, clearAuth, isAuthenticated, getEffectiveRestaurantId } from "../../lib/auth";
 import { useSocket } from "../../components/SocketProvider";
+import { useRestaurant } from "../../components/RestaurantContext";
+import { DEMO_RESTAURANT } from "../../lib/branding";
 import OrderStatusBadge from "../../components/OrderStatusBadge";
 import Navbar from "../../components/Navbar";
 import toast from "react-hot-toast";
-import { usePrinter } from "../../lib/printer/usePrinter";
+import { PrintService } from "../../lib/printer/PrintService";
+import { usePrinterSettings } from "../../lib/printer/usePrinterSettings";
+import { buildBillReceiptData, buildKotReceiptData } from "../../lib/printer/receiptData";
+import { requestOrQueue } from "../../lib/pwa/queuedRequest";
 
 // ─────────────────────────────────────────
 // Notification Sound — Web Audio API beep
@@ -71,7 +76,8 @@ const STATUS_ACTIONS = [
 export default function CaptainDashboard() {
   const router = useRouter();
   const { socket, isConnected } = useSocket();
-  const { printBill: printSerialBill } = usePrinter();
+  const { restaurant: activeRestaurant } = useRestaurant();
+  const { settings: printerSettings } = usePrinterSettings();
   const [user, setUser] = useState(null);
   const [orders, setOrders] = useState([]);
   const [tables, setTables] = useState([]);
@@ -109,7 +115,7 @@ export default function CaptainDashboard() {
       localStorage.setItem("kitchen_live_mode", String(nextState));
     }
     if (socket) {
-      socket.emit("kitchen-live-mode", { enabled: nextState });
+      socket.emit("kitchen-live-mode", { enabled: nextState, restaurantId: getEffectiveRestaurantId() });
     }
     if (nextState) {
       toast.success("🔥 Kitchen Live Mode Turned ON", { id: "kitchen-live-toggle" });
@@ -142,7 +148,7 @@ export default function CaptainDashboard() {
       return;
     }
     const u = getUser();
-    if (u?.role !== "CAPTAIN" && u?.role !== "ADMIN") {
+    if (!["CAPTAIN", "MANAGER", "ADMIN"].includes(u?.role)) {
       router.push("/captain/login");
       return;
     }
@@ -195,8 +201,9 @@ export default function CaptainDashboard() {
     // Join room function — safe to call on mount and on reconnect
     const joinRoom = () => {
       console.log("[Captain Dashboard] Emitting join-waiter & join-captain to join room...");
-      socket.emit("join-waiter");
-      socket.emit("join-captain");
+      const joinPayload = { restaurantId: getEffectiveRestaurantId() };
+      socket.emit("join-waiter", joinPayload);
+      socket.emit("join-captain", joinPayload);
     };
 
     // If socket is already connected, join rooms immediately
@@ -355,8 +362,6 @@ export default function CaptainDashboard() {
   // ACTIONS
   // ─────────────────────────────────────────
 
-  const { printBill, printKOT: printKOTThermal, isConnected: isPrinterConnected } = usePrinter();
-
   const handleAcceptOrder = async (orderId) => {
     setAcceptingOrders((prev) => new Set([...prev, orderId]));
     try {
@@ -365,8 +370,12 @@ export default function CaptainDashboard() {
 
       const orderData = res.data.data.order;
 
-      // Print KOT to 80mm serial thermal printer via backend API
-      await printKOTThermal(orderData);
+      // Universal Print Engine (Phase 8): tries the restaurant's configured
+      // kitchen printer first, always falls back to browser print — never
+      // blocks order acceptance, which already succeeded above.
+      const branding = activeRestaurant || DEMO_RESTAURANT;
+      const kotData = buildKotReceiptData(orderData, branding, "Kitchen Copy");
+      PrintService.print({ documentType: "KOT", data: kotData, settings: printerSettings, silent: true }).catch(() => {});
       fetchOrders();
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to accept order");
@@ -382,8 +391,15 @@ export default function CaptainDashboard() {
   const handleMarkItemServed = async (itemId) => {
     setUpdatingItems((prev) => new Set([...prev, itemId]));
     try {
-      const res = await api.patch(`/orders/items/${itemId}/status`, { status: "SERVED" });
-      toast.success(`Item marked as served! 🍽️`);
+      const result = await requestOrQueue({
+        type: "ITEM_STATUS",
+        method: "patch",
+        url: `/orders/items/${itemId}/status`,
+        body: { status: "SERVED" },
+        label: "Item marked served",
+        offlineMessage: "You're offline — this will sync the moment you're back online.",
+      });
+      if (!result.queued) toast.success(`Item marked as served! 🍽️`);
       fetchOrders();
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to mark item served");
@@ -399,9 +415,18 @@ export default function CaptainDashboard() {
   const handleUpdateStatus = async (orderId, status) => {
     setUpdatingOrders((prev) => new Set([...prev, `${orderId}-${status}`]));
     try {
-      await api.patch(`/orders/${orderId}/status`, { status });
-      const label = status === "SERVED" ? "marked as served" : `marked as ${status.toLowerCase()}`;
-      toast.success(`Order ${label} ✅`);
+      const result = await requestOrQueue({
+        type: "ORDER_STATUS",
+        method: "patch",
+        url: `/orders/${orderId}/status`,
+        body: { status },
+        label: `Order ${status.toLowerCase()}`,
+        offlineMessage: "You're offline — this will sync the moment you're back online.",
+      });
+      if (!result.queued) {
+        const label = status === "SERVED" ? "marked as served" : `marked as ${status.toLowerCase()}`;
+        toast.success(`Order ${label} ✅`);
+      }
       fetchOrders();
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to update status");
@@ -419,44 +444,25 @@ export default function CaptainDashboard() {
     setPrintingBills((prev) => new Set([...prev, sessionId]));
 
     try {
-      // 1. Prepare bill order structure for ESC/POS printer builder
-      let itemsList = [];
-      if (Array.isArray(bill.items) && bill.items.length > 0) {
-        itemsList = bill.items;
-      } else if (Array.isArray(bill.orders)) {
-        bill.orders.forEach((o) => {
-          if (o.status !== "CANCELLED" && Array.isArray(o.items)) {
-            itemsList.push(...o.items);
-          }
-        });
-      }
+      // 1. Universal Print Engine (Phase 8): try the restaurant's configured
+      // bill printer, then the thermal agent, then — guaranteed — the
+      // browser print dialog. Unlike before, an offline/unconfigured
+      // printer no longer blocks closing the table: browser print always
+      // succeeds from the service's perspective (it just opens the dialog),
+      // so this only ever fails if literally nothing could run at all.
+      const branding = activeRestaurant || DEMO_RESTAURANT;
+      const billData = buildBillReceiptData(bill, branding);
+      const outcome = await PrintService.print({ documentType: "BILL", data: billData, settings: printerSettings });
 
-      const billOrderPayload = {
-        id: bill.sessionId,
-        orderNumber: bill.sessionNumber || bill.tableCode || "BILL",
-        tableCode: bill.tableCode,
-        tableNumber: bill.tableNumber,
-        createdAt: bill.createdAt || new Date().toISOString(),
-        items: itemsList.map((i) => ({
-          name: i.menuItem?.name || i.name || "Item",
-          quantity: Number(i.quantity || i.qty || 1),
-          price: Number(i.price !== undefined ? i.price : i.menuItem?.price || 0),
-        })),
-        orders: bill.orders,
-        paymentMethod: bill.paymentMethod || "UPI",
-        discount: bill.discount || 0,
-        tax: bill.tax || 0,
-      };
-
-      // 2. Call backend serial printer REST API (POST /api/printer/bill)
-      const printSuccess = await printSerialBill(billOrderPayload);
-
-      if (!printSuccess) {
-        toast.error("Serial Thermal Printing Failed! Session & orders remain active.");
+      if (!outcome.success) {
+        toast.error("Could not print the bill on any available method. Session & orders remain active.");
         return;
       }
+      if (outcome.fellBack) {
+        toast(`Printed via ${outcome.adapterUsed === "BROWSER" ? "browser print dialog" : outcome.adapterUsed.toLowerCase()} (configured printer unavailable).`, { icon: "🖨️" });
+      }
 
-      // 3. ONLY AFTER SUCCESSFUL PRINTING: Close session & cleanup active table orders
+      // 2. ONLY AFTER SUCCESSFUL PRINTING: Close session & cleanup active table orders
       await api.patch(`/sessions/${sessionId}/close`);
       toast.success(`Bill Printed & Table ${bill.tableCode} Closed Successfully! 🧾`);
 

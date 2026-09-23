@@ -16,23 +16,40 @@ import {
   Receipt,
   LogOut,
   Sliders,
+  BarChart3,
+  Clock,
+  IndianRupee,
+  QrCode,
 } from "lucide-react";
 import api from "../../lib/api";
-import { getUser, clearAuth, isAuthenticated } from "../../lib/auth";
+import { getUser, clearAuth, isAuthenticated, getEffectiveRestaurantId } from "../../lib/auth";
 import { useSocket } from "../../components/SocketProvider";
 import Navbar from "../../components/Navbar";
+import ExportButton from "../../components/admin/ExportButton";
+import { useRestaurant } from "../../components/RestaurantContext";
+import { DEMO_RESTAURANT } from "../../lib/branding";
+import EmptyState from "../../components/EmptyState";
+import { generateTablePostersPDF } from "../../lib/posterUtils";
 import toast from "react-hot-toast";
 
 export default function AdminTablesPage() {
   const router = useRouter();
   const { socket } = useSocket();
+  const { restaurant: activeRestaurant } = useRestaurant();
 
   const [user, setUser] = useState(null);
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [generatingPosters, setGeneratingPosters] = useState(false);
 
   // Filter
   const [filter, setFilter] = useState("all"); // "all", "occupied", "available", "disabled"
+
+  // Analytics tab (additive — "Manage" tab below is completely unchanged)
+  const [viewMode, setViewMode] = useState("manage"); // "manage" | "analytics"
+  const [tableAnalytics, setTableAnalytics] = useState([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsLoaded, setAnalyticsLoaded] = useState(false);
 
   // Modal state (Create / Edit)
   const [modalOpen, setModalOpen] = useState(false);
@@ -74,10 +91,30 @@ export default function AdminTablesPage() {
     }
   }, []);
 
+  const fetchTableAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    try {
+      const res = await api.get("/admin/analytics/tables");
+      setTableAnalytics(res.data.data || []);
+      setAnalyticsLoaded(true);
+    } catch (error) {
+      toast.error("Failed to load table analytics");
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, []);
+
+  // Lazy-load analytics only the first time that tab is opened.
+  useEffect(() => {
+    if (viewMode === "analytics" && !analyticsLoaded) {
+      fetchTableAnalytics();
+    }
+  }, [viewMode, analyticsLoaded, fetchTableAnalytics]);
+
   // Socket listener for real-time updates
   useEffect(() => {
     if (!socket) return;
-    socket.emit("join-admin");
+    socket.emit("join-admin", { restaurantId: getEffectiveRestaurantId() });
 
     socket.on("table-updated", () => {
       fetchTables();
@@ -192,6 +229,25 @@ export default function AdminTablesPage() {
     }
   };
 
+  const handleGeneratePosters = async () => {
+    const activeTables = tables.filter((t) => t.isActive);
+    if (activeTables.length === 0) {
+      toast.error("No active tables to generate QR codes for.");
+      return;
+    }
+    setGeneratingPosters(true);
+    try {
+      const restaurant = activeRestaurant || DEMO_RESTAURANT;
+      await generateTablePostersPDF({ restaurant, tables: activeTables });
+      toast.success(`Generated ${activeTables.length} table QR poster${activeTables.length > 1 ? "s" : ""}.`);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to generate QR posters.");
+    } finally {
+      setGeneratingPosters(false);
+    }
+  };
+
   // Seating calculations
   let totalCapacity = 0;
   let occupiedSeats = 0;
@@ -241,6 +297,21 @@ export default function AdminTablesPage() {
               <RefreshCcw size={18} />
             </button>
             <button
+              onClick={handleGeneratePosters}
+              disabled={generatingPosters}
+              className="btn-secondary flex items-center gap-2 text-xs font-bold uppercase tracking-wider py-2.5 px-4 disabled:opacity-50"
+              title="Quick download — a print-ready QR poster PDF for every active table"
+            >
+              <QrCode size={16} /> {generatingPosters ? "Generating..." : "Quick QR PDF"}
+            </button>
+            <Link
+              href="/admin/qr-codes"
+              className="btn-secondary flex items-center gap-2 text-xs font-bold uppercase tracking-wider py-2.5 px-4"
+              title="Secure QR tokens, scan/order history, bulk regenerate"
+            >
+              <QrCode size={16} /> Manage QR
+            </Link>
+            <button
               onClick={handleOpenCreateModal}
               className="btn-primary flex items-center gap-2 text-xs font-bold uppercase tracking-wider py-2.5 px-4"
             >
@@ -251,6 +322,94 @@ export default function AdminTablesPage() {
       />
 
       <main className="max-w-6xl mx-auto px-4 py-8">
+        {/* Manage / Analytics Tab Switcher */}
+        <div className="flex items-center gap-1 p-1 rounded-lg mb-6 w-fit" style={{ background: "var(--color-cream-100)" }}>
+          <button
+            onClick={() => setViewMode("manage")}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-black uppercase tracking-wide transition-colors"
+            style={{
+              background: viewMode === "manage" ? "var(--color-brown-900)" : "transparent",
+              color: viewMode === "manage" ? "white" : "var(--color-brown-900)",
+            }}
+          >
+            <Sliders size={14} /> Manage
+          </button>
+          <button
+            onClick={() => setViewMode("analytics")}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-black uppercase tracking-wide transition-colors"
+            style={{
+              background: viewMode === "analytics" ? "var(--color-brown-900)" : "transparent",
+              color: viewMode === "analytics" ? "white" : "var(--color-brown-900)",
+            }}
+          >
+            <BarChart3 size={14} /> Analytics
+          </button>
+        </div>
+
+        {viewMode === "analytics" ? (
+          <div>
+            <div className="flex items-center justify-end mb-4">
+              <ExportButton
+                filename="table-analytics"
+                title="Table Analytics Report"
+                subtitle={`Generated ${new Date().toLocaleString("en-IN")}`}
+                columns={[
+                  { key: "code", label: "Table" },
+                  { key: "totalSessions", label: "Total Sessions" },
+                  { key: "revenue", label: "Revenue (INR)" },
+                  { key: "averageStayMinutes", label: "Avg Stay (min)" },
+                  { key: "ordersCount", label: "Orders" },
+                  { key: "lastUsed", label: "Last Used", value: (r) => (r.lastUsed ? new Date(r.lastUsed).toLocaleString("en-IN") : "Never") },
+                  { key: "occupancyRatePercent", label: "Occupancy Rate (%)" },
+                ]}
+                rows={tableAnalytics}
+              />
+            </div>
+            {analyticsLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {[1, 2, 3, 4].map((i) => <div key={i} className="h-40 rounded-2xl animate-pulse" style={{ background: "var(--color-cream-200)" }} />)}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {tableAnalytics.map((t) => (
+                  <div key={t.id} className="rounded-2xl p-4 border" style={{ borderColor: "var(--color-border-light)", background: "var(--color-surface)" }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-lg font-black" style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}>
+                        {t.code}
+                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: "var(--color-cream-100)", color: "var(--color-text-muted)" }}>
+                        {t.occupancyRatePercent}% occupied
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 text-xs font-semibold" style={{ color: "var(--color-text-secondary)" }}>
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1"><IndianRupee size={11} /> Revenue</span>
+                        <span className="font-black" style={{ color: "var(--color-brown-900)" }}>₹{t.revenue.toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Sessions</span>
+                        <span className="font-bold">{t.totalSessions}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Orders</span>
+                        <span className="font-bold">{t.ordersCount}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1"><Clock size={11} /> Avg Stay</span>
+                        <span className="font-bold">{t.averageStayMinutes}m</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Last Used</span>
+                        <span className="font-bold">{t.lastUsed ? new Date(t.lastUsed).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "Never"}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+        <>
         {/* Seating Overview Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {/* Total Capacity */}
@@ -363,12 +522,11 @@ export default function AdminTablesPage() {
             ))}
           </div>
         ) : filteredTables.length === 0 ? (
-          <div className="text-center py-16 border border-dashed border-brown-900">
-            <UtensilsCrossed size={48} className="mx-auto mb-3 opacity-30 text-brown-900" />
-            <p className="font-bold uppercase tracking-widest text-sm text-gray-600">
-              No tables match this filter.
-            </p>
-          </div>
+          <EmptyState
+            icon={<UtensilsCrossed size={32} style={{ color: "var(--color-orange-500)" }} />}
+            title={tables.length === 0 ? "No Tables Yet" : "No Tables Match"}
+            description={tables.length === 0 ? "Add your first table to start generating QR codes for customers to scan." : "Try a different filter to see more tables."}
+          />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredTables.map((table) => {
@@ -499,6 +657,8 @@ export default function AdminTablesPage() {
               );
             })}
           </div>
+        )}
+        </>
         )}
       </main>
 

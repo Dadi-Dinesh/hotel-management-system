@@ -62,12 +62,19 @@ class PrinterService {
   }
 
   /**
-   * Print 80mm Customer Billing Receipt via Agent
+   * Print Customer Billing Receipt via Agent (defaults to 80mm — unchanged).
+   * `options.paperWidth` ("58mm"|"80mm") and `options.networkPrinter`
+   * ({ip, port}) are optional Phase 8 additions; omitting both reproduces
+   * the exact pre-Phase-8 behavior (serial agent, 80mm).
    */
-  async printBill(order = {}) {
+  async printBill(order = {}, options = {}) {
     try {
       console.log("🖨️ [PrinterService.printBill] Dispatching customer bill job to agent...");
-      return await cloudPrinterGateway.dispatchJob("BILL", order, { printerTarget: "RECEIPT" });
+      return await cloudPrinterGateway.dispatchJob("BILL", order, {
+        printerTarget: "RECEIPT",
+        paperWidth: options.paperWidth,
+        networkPrinter: options.networkPrinter,
+      });
     } catch (err) {
       printerLogger.error("printBill failed:", { error: err.message });
       throw err;
@@ -75,16 +82,27 @@ class PrinterService {
   }
 
   /**
-   * Print 80mm Kitchen Order Ticket (KOT) via Agent
+   * Print Kitchen Order Ticket (KOT) via Agent (defaults to 80mm — unchanged).
    */
-  async printKOT(order = {}) {
+  async printKOT(order = {}, options = {}) {
     try {
       console.log("🖨️ [PrinterService.printKOT] Dispatching KOT job to agent...");
-      return await cloudPrinterGateway.dispatchJob("KOT", order, { printerTarget: "KOT" });
+      return await cloudPrinterGateway.dispatchJob("KOT", order, {
+        printerTarget: "KOT",
+        paperWidth: options.paperWidth,
+        networkPrinter: options.networkPrinter,
+      });
     } catch (err) {
       printerLogger.error("printKOT failed:", { error: err.message });
       throw err;
     }
+  }
+
+  /**
+   * Test a network printer's reachability via the connected agent.
+   */
+  async testNetworkPrinter(ip, port) {
+    return await cloudPrinterGateway.testNetworkPrinter(ip, port);
   }
 }
 

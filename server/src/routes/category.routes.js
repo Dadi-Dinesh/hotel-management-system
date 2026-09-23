@@ -7,13 +7,14 @@ const {
   deleteCategory,
 } = require("../controllers/category.controller");
 const { authenticate, requireRole } = require("../middleware/auth");
+const { resolveStaffTenant, resolveTenant } = require("../middleware/tenant");
 
-// Public
-router.get("/", getCategories);
+// Dual-use: anonymous customers AND the authenticated admin menu-management page.
+router.get("/", resolveTenant, getCategories);
 
 // Protected — admin only
-router.post("/", authenticate, requireRole("ADMIN"), createCategory);
-router.patch("/:id", authenticate, requireRole("ADMIN"), updateCategory);
-router.delete("/:id", authenticate, requireRole("ADMIN"), deleteCategory);
+router.post("/", authenticate, requireRole("ADMIN"), resolveStaffTenant, createCategory);
+router.patch("/:id", authenticate, requireRole("ADMIN"), resolveStaffTenant, updateCategory);
+router.delete("/:id", authenticate, requireRole("ADMIN"), resolveStaffTenant, deleteCategory);
 
 module.exports = router;

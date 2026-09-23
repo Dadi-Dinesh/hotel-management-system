@@ -7,6 +7,7 @@ const prisma = require("../config/db");
 const getAllFeedbacks = async (req, res, next) => {
   try {
     const feedbacks = await prisma.feedback.findMany({
+      where: req.restaurantId ? { restaurantId: req.restaurantId } : {},
       orderBy: { createdAt: "desc" },
       include: {
         menuItem: true,

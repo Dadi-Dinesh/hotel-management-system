@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Filter, IndianRupee } from "lucide-react";
+import { Calendar, Filter, IndianRupee, ClipboardList } from "lucide-react";
 import api from "../../lib/api";
 import { isAuthenticated, getUser } from "../../lib/auth";
 import Navbar from "../../components/Navbar";
 import OrderStatusBadge from "../../components/OrderStatusBadge";
+import EmptyState from "../../components/EmptyState";
 import toast from "react-hot-toast";
 
 export default function OrderHistoryPage() {
@@ -95,10 +96,11 @@ export default function OrderHistoryPage() {
         {loading ? (
           <div className="space-y-3">{[1,2,3,4].map((i) => <div key={i} className="skeleton h-20 w-full" />)}</div>
         ) : orders.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-4xl mb-3">📋</p>
-            <p className="font-medium" style={{ color: "var(--color-text-muted)" }}>No orders for this period.</p>
-          </div>
+          <EmptyState
+            icon={<ClipboardList size={32} style={{ color: "var(--color-orange-500)" }} />}
+            title="No Orders"
+            description="No orders were placed during this period. Try a different date range."
+          />
         ) : (
           <div className="space-y-3">
             {orders.map((order) => (

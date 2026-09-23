@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, X } from "lucide-react";
+import { ArrowDownAZ, Flame, Search, Sparkles, X } from "lucide-react";
 import { VegBadge, NonVegBadge } from "./LoadingScreen";
 
 export default function CategoryTabs({
@@ -11,6 +11,12 @@ export default function CategoryTabs({
   onDietChange,
   searchQuery,
   onSearchChange,
+  popularOnly = false,
+  onPopularChange,
+  newOnly = false,
+  onNewChange,
+  sortBy = "NONE",
+  onSortChange,
 }) {
   return (
     <div
@@ -140,6 +146,55 @@ export default function CategoryTabs({
               {cat.name}
             </button>
           ))}
+        </div>
+
+        {/* Third Row: Popular / New toggles + price sort */}
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto py-0.5 scrollbar-hide" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+          <button
+            type="button"
+            onClick={() => onPopularChange?.(!popularOnly)}
+            className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all border"
+            style={{
+              background: popularOnly ? "#F59E0B" : "transparent",
+              color: popularOnly ? "white" : "var(--color-brown-900)",
+              borderColor: popularOnly ? "#F59E0B" : "var(--color-brown-900)",
+            }}
+          >
+            <Flame size={11} /> Popular
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onNewChange?.(!newOnly)}
+            className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all border"
+            style={{
+              background: newOnly ? "var(--color-brown-900)" : "transparent",
+              color: newOnly ? "white" : "var(--color-brown-900)",
+              borderColor: "var(--color-brown-900)",
+            }}
+          >
+            <Sparkles size={11} /> New
+          </button>
+
+          <div className="flex-1 min-w-[8px]" />
+
+          <div className="flex-shrink-0 relative flex items-center">
+            <ArrowDownAZ size={11} className="absolute left-2 pointer-events-none" style={{ color: "var(--color-text-muted)" }} />
+            <select
+              value={sortBy}
+              onChange={(e) => onSortChange?.(e.target.value)}
+              className="pl-6 pr-2 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider border appearance-none focus:outline-none"
+              style={{
+                background: sortBy !== "NONE" ? "var(--color-orange-500)" : "transparent",
+                color: sortBy !== "NONE" ? "white" : "var(--color-brown-900)",
+                borderColor: sortBy !== "NONE" ? "var(--color-orange-500)" : "var(--color-brown-900)",
+              }}
+            >
+              <option value="NONE">Sort</option>
+              <option value="PRICE_LOW">Price: Low to High</option>
+              <option value="PRICE_HIGH">Price: High to Low</option>
+            </select>
+          </div>
         </div>
       </div>
     </div>

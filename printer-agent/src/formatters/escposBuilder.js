@@ -3,10 +3,13 @@
  * Standard 80mm Thermal Paper: 48 character columns width (Font A)
  */
 
+// Standard column widths at Font A for common thermal paper sizes.
+const PAPER_WIDTH_CHARS = { "58mm": 32, "80mm": 48 };
+
 class EscPosBuilder {
-  constructor() {
+  constructor(paperWidth = "80mm") {
     this.buffer = [];
-    this.maxChars = 48; // Standard 80mm font width
+    this.maxChars = PAPER_WIDTH_CHARS[paperWidth] || PAPER_WIDTH_CHARS["80mm"];
     this.init();
   }
 
@@ -106,13 +109,15 @@ class EscPosBuilder {
   }
 
   /**
-   * Print 3-Column Item Row (Name: 24 chars left, Qty: 10 chars center, Price: 14 chars right)
-   * Exactly 48 columns width without text overflow
+   * Print 3-Column Item Row (Name left, Qty center, Price right), column
+   * widths scaled to fit this.maxChars exactly — 24/10/14 at 48 chars (80mm,
+   * unchanged from before paper-width support was added), scaled down
+   * proportionally for narrower paper (e.g. 58mm/32 chars).
    */
   item3Row(name, qty, price) {
-    const colNameW = 24;
-    const colQtyW = 10;
-    const colPriceW = 14;
+    const colPriceW = this.maxChars >= 48 ? 14 : Math.max(8, Math.round(this.maxChars * 0.22));
+    const colQtyW = this.maxChars >= 48 ? 10 : Math.max(6, Math.round(this.maxChars * 0.16));
+    const colNameW = this.maxChars - colQtyW - colPriceW;
 
     const wrappedName = this.wrapText(name || "Item", colNameW);
     const firstName = (wrappedName[0] || "").padEnd(colNameW, " ");

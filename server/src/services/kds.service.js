@@ -45,14 +45,16 @@ const isKdsCategoryAllowed = (categoryName = "") => {
 /**
  * Fetch and aggregate current pending/preparing dish quantities for the Kitchen Portal.
  * Does NOT include table numbers, prices, order IDs, notes, or SERVED items.
+ * Scoped to a single restaurant — required, since this powers the live KDS board.
  */
-const getKitchenAggregatedData = async () => {
+const getKitchenAggregatedData = async (restaurantId) => {
   // Query active order items with their menuItem and category details
   const activeOrderItems = await prisma.orderItem.findMany({
     where: {
       status: { in: ["PENDING", "PREPARING"] },
       order: {
         status: { not: "CANCELLED" },
+        ...(restaurantId ? { restaurantId } : {}),
         session: {
           status: { in: ["ACTIVE", "BILL_REQUESTED"] },
         },

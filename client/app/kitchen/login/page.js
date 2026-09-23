@@ -23,14 +23,14 @@ export default function KitchenLogin() {
     setLoading(true);
     try {
       const res = await api.post("/auth/login", { email, password });
-      const { user, token } = res.data.data;
+      const { user, token, restaurant } = res.data.data;
 
       if (!["KITCHEN", "ADMIN", "CAPTAIN"].includes(user.role)) {
         toast.error("Access denied. Kitchen portal permissions required.");
         return;
       }
 
-      setAuth(token, user);
+      setAuth(token, user, restaurant);
       toast.success(`Welcome to Kitchen Portal, ${user.name}! 👨‍🍳`);
       router.push("/kitchen");
     } catch (error) {

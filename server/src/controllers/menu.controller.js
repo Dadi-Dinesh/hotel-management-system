@@ -1,5 +1,6 @@
 const prisma = require("../config/db");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../middleware/upload");
+const { logAudit } = require("../utils/auditLog");
 
 /**
  * Get full menu grouped by category
@@ -9,16 +10,17 @@ const getMenu = async (req, res, next) => {
   try {
     const { available } = req.query;
 
-    const where = {};
+    const itemsWhere = {};
     if (available === "true") {
-      where.isAvailable = true;
+      itemsWhere.isAvailable = true;
     }
 
     const categories = await prisma.category.findMany({
+      where: { restaurantId: req.restaurantId },
       orderBy: { name: "asc" },
       include: {
         items: {
-          where,
+          where: itemsWhere,
           orderBy: { name: "asc" },
         },
       },
@@ -64,11 +66,20 @@ const addMenuItem = async (req, res, next) => {
   try {
     const { name, price, categoryId, servingInformation, description, calories, isAvailable } = req.body;
 
+    if (!req.restaurantId) {
+      return res.status(400).json({ success: false, message: "Select a restaurant before managing the menu." });
+    }
+
     if (!name || !price || !categoryId) {
       return res.status(400).json({
         success: false,
         message: "Name, price, and category are required.",
       });
+    }
+
+    const category = await prisma.category.findUnique({ where: { id: categoryId } });
+    if (!category || category.restaurantId !== req.restaurantId) {
+      return res.status(400).json({ success: false, message: "Invalid category for this restaurant." });
     }
 
     let imageUrl = null;
@@ -85,6 +96,7 @@ const addMenuItem = async (req, res, next) => {
         name,
         price: parseFloat(price),
         categoryId,
+        restaurantId: req.restaurantId,
         servingInformation: servingInformation || null,
         description: description || null,
         calories: calories ? parseInt(calories, 10) : null,
@@ -95,6 +107,8 @@ const addMenuItem = async (req, res, next) => {
       },
       include: { category: true },
     });
+
+    logAudit({ action: "menu.item_added", restaurantId: req.restaurantId, userId: req.user?.id, metadata: { menuItemId: item.id, name: item.name, categoryId } });
 
     res.status(201).json({
       success: true,
@@ -116,11 +130,18 @@ const updateMenuItem = async (req, res, next) => {
     const { name, price, categoryId, servingInformation, description, calories, removeImage, isAvailable } = req.body;
 
     const existing = await prisma.menuItem.findUnique({ where: { id } });
-    if (!existing) {
+    if (!existing || (req.restaurantId && existing.restaurantId !== req.restaurantId)) {
       return res.status(404).json({
         success: false,
         message: "Menu item not found.",
       });
+    }
+
+    if (categoryId !== undefined) {
+      const category = await prisma.category.findUnique({ where: { id: categoryId } });
+      if (!category || category.restaurantId !== existing.restaurantId) {
+        return res.status(400).json({ success: false, message: "Invalid category for this restaurant." });
+      }
     }
 
     const updateData = {};
@@ -166,6 +187,8 @@ const updateMenuItem = async (req, res, next) => {
       include: { category: true },
     });
 
+    logAudit({ action: "menu.item_edited", restaurantId: existing.restaurantId, userId: req.user?.id, metadata: { menuItemId: item.id, name: item.name, fields: Object.keys(updateData) } });
+
     res.json({
       success: true,
       message: `${item.name} updated.`,
@@ -185,7 +208,7 @@ const deleteMenuItem = async (req, res, next) => {
     const { id } = req.params;
 
     const existing = await prisma.menuItem.findUnique({ where: { id } });
-    if (!existing) {
+    if (!existing || (req.restaurantId && existing.restaurantId !== req.restaurantId)) {
       return res.status(404).json({
         success: false,
         message: "Menu item not found.",
@@ -205,6 +228,8 @@ const deleteMenuItem = async (req, res, next) => {
 
     // Then delete the menu item itself
     await prisma.menuItem.delete({ where: { id } });
+
+    logAudit({ action: "menu.item_deleted", restaurantId: existing.restaurantId, userId: req.user?.id, metadata: { menuItemId: id, name: existing.name } });
 
     res.json({
       success: true,

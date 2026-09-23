@@ -1,5 +1,5 @@
 /**
- * Socket.IO Client — Nookambika Dhaba
+ * Socket.IO Client — ServeSync
  *
  * Single shared Socket.IO client instance for real-time communication.
  *

@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import { UtensilsCrossed } from "lucide-react";
+import { PLATFORM_NAME, DEMO_RESTAURANT } from "../../../lib/branding";
 
 export default function ThankYouPage() {
   const params = useParams();
@@ -128,13 +130,13 @@ export default function ThankYouPage() {
           style={{ color: "var(--color-brown-900)" }}
         >
           <div className="w-7 h-7 rounded-full overflow-hidden border border-amber-600 flex-shrink-0">
-            <img src="/dhaba-logo.jpg" alt="Logo" className="w-full h-full object-cover" />
+            <Image src={DEMO_RESTAURANT.logo} alt="Logo" width={28} height={28} className="w-full h-full object-cover" />
           </div>
           <span
             className="font-black text-sm uppercase tracking-widest"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            Sree Nookambika Family Dhaba
+            {DEMO_RESTAURANT.name}
           </span>
         </div>
 
@@ -144,13 +146,13 @@ export default function ThankYouPage() {
             className="text-sm font-medium"
             style={{ color: "var(--color-text-secondary)" }}
           >
-            "We hope you enjoyed your meal."
+            &quot;We hope you enjoyed your meal.&quot;
           </p>
           <p
             className="text-sm font-medium"
             style={{ color: "var(--color-text-secondary)" }}
           >
-            "We look forward to serving you again."
+            &quot;We look forward to serving you again.&quot;
           </p>
           <p
             className="text-sm font-bold mt-3"
@@ -194,6 +196,13 @@ export default function ThankYouPage() {
             {countdown}s
           </p>
         </div>
+
+        <p
+          className="mt-6 text-[10px] font-bold uppercase tracking-widest"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          Powered by {PLATFORM_NAME}
+        </p>
       </div>
     </div>
   );

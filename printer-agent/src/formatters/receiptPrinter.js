@@ -4,7 +4,7 @@ const EscPosBuilder = require("./escposBuilder");
  * Generate 80mm Customer Billing Receipt ESC/POS Buffer
  * Exact 48-character formatting matching user commercial specifications
  */
-function buildCustomerBillReceipt(order = {}) {
+function buildCustomerBillReceipt(order = {}, paperWidth = "80mm") {
   // 1. Multi-level Item Resolution (Extract items from order.items, order.orders, or order.session.orders)
   let rawItems = [];
   if (Array.isArray(order?.items) && order.items.length > 0) {
@@ -23,7 +23,7 @@ function buildCustomerBillReceipt(order = {}) {
     });
   }
 
-  const builder = new EscPosBuilder();
+  const builder = new EscPosBuilder(paperWidth);
 
   // 2. Restaurant Header
   builder

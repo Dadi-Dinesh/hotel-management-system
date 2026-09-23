@@ -2,6 +2,7 @@ const multer = require("multer");
 const cloudinary = require("../config/cloudinary");
 const path = require("path");
 const fs = require("fs");
+const AppError = require("../utils/AppError");
 
 // Use memory storage — files go straight to buffer, then to Cloudinary
 const storage = multer.memoryStorage();
@@ -16,7 +17,9 @@ const fileFilter = (req, file, cb) => {
   if (extname && mimetype) {
     cb(null, true);
   } else {
-    cb(new Error("Only JPEG, PNG, and WebP images are allowed."), false);
+    // AppError (not a bare Error) — a deliberate, user-facing validation
+    // message that must still show in production, unlike an unexpected crash.
+    cb(new AppError("Only JPEG, PNG, and WebP images are allowed.", 400), false);
   }
 };
 

@@ -1,6 +1,9 @@
 const prisma = require("../config/db");
 const { getIO } = require("../socket");
 const { generateBillHTML } = require("../utils/kotGenerator");
+const { tokenMatches } = require("../utils/tokenUtils");
+const { maybeAutoPrintBill } = require("../services/printer/autoPrintService");
+const { logAudit } = require("../utils/auditLog");
 
 /**
  * Start a new session for a table (or return existing active session)
@@ -8,7 +11,7 @@ const { generateBillHTML } = require("../utils/kotGenerator");
  */
 const startSession = async (req, res, next) => {
   try {
-    const { tableCode } = req.body;
+    const { tableCode, token } = req.body;
 
     if (!tableCode) {
       return res.status(400).json({
@@ -18,7 +21,7 @@ const startSession = async (req, res, next) => {
     }
 
     const table = await prisma.table.findUnique({
-      where: { code: tableCode.toUpperCase() },
+      where: { restaurantId_code: { restaurantId: req.restaurantId, code: tableCode.toUpperCase() } },
     });
 
     if (!table) {
@@ -32,6 +35,15 @@ const startSession = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: "This table is currently not available.",
+      });
+    }
+
+    // Secure QR (Phase 7): same rule as the table lookup — only enforced for
+    // tables that have opted into secure mode (qrTokenHash set).
+    if (table.qrTokenHash && !tokenMatches(token, table.qrTokenHash)) {
+      return res.status(403).json({
+        success: false,
+        message: "Invalid or missing QR token. Please scan the table's QR code again.",
       });
     }
 
@@ -63,14 +75,14 @@ const startSession = async (req, res, next) => {
 
     // Create new session
     const session = await prisma.session.create({
-      data: { tableId: table.id },
+      data: { tableId: table.id, restaurantId: table.restaurantId },
       include: {
         orders: true,
         table: true,
       },
     });
 
-    // Notify waiters, captains, and admins about new table session
+    // Notify this restaurant's waiters, captains, and admins about the new table session
     const io = getIO();
     const sessionPayload = {
       tableCode: table.code,
@@ -78,9 +90,9 @@ const startSession = async (req, res, next) => {
       sessionId: session.id,
     };
     console.log("Sending new-session event:", session.id);
-    io.to("waiters").emit("new-session", sessionPayload);
-    io.to("captains").emit("new-session", sessionPayload);
-    io.to("admins").emit("new-session", sessionPayload);
+    io.to(`restaurant:${table.restaurantId}:waiters`).emit("new-session", sessionPayload);
+    io.to(`restaurant:${table.restaurantId}:captains`).emit("new-session", sessionPayload);
+    io.to(`restaurant:${table.restaurantId}:admins`).emit("new-session", sessionPayload);
 
     res.status(201).json({
       success: true,
@@ -185,7 +197,10 @@ const requestBill = async (req, res, next) => {
       "A4": billHTML_A4,
     };
 
-    // Notify waiters, captains, and admins about bill request
+    // Auto Print (Phase 8) — best-effort, never blocks this response.
+    maybeAutoPrintBill(session).catch(() => {});
+
+    // Notify this restaurant's waiters, captains, and admins about the bill request
     const io = getIO();
     const billPayload = {
       sessionId: session.id,
@@ -196,9 +211,9 @@ const requestBill = async (req, res, next) => {
       billFormats,
     };
     console.log("Sending bill-requested event for table:", session.table.code);
-    io.to("waiters").emit("bill-requested", billPayload);
-    io.to("captains").emit("bill-requested", billPayload);
-    io.to("admins").emit("bill-requested", billPayload);
+    io.to(`restaurant:${session.restaurantId}:waiters`).emit("bill-requested", billPayload);
+    io.to(`restaurant:${session.restaurantId}:captains`).emit("bill-requested", billPayload);
+    io.to(`restaurant:${session.restaurantId}:admins`).emit("bill-requested", billPayload);
 
     res.json({
       success: true,
@@ -217,7 +232,10 @@ const requestBill = async (req, res, next) => {
 const getBillRequests = async (req, res, next) => {
   try {
     const sessions = await prisma.session.findMany({
-      where: { status: "BILL_REQUESTED" },
+      where: {
+        status: "BILL_REQUESTED",
+        ...(req.restaurantId ? { restaurantId: req.restaurantId } : {}),
+      },
       include: {
         table: true,
         orders: {
@@ -288,6 +306,8 @@ const closeSession = async (req, res, next) => {
       data: {
         status: "CLOSED",
         closedAt: new Date(),
+        // Analytics-only — who closed it. Nullable, never required.
+        closedByUserId: req.user?.id || undefined,
       },
       include: {
         table: true,
@@ -299,7 +319,7 @@ const closeSession = async (req, res, next) => {
       },
     });
 
-    // Notify table and waiters/admins that session is closed
+    // Notify table and this restaurant's waiters/admins that the session is closed
     const io = getIO();
     const closedPayload = {
       sessionId: session.id,
@@ -308,9 +328,13 @@ const closeSession = async (req, res, next) => {
     console.log("Sending session-closed event for table:", session.table.code);
     io.to(session.table.code).emit("session-closed", closedPayload);
     io.to(`table:${session.table.code}`).emit("session-closed", closedPayload);
-    io.to("waiters").emit("session-closed", closedPayload);
-    io.to("captains").emit("session-closed", closedPayload);
-    io.to("admins").emit("session-closed", closedPayload);
+    io.to(`restaurant:${session.restaurantId}:table:${session.table.code}`).emit("session-closed", closedPayload);
+    io.to(`restaurant:${session.restaurantId}:waiters`).emit("session-closed", closedPayload);
+    io.to(`restaurant:${session.restaurantId}:captains`).emit("session-closed", closedPayload);
+    io.to(`restaurant:${session.restaurantId}:admins`).emit("session-closed", closedPayload);
+
+    const billTotal = session.orders.reduce((sum, o) => (o.status === "CANCELLED" ? sum : sum + o.items.reduce((s, i) => s + i.price * i.quantity, 0)), 0);
+    logAudit({ action: "bill.generated", restaurantId: session.restaurantId, userId: req.user?.id, metadata: { sessionId: session.id, tableCode: session.table.code, total: Math.round(billTotal * 100) / 100 } });
 
     res.json({
       success: true,
@@ -356,6 +380,9 @@ const submitFeedback = async (req, res, next) => {
             sessionId: id,
             menuItemId: rating.menuItemId,
             rating: rating.rating,
+            // Optional — older/unmodified clients simply omit this and it stays null.
+            comment: typeof rating.comment === "string" && rating.comment.trim() ? rating.comment.trim().slice(0, 500) : null,
+            restaurantId: session.restaurantId,
           },
         })
       )

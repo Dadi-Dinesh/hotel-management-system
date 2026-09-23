@@ -125,7 +125,10 @@ const printCustomerBillReceipt = async (req, res, next) => {
       });
     }
 
-    const result = await printerService.printBill(orderData);
+    const result = await printerService.printBill(orderData, {
+      paperWidth: req.body.paperWidth,
+      networkPrinter: req.body.networkPrinter,
+    });
     res.json({
       success: true,
       message: "Customer bill printed successfully! 🧾",
@@ -152,7 +155,10 @@ const printKOTReceipt = async (req, res, next) => {
       });
     }
 
-    const result = await printerService.printKOT(orderData);
+    const result = await printerService.printKOT(orderData, {
+      paperWidth: req.body.paperWidth,
+      networkPrinter: req.body.networkPrinter,
+    });
     res.json({
       success: true,
       message: "Kitchen order ticket routed & printed successfully! 👨‍🍳",
@@ -160,6 +166,23 @@ const printKOTReceipt = async (req, res, next) => {
     });
   } catch (error) {
     handlePrinterApiError(res, error, "POST /kot");
+  }
+};
+
+/**
+ * Test connectivity to a network (IP:port) printer via the connected agent.
+ * POST /api/printer/network/test
+ */
+const testNetworkPrinter = async (req, res, next) => {
+  try {
+    const { ip, port } = req.body;
+    if (!ip) {
+      return res.status(400).json({ success: false, message: "IP address is required." });
+    }
+    const result = await printerService.testNetworkPrinter(ip, port || 9100);
+    res.json({ success: !!result.success, message: result.success ? "Network printer reachable." : result.error, data: result });
+  } catch (error) {
+    handlePrinterApiError(res, error, "POST /network/test");
   }
 };
 
@@ -171,4 +194,5 @@ module.exports = {
   printTestReceipt,
   printCustomerBillReceipt,
   printKOTReceipt,
+  testNetworkPrinter,
 };

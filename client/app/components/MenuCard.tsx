@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Minus, Star } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
+import { Flame, Plus, Minus } from "lucide-react";
 import MenuItemImage from "./MenuItemImage";
 import FoodDetailModal from "./FoodDetailModal";
 import { VegBadge, NonVegBadge } from "./LoadingScreen";
@@ -57,6 +58,7 @@ export default function MenuCard({
 }: MenuCardProps) {
   const [showDetail, setShowDetail] = useState(false);
   const [inputString, setInputString] = useState<string>(cartQuantity > 0 ? String(cartQuantity) : "");
+  const shouldReduceMotion = useReducedMotion();
 
   const displayRating = item.displayRating || (item.rating && item.rating < 3 ? 3.0 : item.rating) || 4.2;
   const ratingCount = item.ratingCount || 100;
@@ -79,101 +81,113 @@ export default function MenuCard({
 
   return (
     <>
-      <div
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border p-3 sm:p-4 transition-all hover:shadow-xs w-full max-w-full overflow-hidden relative"
+      <motion.div
+        variants={{
+          hidden: { opacity: 0, y: shouldReduceMotion ? 0 : 16 },
+          show: { opacity: 1, y: 0 },
+        }}
+        whileHover={shouldReduceMotion ? undefined : { y: -4 }}
+        transition={{ duration: 0.35, ease: "easeOut" }}
+        className="flex flex-col w-full max-w-full overflow-hidden rounded-2xl border"
         style={{
-          borderColor: "var(--color-brown-900)",
+          borderColor: "var(--color-border-light)",
           background: "var(--color-surface)",
+          boxShadow: "0 6px 20px -12px rgba(61, 39, 16, 0.25)",
         }}
       >
-        {/* Content Section (Image + Info) */}
-        <div className="flex gap-3 sm:gap-4 items-start sm:items-center flex-1 min-w-0 w-full">
-          {/* Clickable Image */}
-          <div className="relative">
-            <MenuItemImage
-              src={item.imageUrl || item.image}
-              alt={item.name}
-              onClick={() => setShowDetail(true)}
-            />
-            {/* Veg / Non-Veg Badge */}
-            <div className="absolute top-1 left-1 z-10">
-              {item.isVeg ? <VegBadge /> : <NonVegBadge />}
-            </div>
+        {/* Large image with overlay badges */}
+        <div className="relative">
+          <MenuItemImage
+            src={item.imageUrl || item.image}
+            alt={item.name}
+            variant="large"
+            onClick={() => setShowDetail(true)}
+          />
+          <div className="absolute top-2.5 left-2.5 z-10">
+            {item.isVeg ? <VegBadge /> : <NonVegBadge />}
           </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3
-                className="font-bold text-sm sm:text-base uppercase tracking-wide truncate"
-                style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
-              >
-                {item.name}
-              </h3>
-              {item.isPopular && (
-                <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500 text-white flex-shrink-0">
-                  🔥 POPULAR
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 mt-0.5 sm:mt-1 flex-wrap">
-              <p
-                className="text-[10px] sm:text-xs uppercase tracking-widest truncate"
-                style={{ color: "var(--color-text-muted)", fontWeight: 600 }}
-              >
-                {item.category?.name}
-              </p>
-              {item.spiceLevel && (
-                <span className="text-[10px] font-semibold text-orange-600">
-                  🌶️ {item.spiceLevel}
-                </span>
-              )}
-            </div>
-
-            {item.description && (
-              <p className="text-xs mt-1 sm:mt-1.5 text-gray-700 line-clamp-2 leading-relaxed">
-                {item.description}
-              </p>
-            )}
-
-            {item.servingInformation && (
-              <div
-                className="flex items-center gap-1.5 mt-2 text-[11px] sm:text-xs font-semibold"
-                style={{ color: "var(--color-brown-800)" }}
-              >
-                <span>{getServingEmoji(item.servingInformation)}</span>
-                <span className="truncate">{item.servingInformation}</span>
-              </div>
-            )}
-          </div>
+          {item.isPopular && (
+            <span
+              className="absolute top-2.5 right-2.5 z-10 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-amber-500 text-white shadow-sm"
+            >
+              🔥 Popular
+            </span>
+          )}
         </div>
 
-        {/* Action Section (Rating + Price & ADD / qty controls) */}
-        <div className="flex flex-col sm:items-end justify-between sm:justify-center gap-2 flex-shrink-0 w-full sm:w-auto pt-2.5 sm:pt-0 border-t sm:border-t-0 border-cream-200">
-          
-          {/* Rating Display ABOVE ADD button */}
-          <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 sm:justify-end">
+        {/* Content */}
+        <div className="flex flex-col flex-1 p-3.5 sm:p-4 gap-2">
+          <div className="flex items-start justify-between gap-2">
+            <h3
+              className="font-bold text-sm sm:text-base uppercase tracking-wide leading-tight cursor-pointer"
+              style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
+              onClick={() => setShowDetail(true)}
+            >
+              {item.name}
+            </h3>
+            <span
+              className="font-bold text-base sm:text-lg flex-shrink-0"
+              style={{ fontFamily: "var(--font-heading)", color: "var(--color-orange-500)" }}
+            >
+              ₹{item.price}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <p
+              className="text-[10px] sm:text-xs uppercase tracking-widest truncate"
+              style={{ color: "var(--color-text-muted)", fontWeight: 600 }}
+            >
+              {item.category?.name}
+            </p>
+            {item.spiceLevel && (
+              <span className="text-[10px] font-semibold text-orange-600">
+                🌶️ {item.spiceLevel}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600">
             <span className="text-amber-500 text-sm tracking-tighter">
               {renderStarString(displayRating)}
             </span>
             <span className="font-bold text-brown-900">{displayRating.toFixed(1)}</span>
             <span className="text-[11px] font-normal text-gray-500">
-              ({ratingCount} Reviews)
+              ({ratingCount})
             </span>
           </div>
 
-          {/* Price & ADD Button Row */}
-          <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto">
-            <span
-              className="font-bold text-base sm:text-lg"
-              style={{ fontFamily: "var(--font-heading)", color: "var(--color-orange-500)" }}
-            >
-              ₹{item.price}
-            </span>
+          {item.description && (
+            <p className="text-xs text-gray-700 line-clamp-2 leading-relaxed">
+              {item.description}
+            </p>
+          )}
 
+          {(item.servingInformation || item.calories != null) && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {item.servingInformation && (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold px-2 py-1 rounded-full"
+                  style={{ background: "var(--color-cream-100)", color: "var(--color-brown-800)" }}
+                >
+                  {getServingEmoji(item.servingInformation)} {item.servingInformation}
+                </span>
+              )}
+              {item.calories != null && (
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wide px-2 py-1 rounded-full"
+                  style={{ background: "var(--color-cream-100)", color: "var(--color-text-muted)" }}
+                >
+                  <Flame size={10} /> {item.calories} kcal
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Add / quantity controls */}
+          <div className="mt-auto pt-2.5">
             {isQtyItem ? (
               <div className="flex items-center gap-2">
-                {/* Single empty box to enter number (No - or + buttons) */}
                 <input
                   type="number"
                   min="1"
@@ -193,45 +207,46 @@ export default function MenuCard({
                   className="w-16 h-9 text-center font-extrabold text-base border-2 rounded-lg bg-amber-50/60 focus:outline-none focus:border-orange-500 text-brown-900 shadow-xs"
                   style={{ borderColor: "var(--color-brown-900)" }}
                 />
-
-                {/* Explicit ADD button */}
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
                   type="button"
                   onClick={handleApplyQuantity}
-                  className="btn-primary font-bold text-xs uppercase tracking-wider flex items-center gap-1 shadow-xs h-9 px-4"
+                  className="btn-primary font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1 shadow-xs h-9 flex-1"
+                  style={{ borderRadius: "0.5rem" }}
                 >
                   <Plus size={14} /> ADD
-                </button>
+                </motion.button>
               </div>
             ) : cartQuantity === 0 ? (
-              <button
+              <motion.button
+                whileTap={{ scale: 0.95 }}
                 onClick={() => onAdd(item)}
-                className="btn-primary font-bold text-xs uppercase tracking-wider flex items-center gap-1"
-                style={{ padding: "0.45rem 1rem" }}
+                className="btn-primary font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1 w-full py-2.5"
+                style={{ borderRadius: "0.5rem" }}
               >
-                <Plus size={14} /> ADD
-              </button>
+                <Plus size={14} /> ADD TO CART
+              </motion.button>
             ) : (
               <div
-                className="flex items-center border"
+                className="flex items-center justify-between border rounded-lg overflow-hidden"
                 style={{ borderColor: "var(--color-brown-900)" }}
               >
                 <button
                   onClick={() => onUpdateQuantity(item.id, cartQuantity - 1)}
-                  className="flex items-center justify-center w-8 h-8 transition-colors hover:bg-orange-500 hover:text-white"
+                  className="flex items-center justify-center w-10 h-9 transition-colors hover:bg-orange-500 hover:text-white"
                   style={{ color: "var(--color-brown-900)", borderRight: "1px solid var(--color-brown-900)" }}
                 >
                   <Minus size={14} />
                 </button>
                 <span
-                  className="font-bold text-sm min-w-[32px] text-center"
+                  className="font-bold text-sm flex-1 text-center"
                   style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
                 >
-                  {cartQuantity}
+                  {cartQuantity} in cart
                 </span>
                 <button
                   onClick={() => onUpdateQuantity(item.id, cartQuantity + 1)}
-                  className="flex items-center justify-center w-8 h-8 transition-colors hover:bg-orange-500 hover:text-white"
+                  className="flex items-center justify-center w-10 h-9 transition-colors hover:bg-orange-500 hover:text-white"
                   style={{ color: "var(--color-brown-900)", borderLeft: "1px solid var(--color-brown-900)" }}
                 >
                   <Plus size={14} />
@@ -239,9 +254,8 @@ export default function MenuCard({
               </div>
             )}
           </div>
-
         </div>
-      </div>
+      </motion.div>
 
       {showDetail && (
         <FoodDetailModal

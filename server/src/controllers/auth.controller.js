@@ -38,10 +38,18 @@ const login = async (req, res, next) => {
     }
 
     const token = jwt.sign(
-      { userId: user.id, role: user.role },
+      { userId: user.id, role: user.role, restaurantId: user.restaurantId },
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );
+
+    let restaurant = null;
+    if (user.restaurantId) {
+      restaurant = await prisma.restaurant.findUnique({
+        where: { id: user.restaurantId },
+        select: { id: true, name: true, slug: true, shortName: true, logo: true, primaryColor: true, secondaryColor: true },
+      });
+    }
 
     res.json({
       success: true,
@@ -53,7 +61,10 @@ const login = async (req, res, next) => {
           name: user.name,
           email: user.email,
           role: user.role,
+          restaurantId: user.restaurantId,
+          isPlatformOwner: !user.restaurantId,
         },
+        restaurant,
       },
     });
   } catch (error) {

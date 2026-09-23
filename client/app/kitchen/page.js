@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { AnimatePresence } from "framer-motion";
 import {
   ChefHat,
   RefreshCcw,
@@ -17,11 +18,19 @@ import {
   LayoutGrid,
   UtensilsCrossed,
   Layers,
+  Kanban,
+  Timer,
+  TrendingUp,
 } from "lucide-react";
 import api from "../lib/api";
-import { getUser, clearAuth, isAuthenticated } from "../lib/auth";
+import { getUser, clearAuth, isAuthenticated, getEffectiveRestaurantId } from "../lib/auth";
 import { useSocket } from "../components/SocketProvider";
+import KitchenTicket from "../components/kitchen/KitchenTicket";
+import OrderDetailModal from "../components/kitchen/OrderDetailModal";
+import { computePriority } from "../lib/kitchenUtils";
 import toast from "react-hot-toast";
+
+const SOUND_PREF_KEY = "kitchen_sound_muted";
 
 // Audio alert sound generator via Web Audio API
 function playKitchenChime() {
@@ -221,13 +230,25 @@ function getTableBreakdownForDish(dishName, orders = []) {
   return tableList;
 }
 
+/** Small header stat chip — hoisted outside the component so it isn't recreated every render. */
+function StatChip({ icon, label, value, color }) {
+  return (
+    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 flex-shrink-0">
+      <span style={{ color }}>{icon}</span>
+      <span className="text-xs font-black text-white tabular-nums">{value}</span>
+      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide hidden sm:inline">{label}</span>
+    </div>
+  );
+}
+
 export default function KitchenDashboard() {
   const router = useRouter();
-  const { socket, isConnected } = useSocket();
+  const { socket, isConnected, isReconnecting } = useSocket();
   
   // State variables
-  const [viewMode, setViewMode] = useState("summary"); // Default to Enterprise Category Summary
+  const [viewMode, setViewMode] = useState("board"); // Default to the new Kanban KDS board
   const [orders, setOrders] = useState([]);
+  const [allOrdersToday, setAllOrdersToday] = useState([]); // unfiltered — powers header stats only
   const [aggregatedItems, setAggregatedItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -235,6 +256,20 @@ export default function KitchenDashboard() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [updatingOrders, setUpdatingOrders] = useState(new Set());
   const [isKitchenLive, setIsKitchenLive] = useState(true);
+  // Orders that were just marked ready — kept visible briefly in the READY
+  // column even after their status flips to SERVED server-side and they
+  // drop out of the active `orders` fetch, so the highlight is visible.
+  const [justReadyTickets, setJustReadyTickets] = useState([]);
+  const [viewingOrder, setViewingOrder] = useState(null);
+  const readyTimersRef = useRef(new Map());
+  // Drives header-stat recalculation (priority/avg prep) — coarse-grained on
+  // purpose; per-second precision lives in the isolated KitchenTimer badges.
+  const [statsNow, setStatsNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setStatsNow(Date.now()), 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Verify auth on mount
   useEffect(() => {
@@ -251,6 +286,11 @@ export default function KitchenDashboard() {
       const savedLive = localStorage.getItem("kitchen_live_mode");
       if (savedLive !== null) {
         setIsKitchenLive(savedLive === "true");
+      }
+      // Mute preference remembered for this browser tab session only.
+      const savedMuted = sessionStorage.getItem(SOUND_PREF_KEY);
+      if (savedMuted !== null) {
+        setSoundEnabled(savedMuted !== "true");
       }
     }
   }, [router]);
@@ -270,6 +310,14 @@ export default function KitchenDashboard() {
             o.session?.status !== "CLOSED"
         );
         activeOrders.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+        // Same response, just also kept unfiltered (today only) for header stats —
+        // no extra API call.
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        setAllOrdersToday(
+          allOrders.filter((o) => new Date(o.createdAt).getTime() >= startOfToday.getTime())
+        );
       } catch (e) {
         console.warn("Orders list fetch error:", e?.message);
       }
@@ -301,7 +349,7 @@ export default function KitchenDashboard() {
 
     const joinRoom = () => {
       console.log("👨‍🍳 [Enterprise KDS] Joining kitchen room...");
-      socket.emit("join-kitchen");
+      socket.emit("join-kitchen", { restaurantId: getEffectiveRestaurantId() });
     };
 
     if (socket.connected) {
@@ -408,6 +456,46 @@ export default function KitchenDashboard() {
     clearAuth();
     router.push("/kitchen/login");
   };
+
+  const toggleSound = () => {
+    setSoundEnabled((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(SOUND_PREF_KEY, String(!next));
+      }
+      return next;
+    });
+  };
+
+  // Kitchen-only quick actions — both call the exact same existing
+  // PATCH /orders/:id/status endpoint the original Preparing/Served
+  // buttons already used. "Mark Ready" reuses the SERVED transition: once
+  // the kitchen is done, the order leaves the kitchen's active queue, same
+  // as before. The order is snapshotted locally so the ticket can still be
+  // shown — briefly, with a highlight — in the READY column afterward.
+  const handleStartPreparing = (orderId) => handleUpdateOrderStatus(orderId, "PREPARING");
+
+  const handleMarkReady = (orderId) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (order) {
+      setJustReadyTickets((prev) => [...prev.filter((t) => t.order.id !== orderId), { order, readyAt: Date.now() }]);
+      const timer = setTimeout(() => {
+        setJustReadyTickets((prev) => prev.filter((t) => t.order.id !== orderId));
+        readyTimersRef.current.delete(orderId);
+      }, 4000);
+      readyTimersRef.current.set(orderId, timer);
+    }
+    handleUpdateOrderStatus(orderId, "SERVED");
+  };
+
+  // Clean up any pending "just ready" timers on unmount
+  useEffect(() => {
+    const timersMap = readyTimersRef.current;
+    return () => {
+      timersMap.forEach((timer) => clearTimeout(timer));
+      timersMap.clear();
+    };
+  }, []);
 
   // Group aggregated items by category for structured Category Columns Display
   const categoryGroups = useMemo(() => {
@@ -542,6 +630,51 @@ export default function KitchenDashboard() {
     return "grid-cols-2 md:grid-cols-3 lg:grid-cols-4";
   }, [groupedTableCards.length]);
 
+  // ── Kanban board columns (NEW → PREPARING → READY) ──
+  const newColumnOrders = useMemo(
+    () => orders.filter((o) => o.status === "PENDING" || o.status === "ACCEPTED"),
+    [orders]
+  );
+  const preparingColumnOrders = useMemo(
+    () => orders.filter((o) => o.status === "PREPARING"),
+    [orders]
+  );
+  // READY column is entirely the transient "just marked ready" snapshots —
+  // see handleMarkReady for why there is no persisted backend READY state.
+  const readyColumnTickets = justReadyTickets;
+
+  const highPriorityCount = useMemo(() => {
+    return orders.filter((o) => computePriority(o, statsNow - new Date(o.createdAt).getTime()).isHigh).length;
+  }, [orders, statsNow]);
+
+  const avgPrepMinutes = useMemo(() => {
+    if (preparingColumnOrders.length === 0) return 0;
+    const totalMs = preparingColumnOrders.reduce(
+      (sum, o) => sum + (statsNow - new Date(o.createdAt).getTime()),
+      0
+    );
+    return Math.round(totalMs / preparingColumnOrders.length / 60000);
+  }, [preparingColumnOrders, statsNow]);
+
+  const kitchenStats = {
+    todayOrders: allOrdersToday.length,
+    preparing: preparingColumnOrders.length,
+    ready: readyColumnTickets.length,
+    avgPrepMinutes,
+    highPriority: highPriorityCount,
+  };
+
+  // Main content area fills remaining vertical space below the header and
+  // (when present) the board stats bar — both are fixed-height flex siblings.
+  const mainHeightClass =
+    viewMode === "board"
+      ? isFullscreen
+        ? "h-[calc(100vh-44px)] p-2"
+        : "h-[calc(100vh-55px-44px)] p-3"
+      : isFullscreen
+      ? "h-screen p-2"
+      : "h-[calc(100vh-55px)] p-3";
+
   return (
     <div className="h-screen max-h-screen w-screen overflow-hidden flex flex-col bg-slate-900 text-slate-100 font-sans select-none relative">
       
@@ -582,6 +715,17 @@ export default function KitchenDashboard() {
           <div className="flex items-center gap-3">
             <div className="flex items-center p-1 rounded-lg bg-slate-900 border border-slate-800 text-xs font-bold">
               <button
+                onClick={() => setViewMode("board")}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded transition-all ${
+                  viewMode === "board"
+                    ? "bg-amber-500 text-slate-950 font-black shadow-xs"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Kanban size={14} />
+                <span>KANBAN BOARD ({newColumnOrders.length + preparingColumnOrders.length})</span>
+              </button>
+              <button
                 onClick={() => setViewMode("summary")}
                 className={`flex items-center gap-1.5 px-3 py-1 rounded transition-all ${
                   viewMode === "summary"
@@ -605,13 +749,17 @@ export default function KitchenDashboard() {
               </button>
             </div>
 
-            {/* Live Sync Indicator */}
+            {/* Live Sync Indicator — active tickets are never cleared during a
+                reconnect (see fetchOrders/socket effects below); this pill is
+                purely informational. */}
             <div
               className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest border ${
                 !isKitchenLive
                   ? "border-amber-500/50 bg-amber-950/80 text-amber-400"
                   : isConnected
                   ? "border-emerald-500/40 bg-emerald-950/60 text-emerald-400"
+                  : isReconnecting
+                  ? "border-amber-500/40 bg-amber-950/60 text-amber-400"
                   : "border-rose-500/40 bg-rose-950/60 text-rose-400"
               }`}
             >
@@ -621,10 +769,12 @@ export default function KitchenDashboard() {
                     ? "bg-amber-400"
                     : isConnected
                     ? "bg-emerald-400 animate-pulse"
+                    : isReconnecting
+                    ? "bg-amber-400 animate-pulse"
                     : "bg-rose-400"
                 }`}
               />
-              {!isKitchenLive ? "MODE: OFF" : isConnected ? "LIVE" : "OFFLINE"}
+              {!isKitchenLive ? "MODE: OFF" : isConnected ? "LIVE" : isReconnecting ? "RECONNECTING..." : "OFFLINE"}
             </div>
           </div>
 
@@ -636,7 +786,7 @@ export default function KitchenDashboard() {
             </div>
 
             <button
-              onClick={() => setSoundEnabled(!soundEnabled)}
+              onClick={toggleSound}
               title={soundEnabled ? "Mute alert chime" : "Enable alert chime"}
               className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 transition-colors"
             >
@@ -671,9 +821,23 @@ export default function KitchenDashboard() {
       )}
 
       {/* ─────────────────────────────────────────
+          KITCHEN HEADER STATS BAR (Board view only — always visible,
+          including fullscreen, since that's when it matters most)
+      ───────────────────────────────────────── */}
+      {viewMode === "board" && (
+        <div className="h-11 flex-shrink-0 px-3 flex items-center gap-2 overflow-x-auto bg-slate-950 border-b border-slate-800">
+          <StatChip icon={<TrendingUp size={13} />} label="Today's Orders" value={kitchenStats.todayOrders} color="#38BDF8" />
+          <StatChip icon={<ChefHat size={13} />} label="Preparing" value={kitchenStats.preparing} color="#F59E0B" />
+          <StatChip icon={<CheckCircle2 size={13} />} label="Ready" value={kitchenStats.ready} color="#10B981" />
+          <StatChip icon={<Timer size={13} />} label="Avg Prep Time" value={`${kitchenStats.avgPrepMinutes}m`} color="#A78BFA" />
+          <StatChip icon={<Flame size={13} />} label="High Priority" value={kitchenStats.highPriority} color="#FB923C" />
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────
           MAIN KDS DISPLAY AREA (Zero Page-Level Body Scroll)
       ───────────────────────────────────────── */}
-      <main className={`flex-1 ${isFullscreen ? "h-screen p-2" : "h-[calc(100vh-55px)] p-3"} overflow-hidden bg-slate-900`}>
+      <main className={`flex-1 ${mainHeightClass} overflow-hidden bg-slate-900`}>
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 h-full">
             {[1, 2, 3, 4].map((i) => (
@@ -684,6 +848,72 @@ export default function KitchenDashboard() {
               </div>
             ))}
           </div>
+        ) : viewMode === "board" ? (
+          /* ── MODE: KANBAN BOARD (NEW → PREPARING → READY) ── */
+          newColumnOrders.length === 0 && preparingColumnOrders.length === 0 && readyColumnTickets.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center p-8 bg-slate-950 border border-slate-800 rounded-2xl">
+              <div className="w-16 h-16 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mb-4">
+                <CheckCircle2 size={38} />
+              </div>
+              <h2 className="text-2xl font-black uppercase tracking-wider text-white mb-1">
+                Kitchen is all caught up!
+              </h2>
+              <p className="text-sm font-medium text-slate-400 max-w-sm">
+                No active orders right now. New tickets will appear here the instant a customer orders.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 h-full overflow-x-auto snap-x snap-mandatory lg:overflow-visible">
+              {[
+                { key: "NEW", title: "New", icon: <Clock size={14} />, orders: newColumnOrders, accent: "#38BDF8" },
+                { key: "PREPARING", title: "Preparing", icon: <Flame size={14} />, orders: preparingColumnOrders, accent: "#F59E0B" },
+                { key: "READY", title: "Ready", icon: <CheckCircle2 size={14} />, orders: readyColumnTickets.map((t) => t.order), accent: "#10B981" },
+              ].map((col) => (
+                <div
+                  key={col.key}
+                  className="flex flex-col min-w-[88vw] sm:min-w-[60vw] lg:min-w-0 snap-start bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden h-full"
+                >
+                  <div
+                    className="flex items-center justify-between px-3 py-2.5 border-b border-slate-800 flex-shrink-0"
+                    style={{ borderTop: `3px solid ${col.accent}` }}
+                  >
+                    <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-white">
+                      <span style={{ color: col.accent }}>{col.icon}</span>
+                      {col.title}
+                    </span>
+                    <span
+                      className="text-[10px] font-black px-2 py-0.5 rounded-full"
+                      style={{ background: `${col.accent}22`, color: col.accent }}
+                    >
+                      {col.orders.length}
+                    </span>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-2.5 space-y-2.5">
+                    <AnimatePresence initial={false}>
+                      {col.orders.length === 0 ? (
+                        <p className="text-center text-xs font-bold text-slate-600 uppercase tracking-wide py-8">
+                          No tickets
+                        </p>
+                      ) : (
+                        col.orders.map((order) => (
+                          <KitchenTicket
+                            key={order.id}
+                            order={order}
+                            column={col.key}
+                            isUpdating={updatingOrders.has(`${order.id}-PREPARING`) || updatingOrders.has(`${order.id}-SERVED`)}
+                            isJustReady={col.key === "READY"}
+                            onStartPreparing={handleStartPreparing}
+                            onMarkReady={handleMarkReady}
+                            onViewDetails={setViewingOrder}
+                          />
+                        ))
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
         ) : viewMode === "summary" ? (
           /* ── ENTERPRISE KDS DISPLAY MODE: CATEGORY COLUMNS ── */
           categoryGroups.length === 0 ? (
@@ -972,6 +1202,10 @@ export default function KitchenDashboard() {
           )
         )}
       </main>
+
+      {viewingOrder && (
+        <OrderDetailModal order={viewingOrder} onClose={() => setViewingOrder(null)} />
+      )}
     </div>
   );
 }

@@ -19,6 +19,12 @@ const SocketContext = createContext(null);
 export function SocketProvider({ children }) {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
+  // Phase 9 additions — purely additive, existing { socket, isConnected }
+  // consumers are unaffected. Tracks the in-between "trying to reconnect"
+  // state (already exponential-backed-off in lib/socket.js) so the UI can
+  // show a distinct "Reconnecting..." indicator instead of a flat offline one.
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
 
   useEffect(() => {
     // Connect the singleton socket
@@ -28,6 +34,8 @@ export function SocketProvider({ children }) {
     // Track connection state
     const onConnect = () => {
       setIsConnected(true);
+      setIsReconnecting(false);
+      setReconnectAttempt(0);
       console.log(`[Socket] Connected ✅ id=${s.id}`);
     };
 
@@ -43,12 +51,22 @@ export function SocketProvider({ children }) {
 
     const onReconnect = (attempt) => {
       console.log(`[Socket] Reconnected after ${attempt} attempt(s) ✅`);
+      setIsReconnecting(false);
+      setReconnectAttempt(0);
+    };
+
+    // socket.io-client already retries forever with exponential backoff
+    // (see lib/socket.js) — these just surface that in-progress state to the UI.
+    const onReconnectAttempt = (attempt) => {
+      setIsReconnecting(true);
+      setReconnectAttempt(attempt);
     };
 
     s.on("connect", onConnect);
     s.on("disconnect", onDisconnect);
     s.on("connect_error", onConnectError);
     s.io.on("reconnect", onReconnect);
+    s.io.on("reconnect_attempt", onReconnectAttempt);
 
     // Sync initial state if socket already connected (Strict Mode safe)
     if (s.connected) {
@@ -62,11 +80,12 @@ export function SocketProvider({ children }) {
       s.off("disconnect", onDisconnect);
       s.off("connect_error", onConnectError);
       s.io.off("reconnect", onReconnect);
+      s.io.off("reconnect_attempt", onReconnectAttempt);
     };
   }, []);
 
   return (
-    <SocketContext.Provider value={{ socket, isConnected }}>
+    <SocketContext.Provider value={{ socket, isConnected, isReconnecting, reconnectAttempt }}>
       {children}
     </SocketContext.Provider>
   );

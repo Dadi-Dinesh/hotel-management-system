@@ -1,0 +1,101 @@
+name: CI
+
+# Continuous integration only — this workflow never deploys anywhere.
+# It exists to catch broken builds/types/schema drift before merge.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  server:
+    name: Server (Install, Prisma, Tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # No ESLint config exists on the server yet — this at least catches
+      # real parse errors on every source file.
+      - name: Syntax check
+        run: |
+          find src -name "*.js" -print0 | xargs -0 -n1 node --check
+          node --check server.js
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+        env:
+          # prisma validate only needs the var to resolve, not a reachable DB.
+          DATABASE_URL: "postgresql://user:password@localhost:5432/ci_placeholder"
+
+      - name: Run tests
+        run: npm test
+
+  client:
+    name: Client (Install, Lint, TypeScript, Build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+        env:
+          # Build-time only placeholders — never real secrets. The client
+          # only needs these to resolve at build time; nothing is called.
+          NEXT_PUBLIC_API_URL: "http://localhost:4000/api"
+          NEXT_PUBLIC_SOCKET_URL: "http://localhost:4000"
+          NEXT_PUBLIC_SITE_URL: "http://localhost:3000"
+
+  printer-agent:
+    name: Printer Agent (Install, Syntax Check)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: printer-agent
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: printer-agent/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check
+        run: find src -name "*.js" -print0 | xargs -0 -n1 node --check

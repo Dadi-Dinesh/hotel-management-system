@@ -2,6 +2,7 @@ const prisma = require("../config/db");
 const { getIO } = require("../socket");
 const { generateKOTData, generateKOTHTML } = require("../utils/kotGenerator");
 const { getKitchenAggregatedData } = require("../services/kds.service");
+const { maybeAutoPrintKOT } = require("../services/printer/autoPrintService");
 
 /**
  * Place a new order (customer)
@@ -55,6 +56,7 @@ const placeOrder = async (req, res, next) => {
     const order = await prisma.order.create({
       data: {
         sessionId,
+        restaurantId: session.restaurantId,
         items: {
           create: items.map((item) => {
             const menuItem = menuItems.find((m) => m.id === item.menuItemId);
@@ -96,19 +98,20 @@ const placeOrder = async (req, res, next) => {
       createdAt: order.createdAt,
     };
 
-    // Emit new-order event to waiters, captains, admins, and kitchen
+    // Emit new-order event to this restaurant's waiters, captains, admins, and kitchen
     const io = getIO();
+    const rid = session.restaurantId;
     console.log("Sending new-order event:", order.id);
-    io.to("waiters").emit("new-order", orderPayload);
-    io.to("captains").emit("new-order", orderPayload);
-    io.to("admins").emit("new-order", orderPayload);
-    io.to("kitchen").emit("new-order", orderPayload);
+    io.to(`restaurant:${rid}:waiters`).emit("new-order", orderPayload);
+    io.to(`restaurant:${rid}:captains`).emit("new-order", orderPayload);
+    io.to(`restaurant:${rid}:admins`).emit("new-order", orderPayload);
+    io.to(`restaurant:${rid}:kitchen`).emit("new-order", orderPayload);
 
-    // Emit real-time aggregated quantities update to kitchen room
-    const aggregatedKitchen = await getKitchenAggregatedData();
-    io.to("kitchen").emit("kitchen-updated", aggregatedKitchen);
-    io.to("captains").emit("kitchen-updated", aggregatedKitchen);
-    io.to("admins").emit("kitchen-updated", aggregatedKitchen);
+    // Emit real-time aggregated quantities update to this restaurant's kitchen room
+    const aggregatedKitchen = await getKitchenAggregatedData(rid);
+    io.to(`restaurant:${rid}:kitchen`).emit("kitchen-updated", aggregatedKitchen);
+    io.to(`restaurant:${rid}:captains`).emit("kitchen-updated", aggregatedKitchen);
+    io.to(`restaurant:${rid}:admins`).emit("kitchen-updated", aggregatedKitchen);
 
     res.status(201).json({
       success: true,
@@ -129,6 +132,10 @@ const getOrders = async (req, res, next) => {
     const { status, date, sessionId } = req.query;
 
     const where = {};
+
+    if (req.restaurantId) {
+      where.restaurantId = req.restaurantId;
+    }
 
     if (status) {
       where.status = status.toUpperCase();
@@ -176,11 +183,21 @@ const acceptOrder = async (req, res, next) => {
   try {
     const { id } = req.params;
 
+    if (req.restaurantId) {
+      const existing = await prisma.order.findUnique({ where: { id }, select: { restaurantId: true } });
+      if (!existing || existing.restaurantId !== req.restaurantId) {
+        return res.status(404).json({ success: false, message: "Order not found." });
+      }
+    }
+
     const order = await prisma.order.update({
       where: { id },
       data: {
         status: "ACCEPTED",
         acceptedAt: new Date(),
+        // Analytics-only — who accepted it. Nullable, never required, never
+        // affects the accept flow itself (falls back to null if unauthenticated).
+        acceptedByUserId: req.user?.id || undefined,
       },
       include: {
         items: {
@@ -191,6 +208,9 @@ const acceptOrder = async (req, res, next) => {
         },
       },
     });
+
+    // Auto Print (Phase 8) — best-effort, never blocks this response.
+    maybeAutoPrintKOT(order).catch(() => {});
 
     // Generate KOT data for Waiter copy ONLY (Single print requirement)
     const waiterKOT = generateKOTData(order, "WAITER");
@@ -210,19 +230,21 @@ const acceptOrder = async (req, res, next) => {
       tableCode,
     };
 
-    // Notify customer table, waiters, captains, kitchen, and admin
+    // Notify customer table and this restaurant's waiters, captains, kitchen, and admin
     const io = getIO();
+    const rid = order.restaurantId;
     console.log("Sending order-accepted event:", order.id);
     io.to(tableCode).emit("order-accepted", statusPayload);
     io.to(`table:${tableCode}`).emit("order-accepted", statusPayload);
-    io.to("waiters").emit("order-status-update", statusPayload);
-    io.to("captains").emit("order-status-update", statusPayload);
-    io.to("admins").emit("order-status-update", statusPayload);
-    io.to("kitchen").emit("order-status-update", statusPayload);
+    io.to(`restaurant:${rid}:table:${tableCode}`).emit("order-accepted", statusPayload);
+    io.to(`restaurant:${rid}:waiters`).emit("order-status-update", statusPayload);
+    io.to(`restaurant:${rid}:captains`).emit("order-status-update", statusPayload);
+    io.to(`restaurant:${rid}:admins`).emit("order-status-update", statusPayload);
+    io.to(`restaurant:${rid}:kitchen`).emit("order-status-update", statusPayload);
 
     // Emit updated kitchen aggregated data
-    const aggregatedKitchen = await getKitchenAggregatedData();
-    io.to("kitchen").emit("kitchen-updated", aggregatedKitchen);
+    const aggregatedKitchen = await getKitchenAggregatedData(rid);
+    io.to(`restaurant:${rid}:kitchen`).emit("kitchen-updated", aggregatedKitchen);
 
     res.json({
       success: true,
@@ -264,10 +286,19 @@ const updateOrderStatus = async (req, res, next) => {
       });
     }
 
+    if (req.restaurantId) {
+      const existing = await prisma.order.findUnique({ where: { id }, select: { restaurantId: true } });
+      if (!existing || existing.restaurantId !== req.restaurantId) {
+        return res.status(404).json({ success: false, message: "Order not found." });
+      }
+    }
+
     const order = await prisma.order.update({
       where: { id },
       data: {
         status,
+        // Phase 10 — records prep duration for kitchen-performance insights.
+        servedAt: status === "SERVED" ? new Date() : undefined,
         // Sync item statuses if whole order status changes to SERVED or CANCELLED or PREPARING
         items: status === "SERVED" || status === "PREPARING"
           ? { updateMany: { where: {}, data: { status } } }
@@ -297,18 +328,20 @@ const updateOrderStatus = async (req, res, next) => {
     };
 
     const io = getIO();
+    const rid = order.restaurantId;
     console.log(`Sending order-status-update event (${order.status}):`, order.id);
     io.to(tableCode).emit("order-status-update", statusPayload);
     io.to(`table:${tableCode}`).emit("order-status-update", statusPayload);
-    io.to("waiters").emit("order-status-update", statusPayload);
-    io.to("captains").emit("order-status-update", statusPayload);
-    io.to("admins").emit("order-status-update", statusPayload);
-    io.to("kitchen").emit("order-status-update", statusPayload);
+    io.to(`restaurant:${rid}:table:${tableCode}`).emit("order-status-update", statusPayload);
+    io.to(`restaurant:${rid}:waiters`).emit("order-status-update", statusPayload);
+    io.to(`restaurant:${rid}:captains`).emit("order-status-update", statusPayload);
+    io.to(`restaurant:${rid}:admins`).emit("order-status-update", statusPayload);
+    io.to(`restaurant:${rid}:kitchen`).emit("order-status-update", statusPayload);
 
     // Broadcast live kitchen aggregation update
-    const aggregatedKitchen = await getKitchenAggregatedData();
-    io.to("kitchen").emit("kitchen-updated", aggregatedKitchen);
-    io.to("captains").emit("kitchen-updated", aggregatedKitchen);
+    const aggregatedKitchen = await getKitchenAggregatedData(rid);
+    io.to(`restaurant:${rid}:kitchen`).emit("kitchen-updated", aggregatedKitchen);
+    io.to(`restaurant:${rid}:captains`).emit("kitchen-updated", aggregatedKitchen);
 
     res.json({
       success: true,
@@ -326,7 +359,7 @@ const updateOrderStatus = async (req, res, next) => {
  */
 const getKitchenAggregated = async (req, res, next) => {
   try {
-    const aggregatedData = await getKitchenAggregatedData();
+    const aggregatedData = await getKitchenAggregatedData(req.restaurantId);
     res.json({
       success: true,
       data: aggregatedData,
@@ -353,6 +386,13 @@ const updateOrderItemStatus = async (req, res, next) => {
       });
     }
 
+    if (req.restaurantId) {
+      const existingItem = await prisma.orderItem.findUnique({ where: { id: itemId }, select: { order: { select: { restaurantId: true } } } });
+      if (!existingItem || existingItem.order.restaurantId !== req.restaurantId) {
+        return res.status(404).json({ success: false, message: "Order item not found." });
+      }
+    }
+
     // Update item status in database
     const updatedItem = await prisma.orderItem.update({
       where: { id: itemId },
@@ -376,7 +416,7 @@ const updateOrderItemStatus = async (req, res, next) => {
     if (allItemsServed && parentOrder.status !== "SERVED") {
       updatedParentOrder = await prisma.order.update({
         where: { id: parentOrder.id },
-        data: { status: "SERVED" },
+        data: { status: "SERVED", servedAt: new Date() },
         include: {
           items: { include: { menuItem: true } },
           session: { include: { table: true } },
@@ -385,12 +425,13 @@ const updateOrderItemStatus = async (req, res, next) => {
     }
 
     const tableCode = updatedParentOrder.session.table.code;
+    const rid = updatedParentOrder.restaurantId;
     const io = getIO();
 
     // Fetch updated kitchen aggregation
-    const aggregatedKitchen = await getKitchenAggregatedData();
+    const aggregatedKitchen = await getKitchenAggregatedData(rid);
 
-    // Emit real-time events to all relevant rooms
+    // Emit real-time events to this restaurant's relevant rooms
     const itemServedPayload = {
       itemId: updatedItem.id,
       orderId: parentOrder.id,
@@ -403,11 +444,11 @@ const updateOrderItemStatus = async (req, res, next) => {
     };
 
     console.log(`Sending item-served event (${updatedItem.menuItem.name} -> ${status}):`, updatedItem.id);
-    io.to("kitchen").emit("item-served", itemServedPayload);
-    io.to("kitchen").emit("kitchen-updated", aggregatedKitchen);
-    io.to("captains").emit("item-served", itemServedPayload);
-    io.to("captains").emit("kitchen-updated", aggregatedKitchen);
-    io.to("admins").emit("item-served", itemServedPayload);
+    io.to(`restaurant:${rid}:kitchen`).emit("item-served", itemServedPayload);
+    io.to(`restaurant:${rid}:kitchen`).emit("kitchen-updated", aggregatedKitchen);
+    io.to(`restaurant:${rid}:captains`).emit("item-served", itemServedPayload);
+    io.to(`restaurant:${rid}:captains`).emit("kitchen-updated", aggregatedKitchen);
+    io.to(`restaurant:${rid}:admins`).emit("item-served", itemServedPayload);
 
     // Notify customer table
     const orderStatusPayload = {
@@ -425,6 +466,7 @@ const updateOrderItemStatus = async (req, res, next) => {
 
     io.to(tableCode).emit("order-status-update", orderStatusPayload);
     io.to(`table:${tableCode}`).emit("order-status-update", orderStatusPayload);
+    io.to(`restaurant:${rid}:table:${tableCode}`).emit("order-status-update", orderStatusPayload);
 
     res.json({
       success: true,

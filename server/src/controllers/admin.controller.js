@@ -1,5 +1,6 @@
 const prisma = require("../config/db");
 const bcrypt = require("bcryptjs");
+const { logAudit } = require("../utils/auditLog");
 
 /**
  * Get dashboard stats
@@ -22,6 +23,7 @@ const getStats = async (req, res, next) => {
       where: {
         order: {
           status: { not: "CANCELLED" },
+          ...(req.restaurantId ? { restaurantId: req.restaurantId } : {}),
         },
       },
       select: {
@@ -50,16 +52,23 @@ const getStats = async (req, res, next) => {
 
     // Total orders today
     const todayOrderCount = await prisma.order.count({
-      where: { createdAt: { gte: startOfToday } },
+      where: {
+        createdAt: { gte: startOfToday },
+        ...(req.restaurantId ? { restaurantId: req.restaurantId } : {}),
+      },
     });
 
     // Active sessions
     const activeSessions = await prisma.session.count({
-      where: { status: { in: ["ACTIVE", "BILL_REQUESTED"] } },
+      where: {
+        status: { in: ["ACTIVE", "BILL_REQUESTED"] },
+        ...(req.restaurantId ? { restaurantId: req.restaurantId } : {}),
+      },
     });
 
     // Seating & Table Metrics
     const allTablesList = await prisma.table.findMany({
+      where: req.restaurantId ? { restaurantId: req.restaurantId } : {},
       include: {
         sessions: {
           where: { status: { in: ["ACTIVE", "BILL_REQUESTED"] } },
@@ -89,6 +98,7 @@ const getStats = async (req, res, next) => {
     // Top selling items (all time)
     const topItems = await prisma.orderItem.groupBy({
       by: ["menuItemId"],
+      where: req.restaurantId ? { order: { restaurantId: req.restaurantId } } : undefined,
       _sum: { quantity: true },
       orderBy: { _sum: { quantity: "desc" } },
       take: 5,
@@ -112,6 +122,7 @@ const getStats = async (req, res, next) => {
     // Top selling category
     const topCategories = await prisma.orderItem.groupBy({
       by: ["menuItemId"],
+      where: req.restaurantId ? { order: { restaurantId: req.restaurantId } } : undefined,
       _sum: { quantity: true },
     });
 
@@ -170,7 +181,7 @@ const getOrderHistory = async (req, res, next) => {
   try {
     const { period, startDate, endDate } = req.query;
 
-    const where = {};
+    const where = req.restaurantId ? { restaurantId: req.restaurantId } : {};
     const now = new Date();
 
     if (period === "today") {
@@ -240,6 +251,23 @@ const createUser = async (req, res, next) => {
       });
     }
 
+    // Restaurant-scoped admins can only create staff within their own restaurant.
+    // Platform Owners must explicitly target one (via X-Restaurant-Id / ?restaurantId=).
+    if (!req.restaurantId) {
+      return res.status(400).json({
+        success: false,
+        message: "Select a restaurant before creating staff accounts.",
+      });
+    }
+
+    const ALLOWED_ROLES = ["ADMIN", "MANAGER", "CAPTAIN", "KITCHEN"];
+    if (role !== undefined && !ALLOWED_ROLES.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid role. Must be one of: ${ALLOWED_ROLES.join(", ")}`,
+      });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 12);
 
     const user = await prisma.user.create({
@@ -248,9 +276,12 @@ const createUser = async (req, res, next) => {
         email: email.toLowerCase(),
         password: hashedPassword,
         role: role || "CAPTAIN",
+        restaurantId: req.restaurantId,
       },
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      select: { id: true, name: true, email: true, role: true, restaurantId: true, createdAt: true },
     });
+
+    logAudit({ action: "staff.added", restaurantId: req.restaurantId, userId: req.user?.id, metadata: { newUserId: user.id, role: user.role } });
 
     res.status(201).json({
       success: true,
@@ -269,7 +300,8 @@ const createUser = async (req, res, next) => {
 const getUsers = async (req, res, next) => {
   try {
     const users = await prisma.user.findMany({
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      where: req.restaurantId ? { restaurantId: req.restaurantId } : {},
+      select: { id: true, name: true, email: true, role: true, restaurantId: true, createdAt: true },
       orderBy: { createdAt: "desc" },
     });
 
@@ -293,6 +325,13 @@ const deleteUser = async (req, res, next) => {
         success: false,
         message: "You cannot delete your own account.",
       });
+    }
+
+    if (req.restaurantId) {
+      const target = await prisma.user.findUnique({ where: { id }, select: { restaurantId: true } });
+      if (!target || target.restaurantId !== req.restaurantId) {
+        return res.status(404).json({ success: false, message: "User not found." });
+      }
     }
 
     await prisma.user.delete({ where: { id } });

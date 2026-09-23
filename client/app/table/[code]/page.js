@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { UtensilsCrossed, Utensils, ClipboardList, BellRing } from "lucide-react";
+import { Utensils, ClipboardList } from "lucide-react";
 import api from "../../lib/api";
 import Navbar from "../../components/Navbar";
 import LoadingScreen from "../../components/LoadingScreen";
+import ReminderButtons from "../../components/ReminderButtons";
 import { useSocket } from "../../components/SocketProvider";
+import { DEMO_RESTAURANT } from "../../lib/branding";
+import { emitResilient } from "../../lib/pwa/emitResilient";
 import toast from "react-hot-toast";
 
 export default function TableLandingPage() {
@@ -84,19 +87,12 @@ export default function TableLandingPage() {
    * Send a "call-waiter" socket event to the server.
    * The server immediately forwards it to all captains/admins rooms.
    */
-  const handleCallWaiter = () => {
-    if (!socket || !socket.connected) {
-      toast.error("Not connected. Please refresh and try again.");
-      return;
-    }
-
+  const handleCallWaiter = (message = "🔔 Waiter has been called! They'll be with you shortly.") => {
     setCallingWaiter(true);
 
-    // Emit the event — server will broadcast to captains room
-    socket.emit("call-waiter", tableCode);
-
-    toast.success("🔔 Waiter has been called! They'll be with you shortly.", {
-      duration: 4000,
+    emitResilient(socket, "call-waiter", tableCode, {
+      onlineMessage: message,
+      offlineMessage: "You're offline — this will reach the waiter the moment you're back online.",
       icon: "🙋",
     });
 
@@ -118,7 +114,7 @@ export default function TableLandingPage() {
           className="min-h-screen flex flex-col"
           style={{ background: "var(--color-surface)" }}
         >
-          <Navbar title="Nookambika Dhaba" subtitle={`Table ${tableCode}`} />
+          <Navbar title={DEMO_RESTAURANT.shortName} subtitle={`Table ${tableCode}`} />
 
           <main className="flex-1 flex flex-col items-center justify-center px-6 py-12">
             <div
@@ -176,20 +172,8 @@ export default function TableLandingPage() {
                     VIEW ORDERS
                   </button>
 
-                  {/* Call Waiter — sends socket event instantly to captain dashboard */}
-                  <button
-                    onClick={handleCallWaiter}
-                    disabled={callingWaiter}
-                    className="w-full py-4 text-base font-black uppercase tracking-widest border-2 flex items-center justify-center gap-2 transition-all"
-                    style={{
-                      borderColor: callingWaiter ? "var(--color-text-muted)" : "#F59E0B",
-                      color: callingWaiter ? "var(--color-text-muted)" : "#92400E",
-                      background: callingWaiter ? "var(--color-cream-100)" : "#FEF3C7",
-                    }}
-                  >
-                    <BellRing size={18} />
-                    {callingWaiter ? "WAITER CALLED ✓" : "CALL WAITER"}
-                  </button>
+                  {/* Reminders — sends the same socket event instantly to captain dashboard */}
+                  <ReminderButtons onSend={handleCallWaiter} sending={callingWaiter} />
                 </>
               ) : (
                 <button

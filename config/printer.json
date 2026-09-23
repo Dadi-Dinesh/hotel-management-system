@@ -1,0 +1,7 @@
+{
+  "port": "/dev/cu.usbserial-10",
+  "baudRate": 19200,
+  "kitchenMode": "LIVE",
+  "printerTarget": "ALL",
+  "updatedAt": "2026-08-11T05:18:50.679Z"
+}

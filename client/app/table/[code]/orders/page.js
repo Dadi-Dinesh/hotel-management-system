@@ -2,10 +2,16 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Utensils, Receipt, RefreshCcw, Star, X, BellRing } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
+import { Utensils, Receipt, RefreshCcw, Star, X, ClipboardList } from "lucide-react";
 import api from "../../../lib/api";
 import Navbar from "../../../components/Navbar";
+import EmptyState from "../../../components/EmptyState";
+import OrderTimeline from "../../../components/OrderTimeline";
+import ReminderButtons from "../../../components/ReminderButtons";
 import { useSocket } from "../../../components/SocketProvider";
+import { emitResilient } from "../../../lib/pwa/emitResilient";
+import { requestOrQueue } from "../../../lib/pwa/queuedRequest";
 import toast from "react-hot-toast";
 
 export default function OrdersPage() {
@@ -19,8 +25,10 @@ export default function OrdersPage() {
   const [requestingBill, setRequestingBill] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [ratings, setRatings] = useState({});
+  const [feedbackComment, setFeedbackComment] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [callingWaiter, setCallingWaiter] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
 
   const fetchSession = useCallback(async () => {
     const sessionId = localStorage.getItem(`session-${tableCode}`);
@@ -93,21 +101,26 @@ export default function OrdersPage() {
    * Call the waiter — sends socket event to captains room instantly.
    * Only enabled during an active session.
    */
-  const handleCallWaiter = () => {
-    if (!socket || !socket.connected) {
-      toast.error("Not connected. Please refresh.");
-      return;
-    }
+  const handleCallWaiter = (message = "🔔 Waiter called! They'll be with you shortly.") => {
     setCallingWaiter(true);
-    socket.emit("call-waiter", tableCode);
-    toast.success("🔔 Waiter called! They'll be with you shortly.", { duration: 4000 });
+    emitResilient(socket, "call-waiter", tableCode, {
+      onlineMessage: message,
+      offlineMessage: "You're offline — this will reach the waiter the moment you're back online.",
+    });
     setTimeout(() => setCallingWaiter(false), 15000);
   };
 
   const handleRequestBill = async () => {
     setRequestingBill(true);
     try {
-      await api.patch(`/sessions/${session.id}/request-bill`);
+      const result = await requestOrQueue({
+        type: "BILL_REQUEST",
+        method: "patch",
+        url: `/sessions/${session.id}/request-bill`,
+        label: `Bill request — Table ${tableCode}`,
+        offlineMessage: "You're offline — your bill request will be sent automatically once you're back online.",
+      });
+      if (result.queued) return;
       toast.success("Bill requested! The waiter will bring it shortly. 🧾");
       fetchSession();
     } catch (error) {
@@ -137,16 +150,27 @@ export default function OrdersPage() {
   };
 
   const submitFeedbackAndRequestBill = async () => {
-    const feedbackData = Object.entries(ratings).map(([menuItemId, rating]) => ({
+    const feedbackData = Object.entries(ratings).map(([menuItemId, rating], i) => ({
       menuItemId,
       rating,
+      // The optional overall comment rides along on just the first entry —
+      // one Feedback row per rated item, so duplicating it across all of
+      // them would inflate word counts in the AI Copilot's keyword analysis.
+      comment: i === 0 && feedbackComment.trim() ? feedbackComment.trim() : undefined,
     }));
 
     if (feedbackData.length > 0) {
       setSubmittingFeedback(true);
       try {
-        await api.post(`/sessions/${session.id}/feedback`, { ratings: feedbackData });
-        toast.success("Thanks for your feedback! 🌟");
+        const result = await requestOrQueue({
+          type: "FEEDBACK",
+          method: "post",
+          url: `/sessions/${session.id}/feedback`,
+          body: { ratings: feedbackData },
+          label: `Feedback — Table ${tableCode}`,
+          offlineMessage: "You're offline — your feedback will be sent automatically once you're back online.",
+        });
+        if (!result.queued) toast.success("Thanks for your feedback! 🌟");
       } catch (error) {
         console.error("Failed to submit feedback:", error);
       } finally {
@@ -231,27 +255,32 @@ export default function OrdersPage() {
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-4">
         {orders.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-5xl mb-4">🍽️</p>
-            <p
-              className="font-medium mb-4"
-              style={{ color: "var(--color-text-muted)" }}
-            >
-              No orders yet
-            </p>
-            <button
-              onClick={() => router.push(`/table/${tableCode}/menu`)}
-              className="btn-primary"
-            >
-              <Utensils size={16} />
-              Browse Menu
-            </button>
-          </div>
+          <EmptyState
+            icon={<ClipboardList size={30} style={{ color: "var(--color-text-muted)" }} />}
+            title="No Orders Yet"
+            description="Browse the menu and place your first order to see it tracked here."
+            action={
+              <button
+                onClick={() => router.push(`/table/${tableCode}/menu`)}
+                className="btn-primary"
+              >
+                <Utensils size={16} />
+                Browse Menu
+              </button>
+            }
+          />
         ) : (
-          <div className="space-y-4 stagger-children">
+          <motion.div
+            initial="hidden"
+            animate="show"
+            variants={{ show: { transition: { staggerChildren: shouldReduceMotion ? 0 : 0.08 } } }}
+            className="space-y-4"
+          >
             {orders.map((order) => (
-              <div
+              <motion.div
                 key={order.id}
+                variants={{ hidden: { opacity: 0, y: shouldReduceMotion ? 0 : 12 }, show: { opacity: 1, y: 0 } }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
                 className="card"
               >
                 <div className="flex items-center justify-between mb-3">
@@ -274,6 +303,10 @@ export default function OrdersPage() {
                       hour12: true,
                     })}
                   </span>
+                </div>
+
+                <div className="mb-4">
+                  <OrderTimeline status={order.status} />
                 </div>
 
                 <div className="space-y-2">
@@ -316,9 +349,9 @@ export default function OrdersPage() {
                     );
                   })}
                 </div>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
       </main>
 
@@ -383,20 +416,10 @@ export default function OrdersPage() {
                 </div>
               )}
             </div>
-            {/* Call Waiter — also available from orders page */}
-            <button
-              onClick={handleCallWaiter}
-              disabled={callingWaiter}
-              className="w-full py-3 text-sm font-black uppercase tracking-widest border-2 flex items-center justify-center gap-2 transition-all mt-2"
-              style={{
-                borderColor: callingWaiter ? "var(--color-text-muted)" : "#F59E0B",
-                color: callingWaiter ? "var(--color-text-muted)" : "#92400E",
-                background: callingWaiter ? "var(--color-cream-100)" : "#FEF3C7",
-              }}
-            >
-              <BellRing size={16} />
-              {callingWaiter ? "WAITER CALLED ✓" : "CALL WAITER"}
-            </button>
+            {/* Reminders — same call-waiter signal as before, quick presets added */}
+            <div className="mt-3">
+              <ReminderButtons onSend={handleCallWaiter} sending={callingWaiter} />
+            </div>
           </div>
         </div>
       )}
@@ -439,11 +462,24 @@ export default function OrdersPage() {
                     </div>
                   </div>
                 ))}
+                <div className="flex flex-col gap-2">
+                  <label className="font-bold text-xs uppercase tracking-widest" style={{ color: "var(--color-text-secondary)" }}>
+                    Anything you&apos;d like to tell us? (optional)
+                  </label>
+                  <textarea
+                    value={feedbackComment}
+                    onChange={(e) => setFeedbackComment(e.target.value)}
+                    rows={2}
+                    maxLength={500}
+                    placeholder="e.g. The food was great but service was slow..."
+                    className="input resize-none"
+                  />
+                </div>
               </div>
             </div>
 
             <div className="p-6 border-t flex flex-col gap-3" style={{ borderColor: "var(--color-border-light)", background: "var(--color-surface)" }}>
-              <button 
+              <button
                 onClick={submitFeedbackAndRequestBill}
                 disabled={submittingFeedback || Object.keys(ratings).length === 0}
                 className="btn-primary w-full py-3"

@@ -2,15 +2,21 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ShoppingBag } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Search, ShoppingBag } from "lucide-react";
 import api from "../../../lib/api";
 import Navbar from "../../../components/Navbar";
 import MenuCard from "../../../components/MenuCard";
 import CategoryTabs from "../../../components/CategoryTabs";
 import CartDrawer from "../../../components/CartDrawer";
+import EmptyState from "../../../components/EmptyState";
 import { useCart } from "../../../hooks/useCart";
 import { useSocket } from "../../../components/SocketProvider";
+import { requestOrQueue } from "../../../lib/pwa/queuedRequest";
 import toast from "react-hot-toast";
+
+// An item counts as "New" if it was added to the menu within the last 14 days.
+const NEW_ITEM_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
 export default function MenuPage() {
   const params = useParams();
@@ -24,10 +30,16 @@ export default function MenuPage() {
   const [activeCategory, setActiveCategory] = useState(null);
   const [dietFilter, setDietFilter] = useState("ALL"); // "ALL", "VEG", "NON_VEG"
   const [searchQuery, setSearchQuery] = useState("");
+  const [popularOnly, setPopularOnly] = useState(false);
+  const [newOnly, setNewOnly] = useState(false);
+  const [sortBy, setSortBy] = useState("NONE"); // "NONE", "PRICE_LOW", "PRICE_HIGH"
   const [showCart, setShowCart] = useState(false);
   const [isOrdering, setIsOrdering] = useState(false);
+  // Stable reference point for "New" filtering — captured once on mount, not on every render.
+  const [pageLoadTime] = useState(() => Date.now());
 
   const cart = useCart();
+  const shouldReduceMotion = useReducedMotion();
 
   const fetchSession = useCallback(async () => {
     const sessionId = localStorage.getItem(`session-${tableCode}`);
@@ -93,21 +105,42 @@ export default function MenuPage() {
     cat.items.map((item) => ({ ...item, category: { id: cat.id, name: cat.name } }))
   );
 
-  const filteredItems = allItems.filter((item) => {
-    if (activeCategory && item.category.id !== activeCategory) return false;
-    if (dietFilter === "VEG" && !item.isVeg) return false;
-    if (dietFilter === "NON_VEG" && item.isVeg) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const nameMatch = item.name.toLowerCase().includes(q);
-      const catMatch = item.category?.name?.toLowerCase().includes(q);
-      const descMatch = item.description?.toLowerCase().includes(q);
-      if (!nameMatch && !catMatch && !descMatch) return false;
-    }
-    return true;
-  });
+  const filteredItems = allItems
+    .filter((item) => {
+      if (activeCategory && item.category.id !== activeCategory) return false;
+      if (dietFilter === "VEG" && !item.isVeg) return false;
+      if (dietFilter === "NON_VEG" && item.isVeg) return false;
+      if (popularOnly && !item.isPopular) return false;
+      if (newOnly) {
+        const createdAt = item.createdAt ? new Date(item.createdAt).getTime() : 0;
+        if (!createdAt || pageLoadTime - createdAt > NEW_ITEM_WINDOW_MS) return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const nameMatch = item.name.toLowerCase().includes(q);
+        const catMatch = item.category?.name?.toLowerCase().includes(q);
+        const descMatch = item.description?.toLowerCase().includes(q);
+        if (!nameMatch && !catMatch && !descMatch) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "PRICE_LOW") return a.price - b.price;
+      if (sortBy === "PRICE_HIGH") return b.price - a.price;
+      return 0;
+    });
 
   const categories = menu.map((cat) => ({ id: cat.id, name: cat.name }));
+  const filtersActive = Boolean(searchQuery || dietFilter !== "ALL" || activeCategory || popularOnly || newOnly || sortBy !== "NONE");
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setDietFilter("ALL");
+    setActiveCategory(null);
+    setPopularOnly(false);
+    setNewOnly(false);
+    setSortBy("NONE");
+  };
 
   const handlePlaceOrder = async () => {
     const sessionId = localStorage.getItem(`session-${tableCode}`);
@@ -119,15 +152,21 @@ export default function MenuPage() {
 
     setIsOrdering(true);
     try {
-      const res = await api.post("/orders", {
-        sessionId,
-        items: cart.items.map((i) => ({
-          menuItemId: i.menuItemId,
-          quantity: i.quantity,
-        })),
+      const result = await requestOrQueue({
+        type: "ORDER",
+        method: "post",
+        url: "/orders",
+        body: { sessionId, items: cart.items.map((i) => ({ menuItemId: i.menuItemId, quantity: i.quantity })) },
+        label: `Order — Table ${tableCode}`,
+        offlineMessage: "Your order will be sent automatically once you're back online.",
       });
+      if (result.queued) {
+        cart.clearCart();
+        setShowCart(false);
+        return;
+      }
 
-      toast.success(`Order #${res.data.data.orderNumber} placed! 🎉`);
+      toast.success(`Order #${result.data.data.orderNumber} placed! 🎉`);
       cart.clearCart();
       setShowCart(false);
       fetchSession();
@@ -196,23 +235,27 @@ export default function MenuPage() {
         onDietChange={setDietFilter}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        popularOnly={popularOnly}
+        onPopularChange={setPopularOnly}
+        newOnly={newOnly}
+        onNewChange={setNewOnly}
+        sortBy={sortBy}
+        onSortChange={setSortBy}
       />
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-3 sm:px-4 py-3 sm:py-4 pb-28 sm:pb-36 overflow-x-hidden">
         {/* Search & Filter status banner */}
-        {(searchQuery || dietFilter !== "ALL" || activeCategory) && (
+        {filtersActive && !loading && (
           <div className="flex items-center justify-between mb-3 text-xs text-gray-600 bg-amber-50/70 border border-amber-200 px-3 py-1.5 rounded-lg">
             <span>
               Showing <strong>{filteredItems.length}</strong> {filteredItems.length === 1 ? "dish" : "dishes"}
               {searchQuery && <> matching &quot;<strong>{searchQuery}</strong>&quot;</>}
               {dietFilter !== "ALL" && <> ({dietFilter === "VEG" ? "Veg Only" : "Non-Veg Only"})</>}
+              {popularOnly && <> (Popular)</>}
+              {newOnly && <> (New)</>}
             </span>
             <button
-              onClick={() => {
-                setSearchQuery("");
-                setDietFilter("ALL");
-                setActiveCategory(null);
-              }}
+              onClick={resetFilters}
               className="text-orange-600 font-bold uppercase tracking-wider hover:underline ml-2 flex-shrink-0"
             >
               Reset Filters
@@ -221,36 +264,42 @@ export default function MenuPage() {
         )}
 
         {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="skeleton h-28 w-full" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="rounded-2xl overflow-hidden border" style={{ borderColor: "var(--color-border-light)" }}>
+                <div className="w-full aspect-[4/3] animate-pulse" style={{ background: "var(--color-cream-200)" }} />
+                <div className="p-3.5 space-y-2">
+                  <div className="h-4 w-3/4 rounded animate-pulse" style={{ background: "var(--color-cream-200)" }} />
+                  <div className="h-3 w-1/2 rounded animate-pulse" style={{ background: "var(--color-cream-200)" }} />
+                  <div className="h-8 w-full rounded-lg animate-pulse mt-2" style={{ background: "var(--color-cream-200)" }} />
+                </div>
+              </div>
             ))}
           </div>
         ) : filteredItems.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-4xl mb-3">🔍</p>
-            <p className="font-bold text-base text-brown-900 mb-1">
-              No dishes found
-            </p>
-            <p
-              className="text-xs max-w-xs mx-auto"
-              style={{ color: "var(--color-text-muted)" }}
-            >
-              We couldn&apos;t find any items matching your current search or filters. Try clearing your search query or switching categories.
-            </p>
-            <button
-              onClick={() => {
-                setSearchQuery("");
-                setDietFilter("ALL");
-                setActiveCategory(null);
-              }}
-              className="mt-4 btn-secondary text-xs font-bold px-4 py-2 uppercase tracking-wider"
-            >
-              Clear All Filters
-            </button>
-          </div>
+          <EmptyState
+            icon={<Search size={30} style={{ color: "var(--color-text-muted)" }} />}
+            title={menu.length === 0 ? "No Menu Items" : "No Dishes Found"}
+            description={
+              menu.length === 0
+                ? "This restaurant hasn't added any menu items yet. Please check back soon."
+                : "We couldn't find any items matching your current search or filters. Try clearing them and browsing again."
+            }
+            action={
+              filtersActive && (
+                <button onClick={resetFilters} className="btn-secondary text-xs font-bold px-4 py-2 uppercase tracking-wider">
+                  Clear All Filters
+                </button>
+              )
+            }
+          />
         ) : (
-          <div className="grid gap-3 stagger-children">
+          <motion.div
+            initial="hidden"
+            animate="show"
+            variants={{ show: { transition: { staggerChildren: shouldReduceMotion ? 0 : 0.05 } } }}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4"
+          >
             {filteredItems.map((item) => (
               <MenuCard
                 key={item.id}
@@ -262,7 +311,7 @@ export default function MenuPage() {
                 onUpdateQuantity={cart.updateQuantity}
               />
             ))}
-          </div>
+          </motion.div>
         )}
 
         {/* Bottom Spacer to ensure floating order bar never overlaps the last item */}
@@ -297,20 +346,22 @@ export default function MenuPage() {
       )}
 
       {/* Cart Drawer */}
-      {showCart && (
-        <CartDrawer
-          items={cart.items}
-          placedOrders={session?.orders || []}
-          runningTotal={runningTotal}
-          tableCode={tableCode}
-          onUpdateQuantity={cart.updateQuantity}
-          onRemove={cart.removeItem}
-          onClose={() => setShowCart(false)}
-          onPlaceOrder={handlePlaceOrder}
-          isOrdering={isOrdering}
-          onViewOrders={() => router.push(`/table/${tableCode}/orders`)}
-        />
-      )}
+      <AnimatePresence>
+        {showCart && (
+          <CartDrawer
+            items={cart.items}
+            placedOrders={session?.orders || []}
+            runningTotal={runningTotal}
+            tableCode={tableCode}
+            onUpdateQuantity={cart.updateQuantity}
+            onRemove={cart.removeItem}
+            onClose={() => setShowCart(false)}
+            onPlaceOrder={handlePlaceOrder}
+            isOrdering={isOrdering}
+            onViewOrders={() => router.push(`/table/${tableCode}/orders`)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

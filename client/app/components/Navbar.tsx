@@ -3,6 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { DEMO_RESTAURANT } from "../lib/branding";
 
 interface NavbarProps {
   title?: string;
@@ -45,8 +46,8 @@ export default function Navbar({
               }}
             >
               <Image
-                src="/dhaba-logo.jpg"
-                alt="Sree Nookambika Dhaba Logo"
+                src={DEMO_RESTAURANT.logo}
+                alt={`${DEMO_RESTAURANT.name} Logo`}
                 fill
                 sizes="40px"
                 className="object-cover"
@@ -61,7 +62,7 @@ export default function Navbar({
                   color: "var(--color-brown-900)",
                 }}
               >
-                {title || "Nookambika Dhaba"}
+                {title || DEMO_RESTAURANT.shortName}
               </h1>
               {subtitle && (
                 <p

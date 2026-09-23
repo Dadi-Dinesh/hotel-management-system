@@ -4,10 +4,10 @@ const EscPosBuilder = require("./escposBuilder");
  * Generate 80mm Kitchen Order Ticket (KOT) ESC/POS Buffer
  * Supports Kitchen Copy vs Captain Copy label headers
  */
-function buildKOTReceipt(order = {}, copyLabel = "Kitchen Copy") {
+function buildKOTReceipt(order = {}, copyLabel = "Kitchen Copy", paperWidth = "80mm") {
   const labelText = String(copyLabel || "Kitchen Copy").toUpperCase();
 
-  const builder = new EscPosBuilder();
+  const builder = new EscPosBuilder(paperWidth);
 
   // 1. KOT Title & Copy Label Header
   builder

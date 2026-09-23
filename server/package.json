@@ -8,14 +8,15 @@
     "seed": "node prisma/seed.js",
     "db:migrate": "npx prisma migrate dev",
     "db:generate": "npx prisma generate",
-    "db:studio": "npx prisma studio"
+    "db:studio": "npx prisma studio",
+    "test": "node --test src/__tests__/*.test.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
   },
   "author": "",
   "license": "ISC",
-  "description": "Nookambika Dhaba - Hotel Management System API",
+  "description": "ServeSync - Restaurant QR Ordering & Management Platform API",
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "bcryptjs": "^3.0.2",
@@ -23,11 +24,13 @@
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "express": "^5.2.1",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.2",
     "nodemon": "^3.1.14",
     "prisma": "^6.19.3",
     "serialport": "^13.0.0",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "zod": "^4.6.5"
   }
 }

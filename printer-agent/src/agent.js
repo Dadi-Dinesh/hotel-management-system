@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const { io } = require("socket.io-client");
 const SerialPrinter = require("./drivers/SerialPrinter");
+const NetworkPrinter = require("./drivers/NetworkPrinter");
 const PrintQueue = require("./queue/PrintQueue");
 const printerConfigManager = require("./config/printerConfigManager");
 const { buildCustomerBillReceipt } = require("./formatters/receiptPrinter");
@@ -91,15 +92,41 @@ setInterval(() => {
 
 // 4. Handle incoming print jobs from backend
 socket.on("print:job", async (jobPayload, callback) => {
-  const { jobId, type, order, copyLabel, printerTarget } = jobPayload || {};
+  const { jobId, type, order, copyLabel, printerTarget, paperWidth, networkPrinter } = jobPayload || {};
 
-  printerLogger.info(`📥 [Agent] Received print job ${jobId} (Type: ${type}, Target: ${printerTarget || "ALL"})`);
+  printerLogger.info(`📥 [Agent] Received print job ${jobId} (Type: ${type}, Target: ${printerTarget || "ALL"}${networkPrinter ? `, Network: ${networkPrinter.ip}:${networkPrinter.port || 9100}` : ""})`);
+
+  // Network printers (IP:port, ESC/POS raw-socket) bypass the persistent
+  // serial queue entirely — they don't share the "unplugged USB cable"
+  // failure mode a serial port does, so a direct write + the existing
+  // 30s ack-timeout/retry at the CloudPrinterGateway layer is sufficient.
+  if (networkPrinter && networkPrinter.ip) {
+    try {
+      let buffer;
+      if (type === "BILL") buffer = buildCustomerBillReceipt(order, paperWidth);
+      else if (type === "KOT") buffer = buildKOTReceipt(order, copyLabel, paperWidth);
+      else throw new Error(`Unsupported network job type: ${type}`);
+
+      await NetworkPrinter.write(networkPrinter.ip, networkPrinter.port, buffer);
+
+      const ackPayload = { jobId, success: true, error: null, timestamp: new Date().toISOString() };
+      if (typeof callback === "function") callback(ackPayload);
+      socket.emit("print:ack", ackPayload);
+      printerLogger.info(`✅ [Agent] Network print job ${jobId} delivered to ${networkPrinter.ip}:${networkPrinter.port || 9100}`);
+    } catch (err) {
+      printerLogger.error(`❌ [Agent] Network print job ${jobId} failed: ${err.message}`);
+      const errPayload = { jobId, success: false, error: err.message, timestamp: new Date().toISOString() };
+      if (typeof callback === "function") callback(errPayload);
+      socket.emit("print:ack", errPayload);
+    }
+    return;
+  }
 
   try {
     let buffer = null;
 
     if (type === "BILL") {
-      buffer = buildCustomerBillReceipt(order);
+      buffer = buildCustomerBillReceipt(order, paperWidth);
       await printQueue.enqueue({ id: jobId, type: "BILL", buffer, printerTarget });
     } else if (type === "KOT") {
       const config = printerConfigManager.getConfig();
@@ -108,7 +135,7 @@ socket.on("print:job", async (jobPayload, callback) => {
 
       for (let i = 0; i < routedJobs.length; i++) {
         const subJob = routedJobs[i];
-        const kotBuffer = buildKOTReceipt(subJob.order, subJob.copyLabel);
+        const kotBuffer = buildKOTReceipt(subJob.order, subJob.copyLabel, paperWidth);
         const subJobId = routedJobs.length > 1 ? `${jobId}-KOT-${i + 1}` : jobId;
         await printQueue.enqueue({
           id: subJobId,
@@ -213,6 +240,14 @@ socket.on("printer:list-ports", async (data, callback) => {
   const ports = await SerialPrinter.listPorts();
   if (typeof callback === "function") callback({ success: true, ports });
   else socket.emit("printer:ports:response", { success: true, ports });
+});
+
+// 8. Handle Network Printer Connection Test request from server
+socket.on("printer:network-test", async (data, callback) => {
+  const { ip, port } = data || {};
+  printerLogger.info(`🌐 [Agent] Testing network printer connection: ${ip}:${port || 9100}...`);
+  const result = await NetworkPrinter.testConnection(ip, port);
+  if (typeof callback === "function") callback(result);
 });
 
 // Handle Process Exit Signals cleanly

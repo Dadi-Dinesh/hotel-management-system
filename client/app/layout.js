@@ -2,6 +2,12 @@ import { Outfit, Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import { SocketProvider } from "./components/SocketProvider";
+import { NetworkProvider } from "./components/NetworkProvider";
+import { ServiceWorkerManager } from "./components/ServiceWorkerManager";
+import ConnectionBanner from "./components/ConnectionBanner";
+import InstallPrompt from "./components/InstallPrompt";
+import { PLATFORM_NAME, PLATFORM_TAGLINE, DEMO_RESTAURANT } from "./lib/branding";
+import { SITE_URL } from "./lib/siteUrl";
 
 const outfit = Outfit({
   variable: "--font-heading",
@@ -16,10 +22,45 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "Nookambika Dhaba | Authentic Indian Cuisine",
-  description:
-    "Order delicious food from Nookambika Dhaba. Scan the QR code on your table, browse our menu, and place your order instantly.",
-  keywords: "dhaba, restaurant, Indian food, Nookambika, biryani, order food",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${PLATFORM_NAME} | ${PLATFORM_TAGLINE}`,
+    template: `%s | ${PLATFORM_NAME}`,
+  },
+  description: `${PLATFORM_NAME} powers QR ordering, real-time kitchen updates, and billing for restaurants — currently serving ${DEMO_RESTAURANT.name}. Scan the QR code on your table, browse the menu, and place your order instantly.`,
+  keywords:
+    "ServeSync, QR ordering, restaurant management software, restaurant POS, kitchen display system, restaurant SaaS",
+  openGraph: {
+    type: "website",
+    siteName: PLATFORM_NAME,
+    locale: "en_IN",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
+  robots: { index: true, follow: true },
+  appleWebApp: {
+    capable: true,
+    title: PLATFORM_NAME,
+    statusBarStyle: "black-translucent",
+    startupImage: [
+      { url: "/icons/apple-splash-750-1334.png", media: "(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)" },
+      { url: "/icons/apple-splash-1170-2532.png", media: "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)" },
+      { url: "/icons/apple-splash-1284-2778.png", media: "(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)" },
+      { url: "/icons/apple-splash-1620-2160.png", media: "(device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2)" },
+    ],
+  },
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
+};
+
+export const viewport = {
+  themeColor: "#3D2710",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }) {
@@ -34,7 +75,13 @@ export default function RootLayout({ children }) {
         }}
       >
         <SocketProvider>
-          {children}
+          <ServiceWorkerManager>
+            <NetworkProvider>
+              <ConnectionBanner />
+              {children}
+              <InstallPrompt />
+            </NetworkProvider>
+          </ServiceWorkerManager>
           <Toaster
             position="top-center"
             containerClassName="responsive-toaster"

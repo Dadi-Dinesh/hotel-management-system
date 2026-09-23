@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { UtensilsCrossed, LogIn, Shield } from "lucide-react";
 import api from "../../lib/api";
 import { setAuth } from "../../lib/auth";
+import { DEMO_RESTAURANT } from "../../lib/branding";
 import toast from "react-hot-toast";
 
 export default function AdminLoginPage() {
@@ -19,14 +20,14 @@ export default function AdminLoginPage() {
 
     try {
       const res = await api.post("/auth/login", { email, password });
-      const { token, user } = res.data.data;
+      const { token, user, restaurant } = res.data.data;
 
       if (user.role !== "ADMIN") {
         toast.error("Access denied. Admin credentials required.");
         return;
       }
 
-      setAuth(token, user);
+      setAuth(token, user, restaurant);
       toast.success(`Welcome, ${user.name}!`);
       router.push("/admin/dashboard");
     } catch (error) {
@@ -65,7 +66,7 @@ export default function AdminLoginPage() {
             className="text-sm"
             style={{ color: "var(--color-text-muted)" }}
           >
-            Nookambika Dhaba Management
+            {DEMO_RESTAURANT.shortName} Management
           </p>
         </div>
 

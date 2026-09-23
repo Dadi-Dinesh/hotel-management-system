@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { UtensilsCrossed, LogIn } from "lucide-react";
 import api from "../../lib/api";
 import { setAuth } from "../../lib/auth";
+import { DEMO_RESTAURANT } from "../../lib/branding";
 import toast from "react-hot-toast";
 
 export default function CaptainLoginPage() {
@@ -19,14 +21,14 @@ export default function CaptainLoginPage() {
 
     try {
       const res = await api.post("/auth/login", { email, password });
-      const { token, user } = res.data.data;
+      const { token, user, restaurant } = res.data.data;
 
-      if (user.role !== "CAPTAIN" && user.role !== "ADMIN") {
+      if (!["CAPTAIN", "MANAGER", "ADMIN"].includes(user.role)) {
         toast.error("Access denied. Captain credentials required.");
         return;
       }
 
-      setAuth(token, user);
+      setAuth(token, user, restaurant);
       toast.success(`Welcome, ${user.name}!`);
       router.push("/captain/dashboard");
     } catch (error) {
@@ -51,9 +53,11 @@ export default function CaptainLoginPage() {
               background: "var(--color-cream-100)",
             }}
           >
-            <img
-              src="/dhaba-logo.jpg"
-              alt="Sree Nookambika Dhaba Logo"
+            <Image
+              src={DEMO_RESTAURANT.logo}
+              alt={`${DEMO_RESTAURANT.name} Logo`}
+              width={64}
+              height={64}
               className="w-full h-full object-cover"
             />
           </div>
@@ -70,7 +74,7 @@ export default function CaptainLoginPage() {
             className="text-sm"
             style={{ color: "var(--color-text-muted)" }}
           >
-            Nookambika Dhaba
+            {DEMO_RESTAURANT.shortName}
           </p>
         </div>
 

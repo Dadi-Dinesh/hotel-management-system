@@ -11,10 +11,12 @@ import {
   FolderPlus,
   Save,
   Image as ImageIcon,
+  UtensilsCrossed,
 } from "lucide-react";
 import api from "../../lib/api";
 import { isAuthenticated, getUser } from "../../lib/auth";
 import Navbar from "../../components/Navbar";
+import EmptyState from "../../components/EmptyState";
 import toast from "react-hot-toast";
 import ImageUpload from "../../components/ImageUpload";
 import { MenuItem, Category, MenuItemFormState } from "../../types";
@@ -452,8 +454,12 @@ export default function MenuManagementPage() {
                   ))}
                   {filteredItems.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-xs font-bold uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
-                        No items found
+                      <td colSpan={5}>
+                        <EmptyState
+                          icon={<UtensilsCrossed size={32} style={{ color: "var(--color-orange-500)" }} />}
+                          title="No Menu Items"
+                          description="No items match your search or filter — add a menu item to get started."
+                        />
                       </td>
                     </tr>
                   )}

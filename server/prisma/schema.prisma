@@ -53,6 +53,10 @@ model Restaurant {
   printerSettings PrinterSettings?
   printJobs       PrintJob[]
 
+  // The application that led to this restaurant being provisioned, if any
+  // (restaurants created via the legacy instant-onboarding endpoint have none).
+  application RestaurantApplication?
+
   @@index([slug])
 }
 
@@ -73,6 +77,9 @@ model User {
   // Analytics-only back-relations — who accepted an order / closed a session.
   acceptedOrders Order[]   @relation("OrderAcceptedBy")
   closedSessions Session[] @relation("SessionClosedBy")
+
+  // Platform Owner only, in practice — who reviewed a restaurant application.
+  reviewedApplications RestaurantApplication[] @relation("ApplicationReviewedBy")
 
   @@index([restaurantId])
 }
@@ -376,4 +383,83 @@ enum OrderStatus {
   PREPARING
   SERVED
   CANCELLED
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// A prospective restaurant's request to join the platform — the new front
+// door in place of instant self-serve signup. Never deleted, even once
+// approved/rejected — this is the permanent record of every request ever
+// made, independent of whether a Restaurant was ultimately created from it.
+model RestaurantApplication {
+  id             String            @id @default(cuid())
+  restaurantName String
+  ownerName      String
+  phone          String
+  whatsapp       String
+  email          String
+  address        String
+  city           String
+  state          String
+  pincode        String
+  cuisine        String
+  tableCount     Int
+  logo           String?
+  printerModel   String?
+  existingPos    String?
+  notes          String?
+  status         ApplicationStatus @default(PENDING)
+
+  reviewedByUserId String?
+  reviewedBy       User?     @relation("ApplicationReviewedBy", fields: [reviewedByUserId], references: [id])
+  reviewedAt       DateTime?
+  rejectionReason  String?
+
+  // Set once Approve provisions the real tenant — traces every application
+  // back to the restaurant it produced, without the reverse ever being required.
+  restaurantId String?     @unique
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id])
+
+  whatsappMessages WhatsAppMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([email])
+  @@index([phone])
+}
+
+enum WhatsAppMessageStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+// The WhatsApp outbox — every message ever attempted, regardless of whether
+// a provider is configured. With no provider wired up, messages simply sit
+// QUEUED here and a Platform Owner can trigger a manual resend once one is;
+// this is what makes "queue the message, allow manual resend" (the brief's
+// requirement) real rather than a log line that disappears with the process.
+model WhatsAppMessage {
+  id       String                @id @default(cuid())
+  to       String
+  message  String
+  status   WhatsAppMessageStatus @default(QUEUED)
+  provider String? // which provider name actually sent it (or attempted to)
+  error    String?
+  sentAt   DateTime?
+
+  applicationId String?
+  application   RestaurantApplication? @relation(fields: [applicationId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([applicationId])
 }

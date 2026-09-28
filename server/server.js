@@ -30,6 +30,8 @@ const inviteRoutes = require("./src/routes/invite.routes");
 const printJobRoutes = require("./src/routes/printJob.routes");
 const insightsRoutes = require("./src/routes/insights.routes");
 const healthRoutes = require("./src/routes/health.routes");
+const applicationRoutes = require("./src/routes/application.routes");
+const platformRoutes = require("./src/routes/platform.routes");
 
 const app = express();
 
@@ -141,6 +143,8 @@ app.use("/api/invites", inviteRoutes);
 app.use("/api/print-jobs", printJobRoutes);
 app.use("/api/admin/insights", insightsRoutes);
 app.use("/api/health", healthRoutes);
+app.use("/api/applications", applicationRoutes);
+app.use("/api/platform", platformRoutes);
 
 // Global error handler
 app.use(errorHandler);

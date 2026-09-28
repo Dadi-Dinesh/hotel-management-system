@@ -3,7 +3,7 @@ import { PLATFORM_NAME, PLATFORM_TAGLINE, DEMO_RESTAURANT } from "./lib/branding
 
 export const metadata = {
   title: { absolute: `${PLATFORM_NAME} — Run Your Restaurant Smarter` },
-  description: `${PLATFORM_NAME} is a QR ordering, kitchen display, and restaurant management platform — QR ordering, real-time kitchen, smart billing, and AI insights in one place. Try the live demo or start a free trial.`,
+  description: `${PLATFORM_NAME} is a QR ordering, kitchen display, and restaurant management platform — QR ordering, real-time kitchen, smart billing, and AI insights in one place. Explore the live demo or apply to get your restaurant onboarded.`,
   keywords: "ServeSync, QR ordering, restaurant management software, restaurant POS, kitchen display system, restaurant SaaS, AI restaurant insights",
   alternates: { canonical: "/" },
   openGraph: {

@@ -314,6 +314,15 @@ export default function AdminDashboard() {
         subtitle={activeRestaurant?.name || (isPlatformOwner ? "Platform-wide" : DEMO_RESTAURANT.shortName)}
         rightContent={
           <div className="flex items-center gap-3">
+            {isPlatformOwner && (
+              <Link
+                href="/platform"
+                className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1.5 border rounded-lg transition-colors hover:bg-cream-100"
+                style={{ borderColor: "var(--color-brown-900)", color: "var(--color-brown-900)" }}
+              >
+                Review Applications
+              </Link>
+            )}
             <RestaurantSwitcher />
             <div
               className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2 py-1 border"

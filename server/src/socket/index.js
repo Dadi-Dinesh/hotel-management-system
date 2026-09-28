@@ -164,7 +164,16 @@ const initializeSocket = (server, allowedOrigins = []) => {
         socket.join(`restaurant:${restaurantId}:admins`);
         socket.join(`restaurant:${restaurantId}:waiters`);
       }
+      if (payload?.isPlatformOwner) {
+        socket.join("platform:admins");
+      }
       console.log(`🔑 Socket ${socket.id} joined admins room (restaurant: ${restaurantId || "platform-wide"})`);
+    });
+
+    // Platform Owner joins platform:admins room for real-time application notifications
+    socket.on("join-platform", () => {
+      socket.join("platform:admins");
+      console.log(`🛡️ Socket ${socket.id} joined platform:admins room`);
     });
 
     // Kitchen staff joins kitchen room.

@@ -59,6 +59,23 @@ const askAISchema = z.object({
   question: z.string().trim().min(1, "A question is required.").max(300, "Question is too long."),
 });
 
+// NOT applied to POST /api/applications itself — that endpoint is multipart
+// (logo upload), so it keeps the same inline-validation convention as
+// createRestaurant/menu item creation (form fields arrive as strings
+// regardless of logical type). Used by the JSON-body admin/status routes below.
+const checkApplicationStatusSchema = z.object({
+  email: z.email("A valid email address is required."),
+  phone: z.string().trim().min(1, "Phone number is required."),
+});
+
+const rejectApplicationSchema = z.object({
+  rejectionReason: z.string().trim().min(1, "A rejection reason is required.").max(1000, "Reason is too long."),
+});
+
+const requestMoreInfoSchema = z.object({
+  message: z.string().trim().min(1, "A message is required.").max(1000, "Message is too long."),
+});
+
 module.exports = {
   loginSchema,
   placeOrderSchema,
@@ -66,4 +83,7 @@ module.exports = {
   createInviteSchema,
   createStaffUserSchema,
   askAISchema,
+  checkApplicationStatusSchema,
+  rejectApplicationSchema,
+  requestMoreInfoSchema,
 };

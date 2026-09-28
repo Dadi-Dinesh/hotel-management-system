@@ -24,7 +24,7 @@ export async function generateQRDataUrl(url) {
 }
 
 /** Draws one poster page onto an existing jsPDF document at its current page. */
-async function drawPosterPage(doc, restaurant, table) {
+export async function drawPosterPage(doc, restaurant, table) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const centerX = pageWidth / 2;
@@ -89,8 +89,12 @@ function hexToRgb(hex) {
   return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
 }
 
-/** One printable A4 poster per table, all in a single PDF — bulk download/print. */
-export async function generateTablePostersPDF({ restaurant, tables }) {
+/**
+ * One printable A4 poster per table, all in a single PDF — bulk download/print.
+ * `returnBlob: true` skips the auto-download and returns the PDF blob instead —
+ * used by qrKitGenerator.js to bundle this unmodified into the Welcome Kit ZIP.
+ */
+export async function generateTablePostersPDF({ restaurant, tables, returnBlob = false }) {
   const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "mm", format: "a4" });
 
@@ -100,6 +104,7 @@ export async function generateTablePostersPDF({ restaurant, tables }) {
     await drawPosterPage(doc, restaurant, tables[i]);
   }
 
+  if (returnBlob) return doc.output("blob");
   doc.save(`${(restaurant.slug || "restaurant")}-table-qr-posters.pdf`);
   return doc;
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, PlayCircle, QrCode, ChefHat, Users, Receipt, BarChart3, Sparkles, Store, Printer, ClipboardCheck } from "lucide-react";
+import { ArrowRight, PlayCircle, QrCode, ChefHat, Users, Receipt, BarChart3, Sparkles, ClipboardCheck, ShieldCheck, PackageCheck, Rocket } from "lucide-react";
 import { PLATFORM_NAME } from "./lib/branding";
 import MarketingNav from "./components/marketing/MarketingNav";
 import MarketingFooter from "./components/marketing/MarketingFooter";
@@ -23,10 +23,11 @@ const FEATURES = [
 ];
 
 const STEPS = [
-  { icon: Store, title: "Create Restaurant", description: "Set up your restaurant profile and branding in minutes." },
-  { icon: ClipboardCheck, title: "Create Tables", description: "Add your tables — ServeSync generates secure QR tokens for each." },
-  { icon: Printer, title: "Print QR", description: "Download or print QR posters, ready to place on every table." },
-  { icon: QrCode, title: "Start Receiving Orders", description: "Guests scan, order, and your kitchen sees it live." },
+  { icon: PlayCircle, title: "Explore Demo", description: "Try the full ordering experience live on our demo restaurant — no signup or login needed." },
+  { icon: ClipboardCheck, title: "Register Restaurant", description: "Submit your restaurant details and requested table count in a simple guided registration." },
+  { icon: ShieldCheck, title: "Verification", description: "Our platform team verifies your restaurant application and approves your account." },
+  { icon: PackageCheck, title: "QR Kit Delivered", description: "Your complete QR Kit, login credentials, and setup guides arrive via email and WhatsApp." },
+  { icon: Rocket, title: "Start Receiving Orders", description: "Place your table QR posters — customers scan, order, and your kitchen receives it in real time." },
 ];
 
 export default function HomePageClient() {
@@ -73,15 +74,19 @@ export default function HomePageClient() {
             transition={{ duration: 0.6, ease: "easeOut" }}
             className="flex flex-col sm:flex-row items-center gap-3 mb-16"
           >
-            <Link href="/onboard" className="btn-primary inline-flex items-center gap-2 px-8 py-4 text-sm font-bold uppercase tracking-widest shadow-lg" style={{ borderRadius: "9999px" }}>
-              Start Free Trial <ArrowRight size={16} />
-            </Link>
             <Link
               href="/demo"
-              className="inline-flex items-center gap-2 px-8 py-4 text-sm font-bold uppercase tracking-widest border-2"
+              className="btn-primary inline-flex items-center gap-2 px-8 py-4 text-sm font-bold uppercase tracking-widest shadow-lg"
+              style={{ borderRadius: "9999px" }}
+            >
+              <PlayCircle size={16} /> Explore Live Demo
+            </Link>
+            <Link
+              href="/apply"
+              className="inline-flex items-center gap-2 px-8 py-4 text-sm font-bold uppercase tracking-widest border-2 transition-all hover:bg-brown-900 hover:text-white"
               style={{ borderRadius: "9999px", borderColor: "var(--color-brown-900)", color: "var(--color-brown-900)" }}
             >
-              <PlayCircle size={16} /> Use Live Demo
+              Register Your Restaurant <ArrowRight size={16} />
             </Link>
           </motion.div>
         </motion.div>
@@ -95,9 +100,9 @@ export default function HomePageClient() {
       {/* How It Works */}
       <section className="relative px-6 py-16 sm:py-20 max-w-5xl mx-auto w-full">
         <motion.div initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.4 }} transition={{ duration: 0.5 }} className="text-center mb-12">
-          <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--color-orange-600)" }}>How It Works</p>
+          <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--color-orange-600)" }}>How ServeSync Works</p>
           <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight" style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}>
-            From Signup to Serving, in Four Steps
+            From Exploring the Demo to Taking Orders
           </h2>
         </motion.div>
         <div className="flex flex-col sm:flex-row items-start gap-10 sm:gap-4">

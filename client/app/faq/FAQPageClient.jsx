@@ -7,12 +7,13 @@ import FAQAccordion from "../components/marketing/FAQAccordion";
 import CTASection from "../components/marketing/CTASection";
 
 const FAQ_ITEMS = [
+  { question: "How do I get my restaurant on ServeSync?", answer: "Explore the Live Demo to see the full platform first, then submit a short application with your restaurant's details. Our team reviews every application — once approved, your restaurant, tables, QR codes, and admin login are created automatically and your QR Kit is sent to your email and WhatsApp." },
   { question: "How does QR ordering work?", answer: "Each table gets a unique QR code. Guests scan it with their phone camera, browse your menu, and place orders directly — no app download, no waiter needed to take the order." },
   { question: "Can I use my own printer?", answer: "Yes. ServeSync's Universal Print Engine supports ESC/POS thermal printers (USB/serial), network (IP) printers, Bluetooth printers, and plain browser/PDF printing for any regular printer — pick whichever you already own." },
   { question: "Does it work offline?", answer: "ServeSync is a Progressive Web App — it can be installed on a device and continues working through brief connectivity drops. Orders, feedback, and bill requests placed while offline are queued and sent automatically once you're back online." },
   { question: "Can I manage multiple restaurants?", answer: "Yes. ServeSync is built multi-tenant from the ground up — each restaurant gets its own isolated, branded space, and a Platform Owner account can switch between managing several." },
   { question: "Is there a free plan?", answer: "Every new restaurant starts with a 14-day free trial with no credit card required. See the Pricing page for what's included at each tier." },
-  { question: "How long does setup take?", answer: "Most restaurants are live within minutes — the onboarding wizard walks you through branding, tables, and QR generation in one guided flow." },
+  { question: "How long does setup take?", answer: "Submitting your application takes a few minutes. Once our team approves it, your restaurant, tables, and QR codes are generated automatically and your dashboard is ready right away." },
   { question: "Is my restaurant's data isolated from others?", answer: "Yes — every order, menu item, table, and setting is scoped to your restaurant at the database level. No restaurant can see another's data." },
   { question: "Can I try it without creating an account?", answer: "Yes — use the Live Demo to experience the full customer ordering flow on our demo restaurant, no signup required." },
 ];

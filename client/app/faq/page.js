@@ -11,6 +11,7 @@ const FAQ_STRUCTURED_DATA = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
   mainEntity: [
+    { "@type": "Question", name: "How do I get my restaurant on ServeSync?", acceptedAnswer: { "@type": "Answer", text: "Explore the live demo, then submit an application with your restaurant's details. Once our team approves it, your restaurant, tables, QR codes, and admin login are created automatically." } },
     { "@type": "Question", name: "How does QR ordering work?", acceptedAnswer: { "@type": "Answer", text: "Each table gets a unique QR code. Guests scan it, browse the menu, and order directly from their phone." } },
     { "@type": "Question", name: "Can I use my own printer?", acceptedAnswer: { "@type": "Answer", text: "Yes — thermal, network, Bluetooth, or plain browser/PDF printing are all supported." } },
     { "@type": "Question", name: "Does it work offline?", acceptedAnswer: { "@type": "Answer", text: "Yes — ServeSync is a Progressive Web App that queues actions taken offline and syncs automatically when connectivity returns." } },

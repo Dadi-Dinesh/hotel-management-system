@@ -49,14 +49,14 @@ export default function PricingCard({ plan, index = 0 }) {
       </ul>
 
       <Link
-        href={isEnterprise ? "/contact" : "/onboard"}
+        href={isEnterprise ? "/contact" : "/apply"}
         className="w-full py-3.5 text-center text-xs font-bold uppercase tracking-widest rounded-xl transition-transform hover:scale-[1.02]"
         style={{
           background: plan.highlight ? "var(--color-orange-500)" : "var(--color-brown-900)",
           color: "white",
         }}
       >
-        {isEnterprise ? "Contact Sales" : "Start Free Trial"}
+        {isEnterprise ? "Contact Sales" : "Apply for Your Restaurant"}
       </Link>
     </motion.div>
   );

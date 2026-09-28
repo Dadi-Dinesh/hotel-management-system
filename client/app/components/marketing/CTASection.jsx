@@ -4,7 +4,7 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, PlayCircle } from "lucide-react";
 
-export default function CTASection({ title = "Ready to run your restaurant smarter?", subtitle = "Set up your restaurant on ServeSync in minutes — no credit card required." }) {
+export default function CTASection({ title = "Ready to run your restaurant smarter?", subtitle = "Explore the live demo, or apply to get your own restaurant reviewed and set up on ServeSync." }) {
   const shouldReduceMotion = useReducedMotion();
   return (
     <motion.section
@@ -23,15 +23,15 @@ export default function CTASection({ title = "Ready to run your restaurant smart
         </h2>
         <p className="text-sm mb-8 max-w-lg mx-auto" style={{ color: "rgba(255,253,247,0.75)" }}>{subtitle}</p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link href="/onboard" className="btn-primary inline-flex items-center gap-2 px-7 py-3.5 text-xs font-bold uppercase tracking-widest">
-            Start Free Trial <ArrowRight size={15} />
+          <Link href="/demo" className="btn-primary inline-flex items-center gap-2 px-7 py-3.5 text-xs font-bold uppercase tracking-widest">
+            <PlayCircle size={15} /> Explore Live Demo
           </Link>
           <Link
-            href="/demo"
-            className="inline-flex items-center gap-2 px-7 py-3.5 text-xs font-bold uppercase tracking-widest rounded-xl border-2"
+            href="/apply"
+            className="inline-flex items-center gap-2 px-7 py-3.5 text-xs font-bold uppercase tracking-widest rounded-xl border-2 transition-all hover:bg-white hover:text-brown-900"
             style={{ borderColor: "rgba(255,253,247,0.4)", color: "white" }}
           >
-            <PlayCircle size={15} /> Use Live Demo
+            Register Your Restaurant <ArrowRight size={15} />
           </Link>
         </div>
       </div>

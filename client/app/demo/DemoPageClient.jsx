@@ -241,14 +241,14 @@ export default function DemoPageClient() {
         </motion.div>
 
         <motion.a
-          href="/onboard"
+          href="/apply"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
           className="mt-10 text-xs font-bold uppercase tracking-widest underline underline-offset-4 hover:opacity-70 transition-opacity flex items-center gap-1.5"
           style={{ color: "var(--color-brown-900)" }}
         >
-          Own a restaurant? Create your own <ArrowRight size={13} />
+          Own a restaurant? Apply for Your Restaurant <ArrowRight size={13} />
         </motion.a>
       </main>
 

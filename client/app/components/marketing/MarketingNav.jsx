@@ -55,8 +55,8 @@ export default function MarketingNav() {
           <Link href="/admin/login" className="px-3.5 py-2 text-xs font-bold uppercase tracking-wider" style={{ color: "var(--color-brown-900)" }}>
             Login
           </Link>
-          <Link href="/onboard" className="btn-primary px-4 py-2.5 text-xs font-bold uppercase tracking-wider">
-            Start Free Trial
+          <Link href="/apply" className="btn-primary px-4 py-2.5 text-xs font-bold uppercase tracking-wider">
+            Register Your Restaurant
           </Link>
         </div>
 
@@ -91,8 +91,8 @@ export default function MarketingNav() {
               <Link href="/admin/login" onClick={() => setOpen(false)} className="px-3 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wider" style={{ color: "var(--color-brown-900)" }}>
                 Login
               </Link>
-              <Link href="/onboard" onClick={() => setOpen(false)} className="btn-primary mt-2 py-3 text-xs font-bold uppercase tracking-wider text-center">
-                Start Free Trial
+              <Link href="/apply" onClick={() => setOpen(false)} className="btn-primary mt-2 py-3 text-xs font-bold uppercase tracking-wider text-center">
+                Register Your Restaurant
               </Link>
             </div>
           </motion.nav>

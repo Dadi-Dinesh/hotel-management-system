@@ -71,4 +71,21 @@ const requireRole = (...roles) => {
   };
 };
 
-module.exports = { authenticate, requireRole };
+/**
+ * Platform-only routes (application review/approval). A Platform Owner is
+ * any User with restaurantId === null — role alone can't distinguish one
+ * from a normal restaurant ADMIN, since both carry role "ADMIN". Self-
+ * contained (only needs `authenticate` to have run first): application
+ * management isn't restaurant-scoped, so resolveStaffTenant isn't needed.
+ */
+const requirePlatformOwner = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: "Authentication required." });
+  }
+  if (req.user.restaurantId) {
+    return res.status(403).json({ success: false, message: "Platform Owner access required." });
+  }
+  next();
+};
+
+module.exports = { authenticate, requireRole, requirePlatformOwner };

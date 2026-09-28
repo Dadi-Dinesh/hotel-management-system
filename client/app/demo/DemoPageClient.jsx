@@ -14,7 +14,7 @@ import { motion } from "framer-motion";
 import { Camera, QrCode, ArrowRight } from "lucide-react";
 import api from "../lib/api";
 import toast from "react-hot-toast";
-import { DEMO_RESTAURANT } from "../lib/branding";
+import { PLATFORM_NAME, DEMO_RESTAURANT } from "../lib/branding";
 import MarketingNav from "../components/marketing/MarketingNav";
 import MarketingFooter from "../components/marketing/MarketingFooter";
 
@@ -166,7 +166,7 @@ export default function DemoPageClient() {
             Explore the Live Demo
           </h1>
           <p className="text-sm mb-10" style={{ color: "var(--color-text-secondary)" }}>
-            Scan a table QR or enter a table number to experience {DEMO_RESTAURANT.name}&apos;s full customer ordering flow — exactly what your own guests would see.
+            Scan a table QR or enter a table number to experience the live demo restaurant&apos;s full customer ordering flow — powered by {PLATFORM_NAME}.
           </p>
         </motion.div>
 

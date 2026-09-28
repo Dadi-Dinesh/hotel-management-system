@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
-import { UtensilsCrossed, LogIn } from "lucide-react";
+import Link from "next/link";
+import { Users, LogIn } from "lucide-react";
 import api from "../../lib/api";
 import { setAuth } from "../../lib/auth";
-import { DEMO_RESTAURANT } from "../../lib/branding";
+import { PLATFORM_NAME } from "../../lib/branding";
 import toast from "react-hot-toast";
 
 export default function CaptainLoginPage() {
@@ -47,19 +47,14 @@ export default function CaptainLoginPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div
-            className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center mx-auto mb-4 border-2 shadow-md"
+            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border-2 shadow-xs"
             style={{
               borderColor: "var(--color-orange-500)",
               background: "var(--color-cream-100)",
+              color: "var(--color-orange-600)",
             }}
           >
-            <Image
-              src={DEMO_RESTAURANT.logo}
-              alt={`${DEMO_RESTAURANT.name} Logo`}
-              width={64}
-              height={64}
-              className="w-full h-full object-cover"
-            />
+            <Users size={30} />
           </div>
           <h1
             className="text-2xl font-bold mb-1"
@@ -68,13 +63,13 @@ export default function CaptainLoginPage() {
               color: "var(--color-brown-900)",
             }}
           >
-            Captain Login
+            Staff Portal
           </h1>
           <p
             className="text-sm"
             style={{ color: "var(--color-text-muted)" }}
           >
-            {DEMO_RESTAURANT.shortName}
+            Sign in to manage tables and orders
           </p>
         </div>
 
@@ -91,7 +86,7 @@ export default function CaptainLoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="captain@nookambika.com"
+              placeholder="staff@restaurant.com"
               required
               className="input"
             />
@@ -123,6 +118,16 @@ export default function CaptainLoginPage() {
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>
+
+        <div className="mt-6 text-center">
+          <Link
+            href="/restaurant/login"
+            className="text-xs font-semibold hover:underline"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
+            Restaurant Owner? Go to Restaurant Dashboard →
+          </Link>
+        </div>
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import ReminderButtons from "../../../components/ReminderButtons";
 import { useSocket } from "../../../components/SocketProvider";
 import { emitResilient } from "../../../lib/pwa/emitResilient";
 import { requestOrQueue } from "../../../lib/pwa/queuedRequest";
+import { DEMO_RESTAURANT } from "../../../lib/branding";
 import toast from "react-hot-toast";
 
 export default function OrdersPage() {
@@ -204,7 +205,12 @@ export default function OrdersPage() {
   if (!session) {
     return (
       <div className="min-h-screen flex flex-col" style={{ background: "var(--color-cream-50)" }}>
-        <Navbar title="Orders" subtitle={`Table ${tableCode}`} backHref={`/table/${tableCode}/menu`} />
+        <Navbar
+          title="Orders"
+          subtitle={`Table ${tableCode}`}
+          backHref={`/table/${tableCode}/menu`}
+          logoSrc={DEMO_RESTAURANT.logo}
+        />
         <main className="flex-1 flex flex-col items-center justify-center px-6">
           <p className="text-5xl mb-4">📋</p>
           <h2
@@ -239,6 +245,7 @@ export default function OrdersPage() {
         title="Your Orders"
         subtitle={`Table ${tableCode}`}
         backHref={`/table/${tableCode}/menu`}
+        logoSrc={DEMO_RESTAURANT.logo}
         rightContent={
           <button
             onClick={fetchSession}

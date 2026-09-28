@@ -1,21 +1,21 @@
 import HomePageClient from "./HomePageClient";
-import { PLATFORM_NAME, PLATFORM_TAGLINE, DEMO_RESTAURANT } from "./lib/branding";
+import { PLATFORM_NAME, PLATFORM_TAGLINE } from "./lib/branding";
 
 export const metadata = {
-  title: { absolute: `${PLATFORM_NAME} — Run Your Restaurant Smarter` },
-  description: `${PLATFORM_NAME} is a QR ordering, kitchen display, and restaurant management platform — QR ordering, real-time kitchen, smart billing, and AI insights in one place. Explore the live demo or apply to get your restaurant onboarded.`,
+  title: { absolute: `${PLATFORM_NAME} | Smart QR Restaurant Management` },
+  description: "ServeSync helps restaurants manage QR ordering, kitchen operations, billing, analytics, and printing.",
   keywords: "ServeSync, QR ordering, restaurant management software, restaurant POS, kitchen display system, restaurant SaaS, AI restaurant insights",
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     title: `${PLATFORM_NAME} — ${PLATFORM_TAGLINE}`,
-    description: `QR Ordering • Real-Time Kitchen • Smart Billing • AI Insights — everything a restaurant needs, in one platform.`,
+    description: "ServeSync helps restaurants manage QR ordering, kitchen operations, billing, analytics, and printing.",
     siteName: PLATFORM_NAME,
   },
   twitter: {
     card: "summary_large_image",
     title: `${PLATFORM_NAME} — ${PLATFORM_TAGLINE}`,
-    description: `QR Ordering • Real-Time Kitchen • Smart Billing • AI Insights — everything a restaurant needs, in one platform.`,
+    description: "ServeSync helps restaurants manage QR ordering, kitchen operations, billing, analytics, and printing.",
   },
 };
 
@@ -35,8 +35,6 @@ export default function HomePage() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
       <HomePageClient />
-      {/* Demo restaurant name kept in server-rendered markup for discoverability */}
-      <span className="sr-only">Live demo restaurant: {DEMO_RESTAURANT.name}</span>
     </>
   );
 }

@@ -258,7 +258,7 @@ export default function ApplyPage() {
               className="inline-flex w-full items-center justify-center gap-2 py-3 text-xs font-bold uppercase tracking-wider border rounded-xl"
               style={{ borderColor: "var(--color-border-light)", color: "var(--color-brown-900)" }}
             >
-              <PlayCircle size={16} /> Explore Live Demo (Sree Nookambika Dhaba)
+              <PlayCircle size={16} /> Explore Live Demo
             </Link>
           </div>
         </motion.div>

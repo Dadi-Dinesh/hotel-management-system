@@ -42,10 +42,9 @@ function isIOS() {
 }
 
 export default function InstallPrompt() {
-  const shouldReduceMotion = useReducedMotion();
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [visible, setVisible] = useState(false);
-  const [iosHint, setIosHint] = useState(false);
+  // Repeating popup removed in favor of the dedicated Homepage InstallSection per Rule 5.
+  return null;
+}
 
   useEffect(() => {
     if (isStandalone() || isDismissedRecently()) return undefined;

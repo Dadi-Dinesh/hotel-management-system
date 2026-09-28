@@ -3,13 +3,15 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { DEMO_RESTAURANT } from "../lib/branding";
+import { PLATFORM_NAME } from "../lib/branding";
 
 interface NavbarProps {
   title?: string;
   subtitle?: string;
   backHref?: string;
   rightContent?: React.ReactNode;
+  logoSrc?: string;
+  logoAlt?: string;
 }
 
 export default function Navbar({
@@ -17,7 +19,11 @@ export default function Navbar({
   subtitle,
   backHref,
   rightContent,
+  logoSrc,
+  logoAlt,
 }: NavbarProps) {
+  const displayTitle = title || PLATFORM_NAME;
+
   return (
     <header
       className="sticky top-0 z-50 border-b border-brown-900 w-full"
@@ -38,22 +44,35 @@ export default function Navbar({
             </Link>
           )}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-            <div
-              className="relative w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 rounded-full overflow-hidden border-2 shadow-xs"
-              style={{
-                borderColor: "var(--color-orange-500)",
-                background: "var(--color-surface)",
-              }}
-            >
-              <Image
-                src={DEMO_RESTAURANT.logo}
-                alt={`${DEMO_RESTAURANT.name} Logo`}
-                fill
-                sizes="40px"
-                className="object-cover"
-                priority
-              />
-            </div>
+            {logoSrc ? (
+              <div
+                className="relative w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 rounded-full overflow-hidden border-2 shadow-xs"
+                style={{
+                  borderColor: "var(--color-orange-500)",
+                  background: "var(--color-surface)",
+                }}
+              >
+                <Image
+                  src={logoSrc}
+                  alt={logoAlt || `${displayTitle} Logo`}
+                  fill
+                  sizes="40px"
+                  className="object-cover"
+                  priority
+                />
+              </div>
+            ) : (
+              <div
+                className="relative w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 rounded-xl flex items-center justify-center font-black text-sm sm:text-base border shadow-xs"
+                style={{
+                  background: "var(--color-brown-900)",
+                  color: "var(--color-orange-500)",
+                  borderColor: "var(--color-brown-900)",
+                }}
+              >
+                S
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <h1
                 className="text-sm sm:text-base md:text-lg font-bold leading-tight uppercase tracking-wider truncate"
@@ -62,7 +81,7 @@ export default function Navbar({
                   color: "var(--color-brown-900)",
                 }}
               >
-                {title || DEMO_RESTAURANT.shortName}
+                {displayTitle}
               </h1>
               {subtitle && (
                 <p

@@ -311,7 +311,8 @@ export default function AdminDashboard() {
     <div className="min-h-screen" style={{ background: "var(--color-surface)" }}>
       <Navbar
         title="Admin Dashboard"
-        subtitle={activeRestaurant?.name || (isPlatformOwner ? "Platform-wide" : DEMO_RESTAURANT.shortName)}
+        subtitle={activeRestaurant?.name || (isPlatformOwner ? "Platform Administration" : "Restaurant Management")}
+        logoSrc={activeRestaurant?.logo}
         rightContent={
           <div className="flex items-center gap-3">
             {isPlatformOwner && (

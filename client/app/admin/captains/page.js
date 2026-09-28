@@ -592,7 +592,7 @@ export default function StaffManagementPage() {
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   required
                   className="input"
-                  placeholder="admin@nookambika.com"
+                  placeholder="staff@restaurant.com"
                 />
               </div>
 

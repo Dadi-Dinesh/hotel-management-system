@@ -30,9 +30,10 @@ const COLUMNS = [
   {
     title: "Portals",
     links: [
-      { href: "/admin/login", label: "Admin Login" },
-      { href: "/captain/login", label: "Captain Login" },
-      { href: "/kitchen/login", label: "Kitchen Login" },
+      { href: "/restaurant/login", label: "Restaurant Login" },
+      { href: "/admin/login", label: "Platform Admin" },
+      { href: "/captain/login", label: "Staff Login" },
+      { href: "/kitchen/login", label: "Kitchen KDS" },
     ],
   },
 ];
@@ -63,10 +64,24 @@ export default function MarketingFooter() {
             </div>
           ))}
         </div>
-        <div className="pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-2" style={{ borderColor: "rgba(255,253,247,0.12)" }}>
-          <p className="text-[11px] uppercase tracking-widest" style={{ color: "rgba(255,253,247,0.45)" }}>
-            © {new Date().getFullYear()} {PLATFORM_NAME} · Demo powered by {DEMO_RESTAURANT.name}
+        <div className="pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-3" style={{ borderColor: "rgba(255,253,247,0.12)" }}>
+          <p className="text-[11px] uppercase tracking-wider" style={{ color: "rgba(255,253,247,0.55)" }}>
+            © 2026 ServeSync — Smart QR Restaurant Management Platform
           </p>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/demo"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold transition-all hover:bg-amber-400/20"
+              style={{
+                background: "rgba(245, 158, 11, 0.12)",
+                border: "1px solid rgba(245, 158, 11, 0.3)",
+                color: "#FBBF24",
+              }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Live Demo • Sree Nookambika Family Dhaba
+            </Link>
+          </div>
         </div>
       </div>
     </footer>

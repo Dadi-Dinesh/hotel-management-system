@@ -7,6 +7,7 @@ import { PLATFORM_NAME } from "./lib/branding";
 import MarketingNav from "./components/marketing/MarketingNav";
 import MarketingFooter from "./components/marketing/MarketingFooter";
 import HeroMockup from "./components/marketing/HeroMockup";
+import InstallSection from "./components/marketing/InstallSection";
 import FeatureCard from "./components/marketing/FeatureCard";
 import TimelineStep from "./components/marketing/TimelineStep";
 import TestimonialCard from "./components/marketing/TestimonialCard";
@@ -96,6 +97,9 @@ export default function HomePageClient() {
           <HeroMockup />
         </div>
       </section>
+
+      {/* PWA Install Section */}
+      <InstallSection />
 
       {/* How It Works */}
       <section className="relative px-6 py-16 sm:py-20 max-w-5xl mx-auto w-full">

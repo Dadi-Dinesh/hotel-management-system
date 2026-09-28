@@ -9,8 +9,8 @@ import toast from "react-hot-toast";
 
 export default function KitchenLogin() {
   const router = useRouter();
-  const [email, setEmail] = useState("kitchen@nookambika.com");
-  const [password, setPassword] = useState("kitchen@123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -78,7 +78,7 @@ export default function KitchenLogin() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="kitchen@nookambika.com"
+                placeholder="kitchen@restaurant.com"
                 className="w-full bg-stone-50 border rounded-xl py-2.5 pl-10 pr-4 text-sm text-stone-900 font-medium placeholder-stone-400 focus:outline-none focus:border-[#B8860B] transition-colors"
                 style={{ borderColor: "#E8D8B5" }}
                 required
@@ -117,7 +117,17 @@ export default function KitchenLogin() {
 
         <div className="pt-4 border-t border-stone-100 text-center">
           <p className="text-[11px] text-stone-500 font-semibold">
-            Default credentials: <span className="text-[#B8860B] font-bold font-mono">kitchen@nookambika.com</span> / <span className="text-[#B8860B] font-bold font-mono">kitchen@123</span>
+            Demo Kitchen credentials:{" "}
+            <button
+              type="button"
+              onClick={() => {
+                setEmail("kitchen@nookambika.com");
+                setPassword("kitchen@123");
+              }}
+              className="text-[#B8860B] font-bold font-mono underline hover:opacity-80"
+            >
+              Fill Demo Credentials
+            </button>
           </p>
         </div>
       </div>

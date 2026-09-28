@@ -13,6 +13,7 @@ import EmptyState from "../../../components/EmptyState";
 import { useCart } from "../../../hooks/useCart";
 import { useSocket } from "../../../components/SocketProvider";
 import { requestOrQueue } from "../../../lib/pwa/queuedRequest";
+import { DEMO_RESTAURANT } from "../../../lib/branding";
 import toast from "react-hot-toast";
 
 // An item counts as "New" if it was added to the menu within the last 14 days.
@@ -194,6 +195,7 @@ export default function MenuPage() {
         title="Menu"
         subtitle={`Table ${tableCode}`}
         backHref={`/table/${tableCode}`}
+        logoSrc={DEMO_RESTAURANT.logo}
         rightContent={
           <button
             onClick={handleOpenCart}

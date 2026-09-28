@@ -5,8 +5,7 @@ import { SocketProvider } from "./components/SocketProvider";
 import { NetworkProvider } from "./components/NetworkProvider";
 import { ServiceWorkerManager } from "./components/ServiceWorkerManager";
 import ConnectionBanner from "./components/ConnectionBanner";
-import InstallPrompt from "./components/InstallPrompt";
-import { PLATFORM_NAME, PLATFORM_TAGLINE, DEMO_RESTAURANT } from "./lib/branding";
+import { PLATFORM_NAME, PLATFORM_TAGLINE } from "./lib/branding";
 import { SITE_URL } from "./lib/siteUrl";
 
 const outfit = Outfit({
@@ -24,10 +23,10 @@ const inter = Inter({
 export const metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${PLATFORM_NAME} | ${PLATFORM_TAGLINE}`,
+    default: `${PLATFORM_NAME} | Smart QR Restaurant Management`,
     template: `%s | ${PLATFORM_NAME}`,
   },
-  description: `${PLATFORM_NAME} powers QR ordering, real-time kitchen updates, and billing for restaurants — currently serving ${DEMO_RESTAURANT.name}. Scan the QR code on your table, browse the menu, and place your order instantly.`,
+  description: "ServeSync helps restaurants manage QR ordering, kitchen operations, billing, analytics, and printing.",
   keywords:
     "ServeSync, QR ordering, restaurant management software, restaurant POS, kitchen display system, restaurant SaaS",
   openGraph: {
@@ -66,6 +65,20 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${outfit.variable} ${inter.variable}`}>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.__servesync_deferred_prompt = null;
+              window.addEventListener('beforeinstallprompt', function(e) {
+                e.preventDefault();
+                window.__servesync_deferred_prompt = e;
+                window.dispatchEvent(new CustomEvent('servesync:installprompt-ready'));
+              });
+            `,
+          }}
+        />
+      </head>
       <body
         className="min-h-screen antialiased"
         style={{
@@ -79,7 +92,6 @@ export default function RootLayout({ children }) {
             <NetworkProvider>
               <ConnectionBanner />
               {children}
-              <InstallPrompt />
             </NetworkProvider>
           </ServiceWorkerManager>
           <Toaster

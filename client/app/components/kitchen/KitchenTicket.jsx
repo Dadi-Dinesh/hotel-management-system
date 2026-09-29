@@ -113,15 +113,15 @@ function KitchenTicket({
         </p>
       )}
 
-      {/* Quick actions */}
-      <div className="flex items-center gap-1.5 pt-1 mt-auto">
+      {/* Quick actions — large, one-handed / gloved-hand friendly touch targets */}
+      <div className="flex items-center gap-2 pt-1 mt-auto">
         {column === "NEW" && (
           <button
             onClick={() => onStartPreparing(order.id)}
             disabled={isUpdating}
-            className="flex-1 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-lg flex items-center justify-center gap-1 bg-amber-500 text-slate-950 hover:bg-amber-400 disabled:opacity-50 transition-colors"
+            className="flex-1 min-h-[48px] py-3 text-xs font-black uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5 bg-amber-500 text-slate-950 hover:bg-amber-400 active:scale-[0.98] disabled:opacity-50 transition-all"
           >
-            <Flame size={12} />
+            <Flame size={15} />
             {isUpdating ? "Updating..." : "Start Preparing"}
           </button>
         )}
@@ -129,24 +129,24 @@ function KitchenTicket({
           <button
             onClick={() => onMarkReady(order.id)}
             disabled={isUpdating}
-            className="flex-1 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-lg flex items-center justify-center gap-1 bg-emerald-500 text-slate-950 hover:bg-emerald-400 disabled:opacity-50 transition-colors"
+            className="flex-1 min-h-[48px] py-3 text-xs font-black uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5 bg-emerald-500 text-slate-950 hover:bg-emerald-400 active:scale-[0.98] disabled:opacity-50 transition-all"
           >
-            <Check size={12} />
+            <Check size={15} />
             {isUpdating ? "Updating..." : "Mark Ready"}
           </button>
         )}
         {column === "READY" && (
-          <span className="flex-1 py-1.5 text-[11px] font-black uppercase tracking-wider rounded-lg flex items-center justify-center gap-1 bg-emerald-950/60 text-emerald-400 border border-emerald-700/50">
-            <Check size={12} /> Sent to Waiter
+          <span className="flex-1 min-h-[48px] py-3 text-xs font-black uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5 bg-emerald-950/60 text-emerald-400 border border-emerald-700/50">
+            <Check size={15} /> Sent to Waiter
           </span>
         )}
         <button
           onClick={() => onViewDetails(order)}
-          className="w-8 h-8 flex-shrink-0 rounded-lg flex items-center justify-center bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          className="w-12 min-h-[48px] flex-shrink-0 rounded-xl flex items-center justify-center bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 active:scale-[0.98] transition-all"
           aria-label="View order details"
           title="View Details"
         >
-          <Eye size={14} />
+          <Eye size={16} />
         </button>
       </div>
     </motion.div>

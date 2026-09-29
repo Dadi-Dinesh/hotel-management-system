@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Receipt, ChefHat, ImageIcon, AlignLeft, Ruler, Loader2 } from "lucide-react";
-import Navbar from "../../../components/Navbar";
+import DashboardHeader from "../../../components/admin/DashboardHeader";
 import PrinterNav from "../../../components/admin/PrinterNav";
 import { useRestaurant } from "../../../components/RestaurantContext";
 import { DEMO_RESTAURANT } from "../../../lib/branding";
@@ -111,7 +111,7 @@ export default function TestPrintPage() {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--color-surface)" }}>
-      <Navbar title="Test Print" subtitle="Verify your printer setup" backHref="/admin/dashboard" />
+      <DashboardHeader title="Test Print" subtitle="Verify your printer setup" />
 
       <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         <PrinterNav active="/admin/printer/test" />

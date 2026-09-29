@@ -24,7 +24,7 @@ import {
 import api from "../../lib/api";
 import { isAuthenticated, getUser } from "../../lib/auth";
 import { useRestaurant } from "../../components/RestaurantContext";
-import Navbar from "../../components/Navbar";
+import DashboardHeader from "../../components/admin/DashboardHeader";
 import AnalyticsTable from "../../components/admin/AnalyticsTable";
 import EmptyState from "../../components/EmptyState";
 import QRCodeGenerator from "../../components/QRCodeGenerator";
@@ -79,6 +79,19 @@ export default function StaffManagementPage() {
     setCurrentUser(getUser());
     fetchUsers();
   }, [router]);
+
+  // ESC closes whichever modal is open
+  useEffect(() => {
+    if (!showModal && !showInviteModal && !viewingInvite) return;
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      setShowModal(false);
+      setShowInviteModal(false);
+      setViewingInvite(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showModal, showInviteModal, viewingInvite]);
 
   const fetchUsers = async () => {
     try {
@@ -224,8 +237,8 @@ export default function StaffManagementPage() {
   const adminsCount = users.filter((u) => u.role === "ADMIN").length;
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--color-cream-50)" }}>
-      <Navbar title="Staff & Admin Management" subtitle="Admin Portal" backHref="/admin/dashboard" />
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--ss-bg)" }}>
+      <DashboardHeader title="Staff & Admin Management" subtitle="Admin Portal" />
 
       <main className="max-w-5xl mx-auto px-4 py-6">
         {/* Accounts / Performance Tab Switcher */}
@@ -684,7 +697,7 @@ export default function StaffManagementPage() {
       <AnimatePresence>
         {viewingInvite && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4" onClick={() => setViewingInvite(null)}>
-            <div className="absolute inset-0" style={{ background: "rgba(61, 39, 16, 0.4)" }} />
+            <div className="absolute inset-0" style={{ background: "rgba(61, 39, 16, 0.4)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" }} />
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}

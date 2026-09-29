@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import api from "../../lib/api";
 import { isAuthenticated, getUser } from "../../lib/auth";
-import Navbar from "../../components/Navbar";
+import DashboardHeader from "../../components/admin/DashboardHeader";
+import { SkeletonCard } from "../../components/customer/SkeletonCard";
 import EmptyState from "../../components/EmptyState";
 import toast from "react-hot-toast";
 import ImageUpload from "../../components/ImageUpload";
@@ -60,6 +61,18 @@ export default function MenuManagementPage() {
     }
     fetchData();
   }, [router]);
+
+  // ESC closes whichever modal is open
+  useEffect(() => {
+    if (!showItemModal && !showCategoryModal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setShowItemModal(false);
+      setShowCategoryModal(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showItemModal, showCategoryModal]);
 
   const fetchData = async () => {
     try {
@@ -257,6 +270,36 @@ export default function MenuManagementPage() {
   };
 
   const [dietFilter, setDietFilter] = useState<"ALL" | "VEG" | "NON_VEG">("ALL");
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const toggleItemSelected = (id: string) => {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Reuses the exact same DELETE /menu/:id endpoint as the single-item
+  // delete button — just calls it once per selected item.
+  const handleBulkDelete = async () => {
+    if (selectedItemIds.size === 0) return;
+    if (!confirm(`Delete ${selectedItemIds.size} selected item(s)? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try {
+      await Promise.all(Array.from(selectedItemIds).map((id) => api.delete(`/menu/${id}`)));
+      toast.success(`Deleted ${selectedItemIds.size} item(s).`);
+      setSelectedItemIds(new Set());
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Bulk delete failed");
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
 
   interface ExtendedMenuItem extends MenuItem {
     categoryName: string;
@@ -278,34 +321,38 @@ export default function MenuManagementPage() {
         : dietFilter === "VEG"
         ? item.isVeg
         : !item.isVeg;
-    return matchesSearch && matchesDiet;
+    const matchesCategory = !categoryFilter || item.categoryId === categoryFilter;
+    return matchesSearch && matchesDiet && matchesCategory;
   });
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--color-cream-50)" }}>
-      <Navbar title="Menu Management" subtitle="Admin" backHref="/admin/dashboard" />
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--ss-bg)" }}>
+      <DashboardHeader title="Menu" subtitle="Manage items & categories" />
 
-      <main className="max-w-5xl mx-auto px-4 py-6">
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-6">
         {/* Categories Section */}
         <section className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold" style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}>
-              Categories
-            </h2>
-            <button onClick={openAddCategory} className="btn-secondary" style={{ padding: "0.375rem 0.75rem", fontSize: "0.8125rem" }}>
+            <h2 className="ss-h3" style={{ marginBottom: 0 }}>Categories</h2>
+            <button
+              onClick={openAddCategory}
+              className="ss-btn ss-caption font-bold py-2 px-3.5 flex items-center gap-1.5"
+              style={{ background: "var(--ss-surface)", border: "1px solid var(--ss-border)", color: "var(--ss-primary)", borderRadius: "var(--ss-radius-button)" }}
+            >
               <FolderPlus size={14} /> Add Category
             </button>
           </div>
           <div className="flex flex-wrap gap-2">
             {categories.map((cat) => (
-              <div key={cat.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ background: "var(--color-cream-100)", border: "1px solid var(--color-cream-200)" }}>
-                <span className="text-sm font-medium" style={{ color: "var(--color-brown-900)" }}>{cat.name}</span>
-                <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "var(--color-cream-200)", color: "var(--color-text-muted)" }}>{cat._count?.items || 0}</span>
-                <button onClick={() => openEditCategory(cat)} className="ml-1" style={{ color: "var(--color-text-muted)" }}><Pencil size={12} /></button>
-                <button 
-                  onClick={() => handleDeleteCategory(cat)} 
+              <div key={cat.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full" style={{ background: "var(--ss-surface)", border: "1px solid var(--ss-border)" }}>
+                <span className="ss-small font-semibold" style={{ color: "var(--ss-primary)" }}>{cat.name}</span>
+                <span className="ss-caption font-bold px-1.5 py-0.5 rounded-full" style={{ background: "var(--ss-bg)", color: "var(--ss-secondary)" }}>{cat._count?.items || 0}</span>
+                <button onClick={() => openEditCategory(cat)} className="ml-1" style={{ color: "var(--ss-secondary)" }} aria-label={`Edit ${cat.name}`}><Pencil size={12} /></button>
+                <button
+                  onClick={() => handleDeleteCategory(cat)}
                   disabled={deletingCategories.has(cat.id)}
-                  style={{ color: "var(--color-danger)", opacity: deletingCategories.has(cat.id) ? 0.5 : 1 }}
+                  aria-label={`Delete ${cat.name}`}
+                  style={{ color: "var(--ss-danger)", opacity: deletingCategories.has(cat.id) ? 0.5 : 1 }}
                 >
                   <Trash2 size={12} />
                 </button>
@@ -316,155 +363,206 @@ export default function MenuManagementPage() {
 
         {/* Menu Items */}
         <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold" style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}>
-              Menu Items ({filteredItems.length})
-            </h2>
-            <button onClick={openAddItem} className="btn-primary" style={{ padding: "0.5rem 1rem", fontSize: "0.8125rem" }}>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <h2 className="ss-h3" style={{ marginBottom: 0 }}>Menu Items ({filteredItems.length})</h2>
+            <button
+              onClick={openAddItem}
+              className="ss-btn ss-caption font-bold py-2.5 px-4 flex items-center gap-1.5"
+              style={{ background: "var(--ss-accent)", color: "var(--ss-on-accent)", borderRadius: "var(--ss-radius-button)" }}
+            >
               <Plus size={14} /> Add Item
             </button>
           </div>
 
-          {/* Search + Diet Filter */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-4">
-            <div className="relative flex-1">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--color-text-muted)" }} />
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search menu items..." className="input" style={{ paddingLeft: "2.5rem" }} />
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setDietFilter("ALL")}
-                className={`px-3 py-2 rounded-xl text-xs font-bold uppercase border transition-all ${
-                  dietFilter === "ALL"
-                    ? "bg-brown-900 text-white border-brown-900"
-                    : "bg-cream-100 text-brown-900 border-brown-900"
-                }`}
-                style={{
-                  background: dietFilter === "ALL" ? "var(--color-brown-900)" : "var(--color-cream-100)",
-                  color: dietFilter === "ALL" ? "white" : "var(--color-brown-900)",
-                  borderColor: "var(--color-brown-900)",
-                }}
-              >
-                All ({allItems.length})
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDietFilter("VEG")}
-                className={`px-3 py-2 rounded-xl text-xs font-bold uppercase border transition-all ${
-                  dietFilter === "VEG"
-                    ? "bg-emerald-700 text-white border-emerald-800"
-                    : "bg-emerald-50 text-emerald-900 border-emerald-700"
-                }`}
-              >
-                🟢 Veg ({allItems.filter(i => i.isVeg).length})
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDietFilter("NON_VEG")}
-                className={`px-3 py-2 rounded-xl text-xs font-bold uppercase border transition-all ${
-                  dietFilter === "NON_VEG"
-                    ? "bg-amber-900 text-white border-amber-950"
-                    : "bg-amber-50 text-amber-950 border-amber-900"
-                }`}
-              >
-                🔴 Non-Veg ({allItems.filter(i => !i.isVeg).length})
-              </button>
-            </div>
+          {/* Search */}
+          <div className="relative mb-3">
+            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: "var(--ss-secondary)" }} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search menu items..."
+              className="ss-input ss-small w-full h-11 pl-11 pr-4 font-medium"
+              style={{ background: "var(--ss-surface)", border: "1px solid var(--ss-border)", borderRadius: "var(--ss-radius-input)", color: "var(--ss-primary)" }}
+            />
           </div>
 
+          {/* Category filter pills */}
+          <div className="flex gap-2 overflow-x-auto pb-1 mb-2" style={{ scrollbarWidth: "none" }}>
+            <button
+              type="button"
+              onClick={() => setCategoryFilter(null)}
+              className="flex-shrink-0 px-3.5 py-1.5 rounded-full ss-caption font-bold whitespace-nowrap transition-all"
+              style={{
+                background: !categoryFilter ? "var(--ss-primary)" : "var(--ss-surface)",
+                color: !categoryFilter ? "var(--ss-on-accent)" : "var(--ss-secondary)",
+                border: "1px solid var(--ss-border)",
+              }}
+            >
+              All Categories
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setCategoryFilter(cat.id)}
+                className="flex-shrink-0 px-3.5 py-1.5 rounded-full ss-caption font-bold whitespace-nowrap transition-all"
+                style={{
+                  background: categoryFilter === cat.id ? "var(--ss-primary)" : "var(--ss-surface)",
+                  color: categoryFilter === cat.id ? "var(--ss-on-accent)" : "var(--ss-secondary)",
+                  border: "1px solid var(--ss-border)",
+                }}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
+
+          {/* Diet filter */}
+          <div className="flex gap-2 mb-4">
+            <button
+              type="button"
+              onClick={() => setDietFilter("ALL")}
+              className="px-3 py-1.5 rounded-full ss-caption font-bold transition-all"
+              style={{
+                background: dietFilter === "ALL" ? "var(--ss-primary)" : "var(--ss-surface)",
+                color: dietFilter === "ALL" ? "var(--ss-on-accent)" : "var(--ss-secondary)",
+                border: "1px solid var(--ss-border)",
+              }}
+            >
+              All ({allItems.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setDietFilter("VEG")}
+              className="px-3 py-1.5 rounded-full ss-caption font-bold transition-all"
+              style={{
+                background: dietFilter === "VEG" ? "var(--ss-success)" : "var(--ss-surface)",
+                color: dietFilter === "VEG" ? "#fff" : "var(--ss-secondary)",
+                border: "1px solid var(--ss-border)",
+              }}
+            >
+              🟢 Veg ({allItems.filter((i) => i.isVeg).length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setDietFilter("NON_VEG")}
+              className="px-3 py-1.5 rounded-full ss-caption font-bold transition-all"
+              style={{
+                background: dietFilter === "NON_VEG" ? "var(--ss-accent-dark)" : "var(--ss-surface)",
+                color: dietFilter === "NON_VEG" ? "#fff" : "var(--ss-secondary)",
+                border: "1px solid var(--ss-border)",
+              }}
+            >
+              🔴 Non-Veg ({allItems.filter((i) => !i.isVeg).length})
+            </button>
+          </div>
+
+          {/* Bulk action bar */}
+          {selectedItemIds.size > 0 && (
+            <div className="flex items-center justify-between gap-3 mb-4 p-3 rounded-2xl" style={{ background: "var(--ss-accent-tint)", border: "1px solid var(--ss-border)" }}>
+              <span className="ss-small font-bold" style={{ color: "var(--ss-accent-dark)" }}>
+                {selectedItemIds.size} item{selectedItemIds.size > 1 ? "s" : ""} selected
+              </span>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setSelectedItemIds(new Set())} className="ss-caption font-bold" style={{ color: "var(--ss-secondary)" }}>
+                  Clear
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleting}
+                  className="ss-btn ss-caption font-bold py-2 px-3.5 flex items-center gap-1.5 disabled:opacity-50"
+                  style={{ background: "var(--ss-danger)", color: "#fff", borderRadius: "var(--ss-radius-button)" }}
+                >
+                  <Trash2 size={13} /> {bulkDeleting ? "Deleting..." : "Delete Selected"}
+                </button>
+              </div>
+            </div>
+          )}
+
           {loading ? (
-            <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="skeleton h-16 w-full" />)}</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => <SkeletonCard key={i} />)}
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <EmptyState
+              icon={<UtensilsCrossed size={28} style={{ color: "var(--ss-secondary)" }} />}
+              title="No menu items"
+              description="No items match your search or filter — add a menu item to get started."
+            />
           ) : (
-            <div className="overflow-x-auto border-2" style={{ borderColor: "var(--color-brown-900)", background: "var(--color-surface)" }}>
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b-2 font-black uppercase tracking-wider text-xs" style={{ borderColor: "var(--color-brown-900)", background: "var(--color-cream-100)" }}>
-                    <th className="p-4" style={{ color: "var(--color-brown-900)" }}>Item Name</th>
-                    <th className="p-4" style={{ color: "var(--color-brown-900)" }}>Category</th>
-                    <th className="p-4" style={{ color: "var(--color-brown-900)" }}>Price</th>
-                    <th className="p-4" style={{ color: "var(--color-brown-900)" }}>Status</th>
-                    <th className="p-4 text-right" style={{ color: "var(--color-brown-900)" }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredItems.map((item) => (
-                    <tr 
-                      key={item.id} 
-                      className="border-b last:border-0 hover:bg-cream-50 transition-colors text-sm"
-                      style={{ borderColor: "var(--color-border)" }}
-                    >
-                      <td className="p-4 font-bold flex items-center gap-3" style={{ color: "var(--color-brown-900)" }}>
-                        <div
-                          className="w-10 h-10 relative rounded overflow-hidden border flex-shrink-0 bg-cream-100 flex items-center justify-center"
-                          style={{ borderColor: "var(--color-brown-900)" }}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredItems.map((item) => {
+                const isSelected = selectedItemIds.has(item.id);
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-[var(--ss-radius-card)] overflow-hidden flex flex-col"
+                    style={{
+                      border: `1px solid ${isSelected ? "var(--ss-accent)" : "var(--ss-border)"}`,
+                      background: "var(--ss-surface)",
+                      boxShadow: isSelected ? "var(--ss-shadow-md)" : "var(--ss-shadow-sm)",
+                    }}
+                  >
+                    <div className="relative w-full aspect-[4/3] flex-shrink-0" style={{ background: "var(--ss-bg)" }}>
+                      {item.imageUrl || item.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={item.imageUrl || item.image || undefined} alt={item.name} className="object-cover w-full h-full" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImageIcon size={28} style={{ color: "var(--ss-secondary)" }} />
+                        </div>
+                      )}
+                      <button
+                        onClick={() => toggleItemSelected(item.id)}
+                        aria-label={isSelected ? `Deselect ${item.name}` : `Select ${item.name}`}
+                        className="absolute top-2 left-2 w-6 h-6 rounded-md flex items-center justify-center"
+                        style={{ background: isSelected ? "var(--ss-accent)" : "rgba(255,253,248,0.9)", border: "1px solid var(--ss-border)" }}
+                      >
+                        {isSelected && <span style={{ color: "var(--ss-on-accent)", fontSize: 12, lineHeight: 1 }}>✓</span>}
+                      </button>
+                      <span
+                        className="absolute top-2 right-2 ss-caption font-bold px-2 py-0.5 rounded-full"
+                        style={{
+                          background: item.isAvailable ? "rgba(27,138,90,0.9)" : "rgba(214,69,69,0.9)",
+                          color: "#fff",
+                        }}
+                      >
+                        {item.isAvailable ? "Available" : "Unavailable"}
+                      </span>
+                    </div>
+
+                    <div className="p-3.5 flex flex-col flex-1 gap-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-bold ss-small leading-snug" style={{ color: "var(--ss-primary)" }}>{item.name}</h3>
+                        <span className="font-bold ss-small flex-shrink-0" style={{ color: "var(--ss-accent-dark)" }}>₹{item.price}</span>
+                      </div>
+                      <p className="ss-caption font-semibold">{item.categoryName}</p>
+                      {item.servingInformation && (
+                        <p className="ss-caption" style={{ color: "var(--ss-secondary)" }}>🍽️ {item.servingInformation}</p>
+                      )}
+
+                      <div className="mt-auto pt-2 flex items-center gap-2">
+                        <button
+                          onClick={() => openEditItem(item)}
+                          className="flex-1 py-2 ss-caption font-bold rounded-full flex items-center justify-center gap-1"
+                          style={{ border: "1px solid var(--ss-border)", color: "var(--ss-primary)" }}
                         >
-                          {item.imageUrl || item.image ? (
-                            <img
-                              src={item.imageUrl || item.image || undefined}
-                              alt={item.name}
-                              className="object-cover w-full h-full"
-                            />
-                          ) : (
-                            <ImageIcon size={16} className="text-gray-400" />
-                          )}
-                        </div>
-                        <span>{item.name}</span>
-                      </td>
-                      <td className="p-4 text-xs font-semibold text-gray-600">
-                        {item.categoryName}
-                      </td>
-                      <td className="p-4 font-black" style={{ color: "var(--color-orange-500)" }}>
-                        ₹{item.price}
-                      </td>
-                      <td className="p-4 text-xs font-semibold">
-                        {item.isAvailable ? (
-                          <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">Available</span>
-                        ) : (
-                          <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded">Unavailable</span>
-                        )}
-                      </td>
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button 
-                            onClick={() => openEditItem(item)} 
-                            className="w-8 h-8 rounded-lg flex items-center justify-center border hover:bg-cream-100 transition-colors"
-                            style={{ borderColor: "var(--color-brown-900)", color: "var(--color-brown-900)" }}
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteItem(item)} 
-                            disabled={deletingItems.has(item.id)}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center border hover:bg-red-50 transition-colors"
-                            style={{ 
-                              borderColor: "var(--color-danger)", 
-                              color: "var(--color-danger)",
-                              opacity: deletingItems.has(item.id) ? 0.5 : 1 
-                            }}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                  {filteredItems.length === 0 && (
-                    <tr>
-                      <td colSpan={5}>
-                        <EmptyState
-                          icon={<UtensilsCrossed size={32} style={{ color: "var(--color-orange-500)" }} />}
-                          title="No Menu Items"
-                          description="No items match your search or filter — add a menu item to get started."
-                        />
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                          <Pencil size={12} /> Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteItem(item)}
+                          disabled={deletingItems.has(item.id)}
+                          className="flex-1 py-2 ss-caption font-bold rounded-full flex items-center justify-center gap-1 disabled:opacity-50"
+                          style={{ border: "1px solid var(--ss-border)", color: "var(--ss-danger)" }}
+                        >
+                          <Trash2 size={12} /> Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
@@ -473,7 +571,7 @@ export default function MenuManagementPage() {
       {/* Item Modal */}
       {showItemModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4" onClick={() => setShowItemModal(false)}>
-          <div className="absolute inset-0" style={{ background: "rgba(61, 39, 16, 0.3)" }} />
+          <div className="absolute inset-0" style={{ background: "rgba(61, 39, 16, 0.4)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" }} />
           <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl p-6 animate-scale-in" style={{ background: "var(--color-cream-50)" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-bold" style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}>{editingItem ? "Edit Item" : "Add Item"}</h3>
@@ -546,7 +644,7 @@ export default function MenuManagementPage() {
       {/* Category Modal */}
       {showCategoryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4" onClick={() => setShowCategoryModal(false)}>
-          <div className="absolute inset-0" style={{ background: "rgba(61, 39, 16, 0.3)" }} />
+          <div className="absolute inset-0" style={{ background: "rgba(61, 39, 16, 0.4)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" }} />
           <div className="relative w-full max-w-sm rounded-2xl p-6 animate-scale-in" style={{ background: "var(--color-cream-50)" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-bold" style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}>{editingCategory ? "Edit Category" : "Add Category"}</h3>

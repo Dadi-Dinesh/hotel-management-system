@@ -30,13 +30,13 @@ function FallbackPlaceholder({ variant, iconSize }: { variant: "thumbnail" | "la
     <div
       className="w-full h-full flex flex-col items-center justify-center"
       style={{
-        background: "linear-gradient(135deg, var(--color-cream-200), var(--color-cream-300))",
-        border: variant === "thumbnail" ? "1px solid var(--color-cream-300)" : "none",
+        background: "var(--ss-bg, var(--color-cream-200))",
+        border: variant === "thumbnail" ? "1px solid var(--ss-border, var(--color-cream-300))" : "none",
       }}
     >
       <UtensilsCrossed
         size={iconSize}
-        style={{ color: "var(--color-brown-800)", opacity: 0.4 }}
+        style={{ color: "var(--ss-secondary, var(--color-brown-800))", opacity: 0.4 }}
       />
     </div>
   );
@@ -51,7 +51,7 @@ export default function MenuItemImage({ src, alt, onClick, variant = "thumbnail"
     <div
       className={`relative overflow-hidden border transition-all duration-300 ${styles.wrapperClass}`}
       style={{
-        borderColor: variant === "large" ? "transparent" : "var(--color-brown-900)",
+        borderColor: variant === "large" ? "transparent" : "var(--ss-border, var(--color-brown-900))",
         cursor: onClick ? "pointer" : "default",
         transform: "scale(1)",
         transition: "transform 0.15s ease, border-color 0.15s ease",
@@ -76,9 +76,9 @@ export default function MenuItemImage({ src, alt, onClick, variant = "thumbnail"
       }}
       aria-label={onClick ? `View details for ${alt}` : undefined}
     >
-      {/* Loading Skeleton */}
+      {/* Loading Skeleton — shimmer sweep instead of a flat pulse */}
       {isLoading && !hasError && src && (
-        <div className="absolute inset-0 animate-pulse" style={{ background: "var(--color-cream-200)" }} />
+        <div className="absolute inset-0 ss-shimmer" />
       )}
 
       {/* Optimized Lazy-loaded Image */}

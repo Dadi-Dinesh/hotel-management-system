@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChefHat, Lock, Mail, ArrowRight } from "lucide-react";
+import { ChefHat, ArrowRight } from "lucide-react";
 import api from "../../lib/api";
 import { setAuth } from "../../lib/auth";
+import AuthShell from "../../components/AuthShell";
+import Input from "../../components/ui/Input";
 import toast from "react-hot-toast";
 
 export default function KitchenLogin() {
@@ -41,96 +43,58 @@ export default function KitchenLogin() {
   };
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center p-4 font-sans select-none"
-      style={{ background: "#FFF8EC", color: "#2E2E2E" }}
-    >
-      <div
-        className="w-full max-w-md bg-white border-2 rounded-2xl p-8 shadow-lg space-y-6"
-        style={{ borderColor: "#E8D8B5" }}
-      >
-        <div className="text-center space-y-2">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-xs"
-            style={{ background: "#FFF8EC", color: "#B8860B", border: "1px solid #E8D8B5" }}
-          >
-            <ChefHat size={36} strokeWidth={2.2} />
-          </div>
-          <h1
-            className="text-2xl font-black uppercase tracking-wider text-stone-900"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            Kitchen Display System
-          </h1>
-          <p className="text-xs text-stone-500 font-bold uppercase tracking-wider">
-            Commercial KDS • Staff Portal Access
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-stone-700 uppercase tracking-wider block">
-              Kitchen Email
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3.5 top-3 text-stone-400" size={18} />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="kitchen@restaurant.com"
-                className="w-full bg-stone-50 border rounded-xl py-2.5 pl-10 pr-4 text-sm text-stone-900 font-medium placeholder-stone-400 focus:outline-none focus:border-[#B8860B] transition-colors"
-                style={{ borderColor: "#E8D8B5" }}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-stone-700 uppercase tracking-wider block">
-              Password
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3.5 top-3 text-stone-400" size={18} />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-stone-50 border rounded-xl py-2.5 pl-10 pr-4 text-sm text-stone-900 font-medium placeholder-stone-400 focus:outline-none focus:border-[#B8860B] transition-colors"
-                style={{ borderColor: "#E8D8B5" }}
-                required
-              />
-            </div>
-          </div>
-
+    <AuthShell
+      icon={ChefHat}
+      title="Kitchen Display System"
+      subtitle="Commercial KDS · Staff Portal Access"
+      tagline="Live order tickets, elapsed-time tracking, and one-tap status updates."
+      footer={
+        <p className="ss-caption">
+          Demo Kitchen credentials:{" "}
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3.5 text-white font-extrabold rounded-xl uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] disabled:opacity-50 hover:opacity-95"
-            style={{ background: "#B8860B" }}
+            type="button"
+            onClick={() => {
+              setEmail("kitchen@nookambika.com");
+              setPassword("kitchen@123");
+            }}
+            className="font-bold underline"
+            style={{ color: "var(--ss-accent-dark)" }}
           >
-            {loading ? "Authenticating..." : "Enter Kitchen Display"}
-            <ArrowRight size={16} />
+            Fill Demo Credentials
           </button>
-        </form>
-
-        <div className="pt-4 border-t border-stone-100 text-center">
-          <p className="text-[11px] text-stone-500 font-semibold">
-            Demo Kitchen credentials:{" "}
-            <button
-              type="button"
-              onClick={() => {
-                setEmail("kitchen@nookambika.com");
-                setPassword("kitchen@123");
-              }}
-              className="text-[#B8860B] font-bold font-mono underline hover:opacity-80"
-            >
-              Fill Demo Credentials
-            </button>
-          </p>
-        </div>
-      </div>
-    </div>
+        </p>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          id="kitchen-email"
+          label="Kitchen Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="kitchen@restaurant.com"
+          required
+        />
+        <Input
+          id="kitchen-password"
+          label="Password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="••••••••"
+          required
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          className="ss-btn w-full py-4 ss-body font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+          data-variant="primary"
+          style={{ background: "var(--ss-accent)", color: "var(--ss-on-accent)", borderRadius: "var(--ss-radius-button)", boxShadow: "var(--ss-shadow-md)" }}
+        >
+          {loading ? "Authenticating..." : "Enter Kitchen Display"}
+          <ArrowRight size={16} />
+        </button>
+      </form>
+    </AuthShell>
   );
 }

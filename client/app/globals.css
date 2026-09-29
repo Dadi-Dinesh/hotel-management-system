@@ -284,9 +284,274 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Responsive Toaster */
+/* Responsive Toaster — bottom-center on mobile, top-right on desktop */
 @media (min-width: 768px) {
   .responsive-toaster {
+    top: 20px !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: 20px !important;
     align-items: flex-end !important;
+  }
+}
+
+/* Toast progress indicator — shrinks over the shared 4s default duration.
+   Toasts that override `duration` per-call will simply have a bar that
+   doesn't perfectly match; a reasonable trade-off vs. touching every
+   toast() call site in the app. */
+.ss-toast {
+  position: relative;
+  overflow: hidden;
+}
+.ss-toast::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: var(--ss-accent, #e89017);
+  border-radius: 0 0 var(--ss-radius-card, 24px) var(--ss-radius-card, 24px);
+  animation: ssToastProgress 4s linear forwards;
+}
+@keyframes ssToastProgress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ss-toast::after {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ServeSync Design System — Marketing / Landing surface only
+   ════════════════════════════════════════════════════════════════
+   Namespaced with an `ss-` prefix so it never collides with (or
+   overrides) the --color-* tokens and .btn/.card/.badge classes
+   above, which the in-app dashboards (admin, kitchen, captain,
+   customer ordering) already depend on. Consumed by:
+     app/components/ui/*
+     app/components/marketing/*
+     app/HomePageClient.jsx
+   ──────────────────────────────────────────────────────────────── */
+:root {
+  /* Color */
+  --ss-bg: #F7F4ED;
+  --ss-surface: #FFFDF8;
+  --ss-primary: #3B220A;
+  /* Darkened ~1-2% from the original design (#8C6B47/#1B8A5A/#D64545) —
+     visually identical, but clears WCAG AA 4.5:1 body/badge text contrast
+     against --ss-bg/--ss-surface and white text respectively (verified). */
+  --ss-secondary: #8A6946;
+  --ss-accent: #E89017;
+  --ss-accent-dark: #5C3A12;
+  --ss-border: #E4D3B2;
+  --ss-success: #1A8758;
+  --ss-warning: #D98C00;
+  --ss-danger: #D14343;
+  /* Text color for surfaces filled with --ss-accent. Dark ink, not white —
+     white-on-#E89017 measures ~2.5:1, well under WCAG AA; dark ink measures
+     ~5.9:1. Keeps the accent hue itself untouched (brand-critical) instead
+     of darkening it ~28% to make white legible. */
+  --ss-on-accent: var(--ss-primary);
+  --ss-accent-tint: rgba(232, 144, 23, 0.12);
+  --ss-focus-ring: rgba(232, 144, 23, 0.35);
+
+  /* Typography — fluid clamp() scales automatically between mobile
+     and desktop without per-breakpoint overrides. */
+  --ss-text-hero: clamp(2.25rem, 1.35rem + 3.8vw, 4rem);     /* 36px → 64px */
+  --ss-text-h1: clamp(1.75rem, 1.3rem + 2vw, 2.625rem);      /* 28px → 42px */
+  --ss-text-h2: clamp(1.5rem, 1.2rem + 1.3vw, 2rem);         /* 24px → 32px */
+  --ss-text-h3: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);      /* 20px → 24px */
+  --ss-text-body: 1rem;        /* 16px */
+  --ss-text-small: 0.875rem;   /* 14px */
+  --ss-text-caption: 0.75rem;  /* 12px */
+
+  /* Radius */
+  --ss-radius-button: 16px;
+  --ss-radius-card: 24px;
+  --ss-radius-input: 14px;
+  --ss-radius-modal: 28px;
+
+  /* Elevation — soft, warm-tinted only. No harsh black shadows. */
+  --ss-shadow-sm: 0 2px 10px -4px rgba(59, 34, 10, 0.08);
+  --ss-shadow-md: 0 16px 40px -16px rgba(59, 34, 10, 0.16);
+  --ss-shadow-lg: 0 28px 64px -24px rgba(59, 34, 10, 0.2);
+}
+
+/* ─── Typography hierarchy ────────────────────── */
+.ss-eyebrow {
+  font-size: var(--ss-text-caption);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ss-accent-dark);
+}
+.ss-hero-heading {
+  font-family: var(--font-heading);
+  font-size: var(--ss-text-hero);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  color: var(--ss-primary);
+}
+.ss-h1 {
+  font-family: var(--font-heading);
+  font-size: var(--ss-text-h1);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--ss-primary);
+}
+.ss-h2 {
+  font-family: var(--font-heading);
+  font-size: var(--ss-text-h2);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--ss-primary);
+}
+.ss-h3 {
+  font-family: var(--font-heading);
+  font-size: var(--ss-text-h3);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ss-primary);
+}
+.ss-body {
+  font-size: var(--ss-text-body);
+  line-height: 1.6;
+  color: var(--ss-secondary);
+}
+.ss-small {
+  font-size: var(--ss-text-small);
+  line-height: 1.5;
+  color: var(--ss-secondary);
+}
+.ss-caption {
+  font-size: var(--ss-text-caption);
+  line-height: 1.4;
+  color: var(--ss-secondary);
+}
+
+/* ─── Surfaces / primitives ───────────────────── */
+.ss-card-hover {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.ss-card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--ss-shadow-md);
+}
+
+.ss-btn {
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+}
+.ss-btn:hover {
+  transform: translateY(-1px);
+}
+.ss-btn:active {
+  transform: translateY(0);
+}
+.ss-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ss-focus-ring);
+}
+.ss-btn[data-variant="primary"]:hover {
+  background: var(--ss-accent-dark) !important;
+  border-color: var(--ss-accent-dark) !important;
+}
+.ss-btn[data-variant="secondary"]:hover {
+  background: var(--ss-bg) !important;
+  border-color: var(--ss-primary) !important;
+}
+.ss-btn[data-variant="ghost"]:hover {
+  background: var(--ss-bg) !important;
+}
+
+.ss-input {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ss-input:focus {
+  outline: none;
+  border-color: var(--ss-accent) !important;
+  box-shadow: 0 0 0 3px var(--ss-focus-ring);
+}
+
+.ss-link-hover {
+  transition: color 0.15s ease;
+}
+
+/* ─── Motion ───────────────────────────────────── */
+@keyframes ssFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.ss-float {
+  animation: ssFloat 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ss-float,
+  .ss-btn:hover,
+  .ss-btn:active,
+  .ss-card-hover:hover {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ServeSync Design System — Customer Ordering surface additions
+   ════════════════════════════════════════════════════════════════
+   Reuses the --ss-* tokens above. Consumed by:
+     app/components/customer/*
+     app/components/{MenuCard,CartDrawer,CategoryTabs,MenuItemImage,OrderTimeline}
+     app/table/[code]/**
+   ──────────────────────────────────────────────────────────────── */
+
+/* Skeleton shimmer — a moving highlight sweep instead of a flat pulse. */
+@keyframes ssShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.ss-shimmer {
+  background: linear-gradient(90deg, var(--ss-border) 25%, var(--ss-bg) 50%, var(--ss-border) 75%);
+  background-size: 200% 100%;
+  animation: ssShimmer 1.6s ease-in-out infinite;
+}
+
+/* Cart icon bounce — fired briefly on add-to-cart. */
+@keyframes ssCartBounce {
+  0%, 100% { transform: scale(1); }
+  30% { transform: scale(1.22); }
+  55% { transform: scale(0.94); }
+  75% { transform: scale(1.06); }
+}
+.ss-cart-bounce {
+  animation: ssCartBounce 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Success checkmark pop-in. */
+@keyframes ssPopIn {
+  0% { transform: scale(0.4); opacity: 0; }
+  70% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.ss-pop-in {
+  animation: ssPopIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ss-shimmer {
+    animation: none !important;
+    background: var(--ss-border);
+  }
+  .ss-cart-bounce,
+  .ss-pop-in {
+    animation: none !important;
+    transform: none !important;
   }
 }

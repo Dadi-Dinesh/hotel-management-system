@@ -8,7 +8,7 @@ import { CreditCard, Clock, Store, ArrowUpCircle, CheckCircle2, Mail } from "luc
 import api from "../../lib/api";
 import { getUser, isAuthenticated } from "../../lib/auth";
 import { useRestaurant } from "../../components/RestaurantContext";
-import Navbar from "../../components/Navbar";
+import DashboardHeader from "../../components/admin/DashboardHeader";
 import { PLANS, resolvePlanDisplay } from "../../lib/marketing/plans";
 import toast from "react-hot-toast";
 
@@ -71,8 +71,8 @@ export default function AccountPage() {
   const trialExpired = isTrialing && trialDays !== null && trialDays <= 0;
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--color-surface)" }}>
-      <Navbar title="Account" subtitle="Plan & Billing" backHref="/admin/dashboard" />
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--ss-bg)" }}>
+      <DashboardHeader title="Account" subtitle="Plan & Billing" />
 
       <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         {/* Current Plan */}

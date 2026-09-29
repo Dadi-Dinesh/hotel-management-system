@@ -25,7 +25,6 @@ import { useSocket } from "../../components/SocketProvider";
 import { useRestaurant } from "../../components/RestaurantContext";
 import { DEMO_RESTAURANT } from "../../lib/branding";
 import OrderStatusBadge from "../../components/OrderStatusBadge";
-import Navbar from "../../components/Navbar";
 import toast from "react-hot-toast";
 import { PrintService } from "../../lib/printer/PrintService";
 import { usePrinterSettings } from "../../lib/printer/usePrinterSettings";
@@ -549,42 +548,42 @@ export default function CaptainDashboard() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--color-surface)" }}>
-      <Navbar
-        title="Captain Dashboard"
-        subtitle={`Welcome, ${user.name}`}
-        rightContent={
-          <div className="flex items-center gap-3">
-            {/* Socket connection indicator */}
-            <div
-              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2 py-1 border"
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--ss-bg)" }}>
+      <header
+        className="sticky top-0 z-40 backdrop-blur-md border-b"
+        style={{ background: "rgba(255, 253, 248, 0.9)", borderColor: "var(--ss-border)" }}
+      >
+        <div className="h-16 px-4 sm:px-5 flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-base sm:text-lg font-bold truncate" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-primary)" }}>
+              Captain Dashboard
+            </h1>
+            <p className="ss-caption font-semibold truncate">Welcome, {user.name}</p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span
+              className="hidden sm:inline-flex items-center gap-1.5 ss-caption font-bold px-2.5 py-1.5 rounded-full"
               style={{
-                borderColor: isConnected ? "var(--color-success)" : "var(--color-danger)",
-                color: isConnected ? "var(--color-success)" : "var(--color-danger)",
-                background: isConnected ? "#f0fdf4" : "#fef2f2",
+                background: isConnected ? "rgba(27,138,90,0.1)" : "rgba(214,69,69,0.1)",
+                color: isConnected ? "var(--ss-success)" : "var(--ss-danger)",
               }}
             >
-              <span
-                className="w-1.5 h-1.5 rounded-full"
-                style={{ background: isConnected ? "var(--color-success)" : "var(--color-danger)" }}
-              />
-              {isConnected ? "LIVE" : "OFFLINE"}
-            </div>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: isConnected ? "var(--ss-success)" : "var(--ss-danger)" }} />
+              {isConnected ? "Live" : "Offline"}
+            </span>
 
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="relative w-10 h-10 border flex items-center justify-center transition-colors hover:bg-brown-900 hover:text-white"
-              style={{ borderColor: "var(--color-brown-900)", color: "var(--color-brown-900)" }}
+              aria-label="Notifications"
+              className="relative w-10 h-10 rounded-full flex items-center justify-center transition-colors"
+              style={{ background: "var(--ss-bg)", color: "var(--ss-primary)" }}
             >
-              <Bell size={20} />
+              <Bell size={18} />
               {notifications.length > 0 && (
                 <span
-                  className="absolute -top-2 -right-2 w-6 h-6 border flex items-center justify-center font-bold text-xs"
-                  style={{
-                    background: "var(--color-danger)",
-                    borderColor: "var(--color-brown-900)",
-                    color: "white",
-                  }}
+                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px]"
+                  style={{ background: "var(--ss-danger)", color: "#fff" }}
                 >
                   {notifications.length}
                 </span>
@@ -597,114 +596,103 @@ export default function CaptainDashboard() {
                 fetchTables();
                 fetchBillRequests();
               }}
-              className="w-10 h-10 border flex items-center justify-center transition-colors hover:bg-brown-900 hover:text-white"
-              style={{ borderColor: "var(--color-brown-900)", color: "var(--color-brown-900)" }}
+              aria-label="Refresh"
+              className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
+              style={{ background: "var(--ss-bg)", color: "var(--ss-primary)" }}
             >
-              <RefreshCcw size={18} />
+              <RefreshCcw size={16} />
             </button>
 
             <button
               onClick={handleLogout}
-              className="w-10 h-10 border flex items-center justify-center transition-colors hover:bg-brown-900 hover:text-white"
-              style={{ borderColor: "var(--color-brown-900)", color: "var(--color-danger)" }}
+              aria-label="Logout"
+              className="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
+              style={{ background: "var(--ss-bg)", color: "var(--ss-danger)" }}
             >
-              <LogOut size={18} />
+              <LogOut size={16} />
             </button>
           </div>
-        }
-      />
+        </div>
+      </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8">
         {/* Kitchen Live Mode Control & Printer Paper Format Setup Bar */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {/* Kitchen Live Mode Control Card */}
           <div
-            className={`p-4 border-2 flex items-center justify-between shadow-sm transition-all ${
-              isKitchenLive
-                ? "border-emerald-600 bg-emerald-50/80"
-                : "border-amber-600 bg-amber-50/80"
-            }`}
+            className="rounded-[var(--ss-radius-card)] p-4 flex items-center justify-between gap-3"
+            style={{
+              border: `1px solid ${isKitchenLive ? "rgba(27,138,90,0.35)" : "rgba(217,140,0,0.35)"}`,
+              background: isKitchenLive ? "rgba(27,138,90,0.06)" : "rgba(217,140,0,0.08)",
+            }}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-xs font-black transition-all ${
-                  isKitchenLive ? "bg-emerald-600" : "bg-amber-600"
-                }`}
+                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: isKitchenLive ? "var(--ss-success)" : "var(--ss-warning)", color: "#fff" }}
               >
-                <Flame size={22} className={isKitchenLive ? "animate-pulse" : ""} />
+                <Flame size={20} className={isKitchenLive ? "animate-pulse" : ""} />
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p
-                    className="font-black text-xs uppercase tracking-widest text-brown-900"
-                    style={{ fontFamily: "var(--font-heading)" }}
-                  >
-                    KITCHEN LIVE MODE
-                  </p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-bold ss-small" style={{ color: "var(--ss-primary)" }}>Kitchen Live Mode</p>
                   <span
-                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded border ${
-                      isKitchenLive
-                        ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                        : "bg-amber-100 text-amber-900 border-amber-300"
-                    }`}
+                    className="ss-caption font-bold px-2 py-0.5 rounded-full"
+                    style={{
+                      background: isKitchenLive ? "rgba(27,138,90,0.14)" : "rgba(217,140,0,0.16)",
+                      color: isKitchenLive ? "var(--ss-success)" : "var(--ss-warning)",
+                    }}
                   >
-                    {isKitchenLive ? "● LIVE ACTIVE" : "PAUSED / OFF"}
+                    {isKitchenLive ? "Active" : "Paused"}
                   </span>
                 </div>
-                <p className="text-[11px] font-medium text-gray-600 mt-0.5">
-                  {isKitchenLive
-                    ? "Real-time kitchen order dispatch is active"
-                    : "Kitchen display live updates are turned off"}
+                <p className="ss-caption mt-0.5">
+                  {isKitchenLive ? "Real-time kitchen order dispatch is active" : "Kitchen display live updates are turned off"}
                 </p>
               </div>
             </div>
 
             <button
               onClick={handleToggleKitchenLive}
-              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider border-2 transition-all flex items-center gap-1.5 shadow-xs active:scale-95 ${
-                isKitchenLive
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-800"
-                  : "bg-amber-600 hover:bg-amber-700 text-white border-amber-800"
-              }`}
+              className="ss-btn flex-shrink-0 px-4 py-2.5 rounded-xl ss-caption font-bold flex items-center gap-1.5"
+              style={{ background: isKitchenLive ? "var(--ss-success)" : "var(--ss-warning)", color: "#fff" }}
             >
-              <Power size={14} />
-              {isKitchenLive ? "TURN OFF" : "TURN ON"}
+              <Power size={13} />
+              {isKitchenLive ? "Turn Off" : "Turn On"}
             </button>
           </div>
 
           {/* Printer Paper Format Setup */}
-          <div className="p-4 border-2 border-brown-900 bg-cream-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-orange-500 text-white flex items-center justify-center flex-shrink-0">
-                <Printer size={18} />
+          <div
+            className="rounded-[var(--ss-radius-card)] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+            style={{ border: "1px solid var(--ss-border)", background: "var(--ss-surface)" }}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "var(--ss-accent-tint)", color: "var(--ss-accent-dark)" }}>
+                <Printer size={16} />
               </div>
-              <div>
-                <p className="font-bold text-xs uppercase tracking-widest text-brown-900" style={{ fontFamily: "var(--font-heading)" }}>
-                  Billing & KOT Printer Format
-                </p>
-                <p className="text-[11px] font-medium text-gray-600">
-                  Active:{" "}
-                  <span className="font-bold text-orange-600 uppercase">
-                    {paperFormat === "A4" ? "A4 Sheet" : paperFormat === "58mm" ? "58mm (2\")" : "80mm (3\")"}
-                  </span>
+              <div className="min-w-0">
+                <p className="font-bold ss-small" style={{ color: "var(--ss-primary)" }}>Billing &amp; KOT Printer Format</p>
+                <p className="ss-caption">
+                  Active: <strong style={{ color: "var(--ss-accent-dark)" }}>{paperFormat === "A4" ? "A4 Sheet" : paperFormat === "58mm" ? "58mm (2\")" : "80mm (3\")"}</strong>
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-1.5 flex-wrap">
               {[
-                { id: "80mm", label: "🖨️ 80mm" },
-                { id: "58mm", label: "📱 58mm" },
-                { id: "A4", label: "📄 A4" },
+                { id: "80mm", label: "80mm" },
+                { id: "58mm", label: "58mm" },
+                { id: "A4", label: "A4" },
               ].map((f) => (
                 <button
                   key={f.id}
                   onClick={() => handlePaperFormatChange(f.id)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border`}
+                  className="px-3 py-1.5 rounded-full ss-caption font-bold transition-all"
                   style={{
-                    background: paperFormat === f.id ? "var(--color-brown-900)" : "var(--color-surface)",
-                    color: paperFormat === f.id ? "white" : "var(--color-brown-900)",
-                    borderColor: "var(--color-brown-900)",
+                    background: paperFormat === f.id ? "var(--ss-primary)" : "var(--ss-bg)",
+                    color: paperFormat === f.id ? "var(--ss-on-accent)" : "var(--ss-secondary)",
+                    border: "1px solid var(--ss-border)",
                   }}
                 >
                   {f.label}
@@ -715,35 +703,30 @@ export default function CaptainDashboard() {
         </div>
 
         {/* Live Seating Stats Bar */}
-        <section className="mb-10 p-5 border-2 border-brown-900 bg-surface">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 mb-4 border-b border-brown-900">
+        <section className="mb-8 rounded-[var(--ss-radius-card)] p-4 sm:p-5" style={{ border: "1px solid var(--ss-border)", background: "var(--ss-surface)" }}>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 mb-4 border-b" style={{ borderColor: "var(--ss-border)" }}>
             <div>
-              <h2
-                className="text-xl font-black uppercase tracking-widest flex items-center gap-3"
-                style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
-              >
-                <Users size={24} style={{ color: "var(--color-orange-500)" }} />
-                Live Seats & Tables Occupation
+              <h2 className="ss-h3 flex items-center gap-2.5" style={{ marginBottom: 0 }}>
+                <Users size={20} style={{ color: "var(--ss-accent-dark)" }} />
+                Live Seats &amp; Tables
               </h2>
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mt-1">
-                Real-time dining room seating tracker
-              </p>
+              <p className="ss-caption mt-1">Real-time dining room seating tracker</p>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 flex-wrap">
               {[
-                { id: "all", label: `ALL (${tables.filter((t) => t.isActive).length})` },
-                { id: "occupied", label: `OCCUPIED (${occupiedTablesCount})` },
-                { id: "available", label: `FREE (${availableTablesCount})` },
+                { id: "all", label: `All (${tables.filter((t) => t.isActive).length})` },
+                { id: "occupied", label: `Occupied (${occupiedTablesCount})` },
+                { id: "available", label: `Free (${availableTablesCount})` },
               ].map((t) => (
                 <button
                   key={t.id}
                   onClick={() => setTableFilter(t.id)}
-                  className={`text-xs font-black uppercase tracking-wider px-3 py-1.5 border transition-all`}
+                  className="ss-caption font-bold px-3 py-1.5 rounded-full transition-all"
                   style={{
-                    background: tableFilter === t.id ? "var(--color-brown-900)" : "var(--color-surface)",
-                    color: tableFilter === t.id ? "white" : "var(--color-brown-900)",
-                    borderColor: "var(--color-brown-900)",
+                    background: tableFilter === t.id ? "var(--ss-primary)" : "var(--ss-bg)",
+                    color: tableFilter === t.id ? "var(--ss-on-accent)" : "var(--ss-secondary)",
+                    border: "1px solid var(--ss-border)",
                   }}
                 >
                   {t.label}
@@ -753,28 +736,22 @@ export default function CaptainDashboard() {
           </div>
 
           {/* Quick Counter Badges */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-            <div className="p-3 border border-brown-900 bg-cream-50">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 block">TOTAL SEATS</span>
-              <span className="text-2xl font-black text-brown-900" style={{ fontFamily: "var(--font-heading)" }}>
-                {totalCapacity}
-              </span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            <div className="p-3 rounded-2xl" style={{ background: "var(--ss-bg)", border: "1px solid var(--ss-border)" }}>
+              <span className="ss-caption font-bold block">Total Seats</span>
+              <span className="text-xl font-bold" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-primary)" }}>{totalCapacity}</span>
             </div>
-            <div className="p-3 border border-orange-500 bg-orange-50/50">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-orange-700 block">OCCUPIED SEATS</span>
-              <span className="text-2xl font-black text-orange-600" style={{ fontFamily: "var(--font-heading)" }}>
-                {occupiedSeats}
-              </span>
+            <div className="p-3 rounded-2xl" style={{ background: "var(--ss-accent-tint)", border: "1px solid var(--ss-border)" }}>
+              <span className="ss-caption font-bold block" style={{ color: "var(--ss-accent-dark)" }}>Occupied</span>
+              <span className="text-xl font-bold" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-accent-dark)" }}>{occupiedSeats}</span>
             </div>
-            <div className="p-3 border border-green-600 bg-green-50/50">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-green-700 block">FREE SEATS</span>
-              <span className="text-2xl font-black text-green-700" style={{ fontFamily: "var(--font-heading)" }}>
-                {freeSeats}
-              </span>
+            <div className="p-3 rounded-2xl" style={{ background: "rgba(27,138,90,0.08)", border: "1px solid var(--ss-border)" }}>
+              <span className="ss-caption font-bold block" style={{ color: "var(--ss-success)" }}>Free</span>
+              <span className="text-xl font-bold" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-success)" }}>{freeSeats}</span>
             </div>
-            <div className="p-3 border border-brown-900 bg-cream-100">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600 block">OCCUPANCY RATE</span>
-              <span className="text-2xl font-black text-brown-900" style={{ fontFamily: "var(--font-heading)" }}>
+            <div className="p-3 rounded-2xl" style={{ background: "var(--ss-bg)", border: "1px solid var(--ss-border)" }}>
+              <span className="ss-caption font-bold block">Occupancy</span>
+              <span className="text-xl font-bold" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-primary)" }}>
                 {totalCapacity > 0 ? Math.round((occupiedSeats / totalCapacity) * 100) : 0}%
               </span>
             </div>
@@ -797,48 +774,45 @@ export default function CaptainDashboard() {
                 });
               }
 
+              const tone = isBillRequested
+                ? { border: "rgba(217,140,0,0.4)", bg: "rgba(217,140,0,0.08)" }
+                : isOccupied
+                ? { border: "rgba(232,144,23,0.4)", bg: "var(--ss-accent-tint)" }
+                : { border: "var(--ss-border)", bg: "var(--ss-surface)" };
+
               return (
                 <div
                   key={table.id}
-                  className={`p-3 border-2 transition-all flex flex-col justify-between ${
-                    isBillRequested
-                      ? "border-amber-500 bg-amber-50/80"
-                      : isOccupied
-                      ? "border-orange-500 bg-orange-50/40"
-                      : "border-brown-900 bg-surface"
-                  }`}
+                  className="p-3 rounded-2xl transition-all flex flex-col justify-between"
+                  style={{ border: `1px solid ${tone.border}`, background: tone.bg }}
                 >
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-black text-lg text-brown-900" style={{ fontFamily: "var(--font-heading)" }}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-bold text-base" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-primary)" }}>
                         {table.code}
                       </span>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-600">
-                        👥 {table.capacity || 4}
-                      </span>
+                      <span className="ss-caption font-semibold">👥 {table.capacity || 4}</span>
                     </div>
 
-                    <div className="my-1.5">
-                      {isBillRequested ? (
-                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-amber-500 text-white border border-amber-700 block text-center">
-                          🧾 BILL REQ.
-                        </span>
-                      ) : isOccupied ? (
-                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-orange-500 text-white border border-brown-900 block text-center">
-                          OCCUPIED
-                        </span>
-                      ) : (
-                        <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-green-600 text-white border border-green-800 block text-center">
-                          FREE
-                        </span>
-                      )}
-                    </div>
+                    {isBillRequested ? (
+                      <span className="ss-caption font-bold px-1.5 py-0.5 rounded-full block text-center" style={{ background: "var(--ss-warning)", color: "var(--ss-primary)" }}>
+                        🧾 Bill Req.
+                      </span>
+                    ) : isOccupied ? (
+                      <span className="ss-caption font-bold px-1.5 py-0.5 rounded-full block text-center" style={{ background: "var(--ss-accent)", color: "var(--ss-on-accent)" }}>
+                        Occupied
+                      </span>
+                    ) : (
+                      <span className="ss-caption font-bold px-1.5 py-0.5 rounded-full block text-center" style={{ background: "var(--ss-success)", color: "#fff" }}>
+                        Free
+                      </span>
+                    )}
                   </div>
 
                   {isOccupied && (
-                    <div className="mt-2 pt-1.5 border-t border-brown-900/30 text-[11px] font-bold flex justify-between">
-                      <span className="text-gray-600">Total:</span>
-                      <span className="text-orange-600">₹{runningTotal}</span>
+                    <div className="mt-2 pt-1.5 border-t ss-caption font-bold flex justify-between" style={{ borderColor: "var(--ss-border)" }}>
+                      <span style={{ color: "var(--ss-secondary)" }}>Total:</span>
+                      <span style={{ color: "var(--ss-accent-dark)" }}>₹{runningTotal}</span>
                     </div>
                   )}
                 </div>
@@ -849,104 +823,92 @@ export default function CaptainDashboard() {
 
         {/* Bill Requests */}
         {billRequests.length > 0 && (
-          <div className="mb-10 space-y-4">
+          <div className="mb-8 space-y-3">
             {billRequests.map((bill) => (
               <div
                 key={bill.sessionId}
-                className="flex items-center justify-between p-5 border-2 border-orange-500 rounded-xl"
-                style={{ background: "var(--color-cream-200)" }}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 rounded-[var(--ss-radius-card)]"
+                style={{ border: "1px solid rgba(217,140,0,0.4)", background: "rgba(217,140,0,0.08)" }}
               >
-                <div className="flex items-center gap-4">
-                  <Receipt size={28} style={{ color: "var(--color-orange-500)" }} />
+                <div className="flex items-center gap-3.5">
+                  <span className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "var(--ss-warning)", color: "var(--ss-primary)" }}>
+                    <Receipt size={22} />
+                  </span>
                   <div>
-                    <p
-                      className="font-black text-lg uppercase tracking-widest text-brown-900"
-                      style={{ fontFamily: "var(--font-heading)" }}
-                    >
+                    <p className="font-bold ss-body" style={{ color: "var(--ss-primary)" }}>
                       Bill Requested — Table {bill.tableCode}
                     </p>
-                    <p className="text-sm font-bold uppercase tracking-widest mt-1 text-stone-600">
-                      Total Amount: ₹{bill.total}
-                    </p>
+                    <p className="ss-small font-semibold mt-0.5">Total Amount: ₹{bill.total}</p>
                   </div>
                 </div>
 
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => handlePrintAndCloseBill(bill)}
-                    disabled={printingBills.has(bill.sessionId)}
-                    className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider rounded-xl border border-emerald-800 transition-all flex items-center gap-2 shadow-xs disabled:opacity-50"
-                  >
-                    <Printer size={18} />
-                    {printingBills.has(bill.sessionId) ? "PRINTING & CLOSING..." : "PRINT & CLOSE BILL"}
-                  </button>
-                </div>
+                <button
+                  onClick={() => handlePrintAndCloseBill(bill)}
+                  disabled={printingBills.has(bill.sessionId)}
+                  className="ss-btn px-5 py-3 ss-caption font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+                  style={{ background: "var(--ss-success)", color: "#fff", borderRadius: "var(--ss-radius-button)" }}
+                >
+                  <Printer size={16} />
+                  {printingBills.has(bill.sessionId) ? "Printing & Closing..." : "Print & Close Bill"}
+                </button>
               </div>
             ))}
           </div>
         )}
 
         {/* Pending Orders */}
-        <section className="mb-10">
-          <h2
-            className="text-xl font-black mb-6 uppercase tracking-widest flex items-center gap-3"
-            style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
-          >
-            <Clock size={24} style={{ color: "var(--color-orange-500)" }} />
+        <section className="mb-8">
+          <h2 className="ss-h3 mb-4 flex items-center gap-2.5">
+            <Clock size={18} style={{ color: "var(--ss-accent-dark)" }} />
             Pending Orders
             {pendingOrders.length > 0 && (
-              <span className="text-sm border px-3 py-1 font-black bg-danger text-white border-brown-900">
+              <span className="ss-caption font-bold px-2 py-0.5 rounded-full" style={{ background: "var(--ss-danger)", color: "#fff" }}>
                 {pendingOrders.length}
               </span>
             )}
           </h2>
 
           {pendingOrders.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-brown-900">
-              <p className="font-bold uppercase tracking-widest" style={{ color: "var(--color-text-muted)" }}>
-                No pending orders.
-              </p>
+            <div className="text-center py-10 rounded-[var(--ss-radius-card)]" style={{ border: "1px dashed var(--ss-border)" }}>
+              <p className="ss-small font-semibold">No pending orders.</p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {pendingOrders.map((order) => (
-                <div key={order.id} className="card border-l-4" style={{ borderLeftColor: "var(--color-orange-500)" }}>
-                  <div className="flex items-center justify-between mb-4 pb-4 border-b border-brown-900">
+                <div
+                  key={order.id}
+                  className="rounded-[var(--ss-radius-card)] p-4 sm:p-5 border-l-4"
+                  style={{ border: "1px solid var(--ss-border)", borderLeftWidth: 4, borderLeftColor: "var(--ss-accent)", background: "var(--ss-surface)", boxShadow: "var(--ss-shadow-sm)" }}
+                >
+                  <div className="flex items-center justify-between mb-3 pb-3 border-b" style={{ borderColor: "var(--ss-border)" }}>
                     <div>
-                      <span
-                        className="font-black text-xl uppercase tracking-widest"
-                        style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
-                      >
+                      <span className="font-bold ss-body" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-primary)" }}>
                         Table {order.session.table.code}
                       </span>
-                      <span
-                        className="text-sm font-bold uppercase tracking-widest ml-3"
-                        style={{ color: "var(--color-text-muted)" }}
-                      >
-                        #{order.orderNumber}
-                      </span>
+                      <span className="ss-caption font-semibold ml-2">#{order.orderNumber}</span>
                     </div>
                     <OrderStatusBadge status={order.status} />
                   </div>
-                  <div className="space-y-2 mb-6">
+                  <div className="space-y-1.5 mb-4">
                     {order.items.map((item) => (
-                      <div key={item.id} className="flex justify-between text-sm font-bold uppercase tracking-wider">
-                        <span style={{ color: "var(--color-text-secondary)" }}>{item.menuItem.name}</span>
-                        <span style={{ color: "var(--color-brown-900)" }}>X {item.quantity}</span>
+                      <div key={item.id} className="flex justify-between ss-small font-semibold">
+                        <span style={{ color: "var(--ss-secondary)" }}>{item.menuItem.name}</span>
+                        <span style={{ color: "var(--ss-primary)" }}>× {item.quantity}</span>
                       </div>
                     ))}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--color-text-muted)" }}>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="ss-caption font-semibold whitespace-nowrap">
                       {new Date(order.createdAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true })}
                     </span>
                     <button
                       onClick={() => handleAcceptOrder(order.id)}
                       disabled={acceptingOrders.has(order.id)}
-                      className="btn-primary py-2 text-sm"
+                      className="ss-btn px-4 py-2.5 ss-caption font-bold flex items-center gap-1.5 disabled:opacity-60"
+                      style={{ background: "var(--ss-accent)", color: "var(--ss-on-accent)", borderRadius: "var(--ss-radius-button)" }}
                     >
-                      <Check size={16} />
-                      {acceptingOrders.has(order.id) ? "ACCEPTING..." : "ACCEPT & PRINT KOT"}
+                      <Check size={14} />
+                      {acceptingOrders.has(order.id) ? "Accepting..." : "Accept & Print KOT"}
                     </button>
                   </div>
                 </div>
@@ -956,79 +918,70 @@ export default function CaptainDashboard() {
         </section>
 
         {/* Active Orders — with status update buttons */}
-        <section className="mb-10">
-          <h2
-            className="text-xl font-black mb-6 uppercase tracking-widest flex items-center gap-3"
-            style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
-          >
-            <ClipboardList size={24} style={{ color: "var(--color-brown-900)" }} />
+        <section className="mb-8">
+          <h2 className="ss-h3 mb-4 flex items-center gap-2.5">
+            <ClipboardList size={18} style={{ color: "var(--ss-primary)" }} />
             Active Orders
           </h2>
 
           {activeOrders.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-brown-900">
-              <p className="font-bold uppercase tracking-widest" style={{ color: "var(--color-text-muted)" }}>
-                No active orders.
-              </p>
+            <div className="text-center py-10 rounded-[var(--ss-radius-card)]" style={{ border: "1px dashed var(--ss-border)" }}>
+              <p className="ss-small font-semibold">No active orders.</p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {activeOrders.map((order) => (
-                <div key={order.id} className="card border-l-4" style={{ borderLeftColor: "var(--color-success)" }}>
-                  <div className="flex items-center justify-between mb-4 pb-4 border-b border-brown-900">
+                <div
+                  key={order.id}
+                  className="rounded-[var(--ss-radius-card)] p-4 sm:p-5 border-l-4"
+                  style={{ border: "1px solid var(--ss-border)", borderLeftWidth: 4, borderLeftColor: "var(--ss-success)", background: "var(--ss-surface)", boxShadow: "var(--ss-shadow-sm)" }}
+                >
+                  <div className="flex items-center justify-between mb-3 pb-3 border-b" style={{ borderColor: "var(--ss-border)" }}>
                     <div>
-                      <span
-                        className="font-black text-xl uppercase tracking-widest"
-                        style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
-                      >
+                      <span className="font-bold ss-body" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-primary)" }}>
                         Table {order.session.table.code}
                       </span>
-                      <span
-                        className="text-sm font-bold uppercase tracking-widest ml-3"
-                        style={{ color: "var(--color-text-muted)" }}
-                      >
-                        #{order.orderNumber}
-                      </span>
+                      <span className="ss-caption font-semibold ml-2">#{order.orderNumber}</span>
                     </div>
                     <OrderStatusBadge status={order.status} />
                   </div>
 
-                  <div className="space-y-2.5 mb-4">
+                  <div className="space-y-2 mb-4">
                     {order.items.map((item) => {
                       const isItemServed = item.status === "SERVED";
                       return (
                         <div
                           key={item.id}
-                          className="flex items-center justify-between text-xs sm:text-sm font-bold uppercase tracking-wider p-2 border rounded-lg bg-amber-50/40 border-amber-200/60"
+                          className="flex items-center justify-between gap-2 ss-small font-semibold p-2.5 rounded-xl"
+                          style={{ background: "var(--ss-bg)" }}
                         >
-                          <div className="flex items-center gap-2">
-                            <span style={{ color: "var(--color-brown-900)" }}>{item.menuItem?.name || item.name}</span>
-                            <span className="text-orange-600 font-extrabold">× {item.quantity}</span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="truncate" style={{ color: "var(--ss-primary)" }}>{item.menuItem?.name || item.name}</span>
+                            <span className="flex-shrink-0 font-bold" style={{ color: "var(--ss-accent-dark)" }}>× {item.quantity}</span>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            {isItemServed ? (
-                              <span className="text-[10px] font-black px-2 py-1 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                ✓ SERVED
-                              </span>
-                            ) : (
-                              <button
-                                onClick={() => handleMarkItemServed(item.id)}
-                                disabled={updatingItems.has(item.id)}
-                                className="px-3 py-1 text-xs font-black uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white rounded border border-emerald-800 transition-all flex items-center gap-1 shadow-xs active:scale-95 disabled:opacity-50"
-                              >
-                                <Utensils size={12} />
-                                {updatingItems.has(item.id) ? "SERVING..." : "SERVED"}
-                              </button>
-                            )}
-                          </div>
+                          {isItemServed ? (
+                            <span className="ss-caption font-bold px-2 py-1 rounded-full flex-shrink-0" style={{ background: "rgba(27,138,90,0.12)", color: "var(--ss-success)" }}>
+                              ✓ Served
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleMarkItemServed(item.id)}
+                              disabled={updatingItems.has(item.id)}
+                              className="ss-btn flex-shrink-0 px-3 py-2 ss-caption font-bold flex items-center gap-1 disabled:opacity-50"
+                              style={{ background: "var(--ss-success)", color: "#fff", borderRadius: "var(--ss-radius-button)" }}
+                            >
+                              <Utensils size={12} />
+                              {updatingItems.has(item.id) ? "Serving..." : "Served"}
+                            </button>
+                          )}
                         </div>
                       );
                     })}
                   </div>
 
                   {/* Status Update Buttons — captain updates order progress */}
-                  <div className="flex gap-2 flex-wrap pt-3 border-t border-brown-900/20">
+                  <div className="flex gap-2 flex-wrap pt-3 border-t" style={{ borderColor: "var(--ss-border)" }}>
                     {STATUS_ACTIONS.map((action) => {
                       // Don't show button for current status or for already-past statuses
                       if (order.status === action.status) return null;
@@ -1039,11 +992,11 @@ export default function CaptainDashboard() {
                           key={action.status}
                           onClick={() => handleUpdateStatus(order.id, action.status)}
                           disabled={updatingOrders.has(key)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black uppercase tracking-wider border transition-all"
+                          className="flex items-center gap-1.5 px-3 py-2 ss-caption font-bold rounded-full transition-all"
                           style={{
-                            borderColor: action.color,
+                            border: `1px solid ${action.color}`,
                             color: action.color,
-                            background: "var(--color-surface)",
+                            background: "var(--ss-surface)",
                             opacity: updatingOrders.has(key) ? 0.6 : 1,
                           }}
                         >
@@ -1063,64 +1016,57 @@ export default function CaptainDashboard() {
       {/* Notification Sidebar */}
       {showNotifications && (
         <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setShowNotifications(false)}>
-          <div className="absolute inset-0" style={{ background: "rgba(61, 39, 16, 0.5)" }} />
+          <div className="absolute inset-0" style={{ background: "rgba(59, 34, 10, 0.5)" }} />
           <div
-            className="relative w-full max-w-md h-full flex flex-col border-l"
-            style={{ background: "var(--color-surface)", borderColor: "var(--color-brown-900)" }}
+            className="relative w-full max-w-md h-full flex flex-col"
+            style={{ background: "var(--ss-surface)" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: "var(--color-brown-900)" }}>
-              <h3 className="text-lg font-black uppercase tracking-widest" style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}>
-                Notifications
-              </h3>
-              <div className="flex gap-3">
+            <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: "var(--ss-border)" }}>
+              <h3 className="ss-h3" style={{ marginBottom: 0 }}>Notifications</h3>
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => setNotifications([])}
-                  className="text-xs font-bold uppercase tracking-widest px-3 py-1 border border-brown-900"
+                  className="ss-caption font-bold px-3 py-1.5 rounded-full"
+                  style={{ background: "var(--ss-bg)", color: "var(--ss-secondary)" }}
                 >
-                  CLEAR
+                  Clear
                 </button>
                 <button
                   onClick={() => setShowNotifications(false)}
-                  className="w-8 h-8 border border-brown-900 flex items-center justify-center hover:bg-brown-900 hover:text-white"
+                  aria-label="Close notifications"
+                  className="w-9 h-9 rounded-full flex items-center justify-center"
+                  style={{ background: "var(--ss-bg)", color: "var(--ss-primary)" }}
                 >
                   <X size={16} />
                 </button>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            <div className="flex-1 overflow-y-auto p-5 space-y-3">
               {notifications.length === 0 ? (
-                <p className="text-center py-8 font-bold uppercase tracking-widest text-sm" style={{ color: "var(--color-text-muted)" }}>
-                  No notifications
-                </p>
+                <p className="text-center py-8 ss-small font-semibold">No notifications</p>
               ) : (
                 notifications.map((notif) => (
                   <div
                     key={notif.id}
-                    className="p-4 border"
+                    className="p-4 rounded-2xl"
                     style={{
-                      borderColor: notif.urgent ? "#F59E0B" : "var(--color-brown-900)",
-                      background: notif.urgent ? "#FFFBEB" : "var(--color-surface)",
+                      border: `1px solid ${notif.urgent ? "rgba(217,140,0,0.4)" : "var(--ss-border)"}`,
+                      background: notif.urgent ? "rgba(217,140,0,0.08)" : "var(--ss-bg)",
                     }}
                   >
                     <div className="flex items-start gap-3">
-                      <span className="text-2xl">{notif.icon}</span>
+                      <span className="text-2xl flex-shrink-0">{notif.icon}</span>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold uppercase tracking-widest" style={{ color: "var(--color-brown-900)" }}>
-                          {notif.message}
-                        </p>
-                        {notif.subtext && (
-                          <p className="text-xs font-medium mt-0.5" style={{ color: "var(--color-text-muted)" }}>
-                            {notif.subtext}
-                          </p>
-                        )}
-                        <p className="text-xs font-bold uppercase tracking-wider mt-2" style={{ color: "var(--color-text-muted)" }}>
+                        <p className="ss-small font-bold" style={{ color: "var(--ss-primary)" }}>{notif.message}</p>
+                        {notif.subtext && <p className="ss-caption mt-0.5">{notif.subtext}</p>}
+                        <p className="ss-caption font-semibold mt-1.5">
                           {new Date(notif.timestamp).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true })}
                         </p>
                       </div>
                       {notif.urgent && (
                         <span className="flex-shrink-0">
-                          <PhoneCall size={16} style={{ color: "#F59E0B" }} />
+                          <PhoneCall size={15} style={{ color: "var(--ss-warning)" }} />
                         </span>
                       )}
                     </div>

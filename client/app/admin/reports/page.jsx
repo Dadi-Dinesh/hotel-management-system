@@ -5,27 +5,25 @@ import { useRouter } from "next/navigation";
 import { TrendingUp, ClipboardList, MessageSquare, UtensilsCrossed, Sliders, Users } from "lucide-react";
 import api from "../../lib/api";
 import { getUser, isAuthenticated } from "../../lib/auth";
-import Navbar from "../../components/Navbar";
+import DashboardHeader from "../../components/admin/DashboardHeader";
 import ExportButton from "../../components/admin/ExportButton";
 import AIReportSummary from "../../components/admin/copilot/AIReportSummary";
 import toast from "react-hot-toast";
 
 function ReportSection({ icon: Icon, title, description, columns, rows, filename, loading }) {
   return (
-    <div className="rounded-2xl p-5 border flex flex-col gap-3" style={{ borderColor: "var(--color-border-light)", background: "var(--color-surface)" }}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <span className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "var(--color-cream-100)", color: "var(--color-orange-500)" }}>
-            <Icon size={18} />
-          </span>
-          <div>
-            <h3 className="font-black text-sm uppercase tracking-wide" style={{ color: "var(--color-brown-900)" }}>{title}</h3>
-            <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>{description}</p>
-          </div>
+    <div className="rounded-[var(--ss-radius-card)] p-5 flex flex-col gap-3" style={{ border: "1px solid var(--ss-border)", background: "var(--ss-surface)" }}>
+      <div className="flex items-start gap-3">
+        <span className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "var(--ss-accent-tint)", color: "var(--ss-accent-dark)" }}>
+          <Icon size={18} />
+        </span>
+        <div>
+          <h3 className="font-bold ss-small" style={{ color: "var(--ss-primary)" }}>{title}</h3>
+          <p className="ss-caption mt-0.5">{description}</p>
         </div>
       </div>
-      <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: "var(--color-border-light)" }}>
-        <span className="text-xs font-bold" style={{ color: "var(--color-text-secondary)" }}>
+      <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: "var(--ss-border)" }}>
+        <span className="ss-caption font-semibold">
           {loading ? "Loading…" : `${rows.length} row${rows.length === 1 ? "" : "s"} ready`}
         </span>
         <ExportButton filename={filename} title={title} subtitle={`Generated ${new Date().toLocaleString("en-IN")}`} columns={columns} rows={rows} disabled={loading} />
@@ -77,13 +75,13 @@ export default function AdminReportsPage() {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--color-cream-50)" }}>
-      <Navbar title="Reports" subtitle="Export Center" backHref="/admin/dashboard" />
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--ss-bg)" }}>
+      <DashboardHeader title="Reports" subtitle="Export Center" />
 
-      <main className="max-w-4xl mx-auto px-4 py-8 space-y-4">
+      <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8 space-y-4">
         <AIReportSummary />
 
-        <p className="text-xs font-semibold mb-2 mt-2" style={{ color: "var(--color-text-muted)" }}>
+        <p className="ss-small font-semibold mb-2 mt-2">
           Export any dataset below as CSV, PDF, or a print-ready page.
         </p>
 

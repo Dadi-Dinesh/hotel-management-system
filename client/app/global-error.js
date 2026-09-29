@@ -23,30 +23,28 @@ export default function GlobalError({ error, reset }) {
           alignItems: "center",
           justifyContent: "center",
           fontFamily: "system-ui, -apple-system, sans-serif",
-          background: "#FFFDF7",
-          color: "#3D2710",
+          background: "#F7F4ED",
+          color: "#3B220A",
           padding: "24px",
         }}
       >
         <div style={{ maxWidth: 360, textAlign: "center" }}>
-          <p style={{ fontWeight: 800, fontSize: 16, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 8 }}>
+          <p style={{ fontWeight: 700, fontSize: 20, marginBottom: 8 }}>
             ServeSync hit a problem
           </p>
-          <p style={{ fontSize: 13, color: "#8A7B6C", lineHeight: 1.6, marginBottom: 24 }}>
+          <p style={{ fontSize: 14, color: "#8C6B47", lineHeight: 1.6, marginBottom: 24 }}>
             Something went wrong loading the app. Reloading usually fixes this.
           </p>
           <button
             onClick={() => reset()}
             style={{
-              padding: "12px 20px",
-              fontSize: 12,
-              fontWeight: 700,
-              letterSpacing: "0.05em",
-              textTransform: "uppercase",
-              background: "#E8891C",
+              padding: "14px 24px",
+              fontSize: 14,
+              fontWeight: 600,
+              background: "#E89017",
               color: "#fff",
               border: "none",
-              borderRadius: 2,
+              borderRadius: 16,
               cursor: "pointer",
             }}
           >

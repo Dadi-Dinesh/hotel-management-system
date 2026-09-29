@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus, X, Copy, Trash2, Tag, Clock, Save } from "lucide-react";
 import api from "../../lib/api";
 import { getUser, isAuthenticated } from "../../lib/auth";
-import Navbar from "../../components/Navbar";
+import DashboardHeader from "../../components/admin/DashboardHeader";
 import EmptyState from "../../components/EmptyState";
 import toast from "react-hot-toast";
 
@@ -48,6 +48,18 @@ export default function AdminOffersPage() {
     }
     fetchOffers();
   }, [router]);
+
+  // ESC closes whichever modal is open
+  useEffect(() => {
+    if (!modalOpen && !deletingOffer) return;
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      setModalOpen(false);
+      setDeletingOffer(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modalOpen, deletingOffer]);
 
   const fetchOffers = useCallback(async () => {
     try {
@@ -152,14 +164,17 @@ export default function AdminOffersPage() {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--color-cream-50)" }}>
-      <Navbar
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--ss-bg)" }}>
+      <DashboardHeader
         title="Offers"
         subtitle="Promotions & Discounts"
-        backHref="/admin/dashboard"
-        rightContent={
-          <button onClick={openCreateModal} className="btn-primary flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider py-2.5 px-4">
-            <Plus size={16} /> New Offer
+        actions={
+          <button
+            onClick={openCreateModal}
+            className="ss-btn flex items-center gap-1.5 ss-caption font-bold py-2.5 px-4"
+            style={{ background: "var(--ss-accent)", color: "var(--ss-on-accent)", borderRadius: "var(--ss-radius-button)" }}
+          >
+            <Plus size={14} /> New Offer
           </button>
         }
       />
@@ -356,7 +371,7 @@ export default function AdminOffersPage() {
       {/* Delete confirmation */}
       {deletingOffer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4" onClick={() => setDeletingOffer(null)}>
-          <div className="absolute inset-0" style={{ background: "rgba(61, 39, 16, 0.4)" }} />
+          <div className="absolute inset-0" style={{ background: "rgba(61, 39, 16, 0.4)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" }} />
           <div className="relative w-full max-w-sm rounded-2xl p-6 border-2" style={{ background: "var(--color-surface)", borderColor: "#991B1B" }} onClick={(e) => e.stopPropagation()}>
             <h3 className="text-base font-bold uppercase tracking-wider mb-3" style={{ color: "#991B1B" }}>Delete &quot;{deletingOffer.title}&quot;?</h3>
             <p className="text-sm mb-5" style={{ color: "var(--color-text-secondary)" }}>This cannot be undone.</p>

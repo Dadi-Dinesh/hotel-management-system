@@ -20,11 +20,11 @@ export default function PrinterNav({ active }) {
         <Link
           key={href}
           href={href}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all shrink-0"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-full ss-caption font-bold whitespace-nowrap transition-all shrink-0"
           style={{
-            background: active === href ? "var(--color-brown-900)" : "var(--color-cream-50, #fff)",
-            color: active === href ? "white" : "var(--color-text-secondary)",
-            borderColor: active === href ? "var(--color-brown-900)" : "var(--color-border-light)",
+            background: active === href ? "var(--ss-primary)" : "var(--ss-surface)",
+            color: active === href ? "var(--ss-on-accent)" : "var(--ss-secondary)",
+            border: `1px solid ${active === href ? "var(--ss-primary)" : "var(--ss-border)"}`,
           }}
         >
           <Icon size={13} /> {label}

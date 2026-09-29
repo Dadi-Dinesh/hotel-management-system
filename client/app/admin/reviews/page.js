@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { Star, MessageSquare } from "lucide-react";
 import api from "../../lib/api";
 import { getUser, isAuthenticated } from "../../lib/auth";
-import Navbar from "../../components/Navbar";
+import DashboardHeader from "../../components/admin/DashboardHeader";
 import EmptyState from "../../components/EmptyState";
 import RatingDistribution from "../../components/admin/RatingDistribution";
 import ExportButton from "../../components/admin/ExportButton";
@@ -72,8 +72,8 @@ export default function AdminReviewsPage() {
   ];
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--color-cream-50)" }}>
-      <Navbar title="Customer Insights" subtitle="Feedback & Ratings" backHref="/admin/dashboard" />
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--ss-bg)" }}>
+      <DashboardHeader title="Customer Insights" subtitle="Feedback & Ratings" />
 
       <main className="max-w-5xl mx-auto px-4 py-6">
         {/* Header Stats + Rating Distribution */}

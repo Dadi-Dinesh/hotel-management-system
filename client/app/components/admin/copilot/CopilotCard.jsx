@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
+import { TrendingUp, TrendingDown } from "lucide-react";
 
 /**
  * CopilotCard — the AI Copilot's premium glassmorphism card for a single
@@ -8,8 +9,10 @@ import { motion, useReducedMotion } from "framer-motion";
  * is a measured fact computed from real data — `loading`/`hasData` states
  * make that explicit rather than ever showing a fabricated placeholder.
  */
-export default function CopilotCard({ icon, title, text, accent = "var(--color-orange-500)", hasData = true, loading = false }) {
+export default function CopilotCard({ icon, title, text, accent = "var(--ss-accent)", hasData = true, loading = false, trend }) {
   const shouldReduceMotion = useReducedMotion();
+  const TrendIcon = trend == null ? null : trend > 0 ? TrendingUp : trend < 0 ? TrendingDown : null;
+  const trendColor = trend > 0 ? "var(--ss-success)" : "var(--ss-danger)";
 
   return (
     <motion.div
@@ -18,13 +21,11 @@ export default function CopilotCard({ icon, title, text, accent = "var(--color-o
       whileHover={shouldReduceMotion ? undefined : { y: -3 }}
       transition={{ duration: 0.25 }}
       tabIndex={0}
-      className="rounded-2xl p-4 border flex flex-col gap-2.5 focus:outline-none focus-visible:ring-2"
+      className="rounded-[var(--ss-radius-card)] p-4 flex flex-col gap-2.5 h-full focus:outline-none focus-visible:ring-2"
       style={{
-        borderColor: "var(--color-border-light)",
-        background: "linear-gradient(145deg, rgba(255,253,247,0.85), rgba(255,251,235,0.55))",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        boxShadow: "0 10px 28px -16px rgba(61, 39, 16, 0.35)",
+        border: "1px solid var(--ss-border)",
+        background: "var(--ss-surface)",
+        boxShadow: "var(--ss-shadow-sm)",
         outlineColor: accent,
       }}
     >
@@ -35,19 +36,26 @@ export default function CopilotCard({ icon, title, text, accent = "var(--color-o
         >
           {icon}
         </span>
-        {hasData && (
-          <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: "#ECFDF5", color: "#065F46" }}>
-            Measured
-          </span>
-        )}
+        <div className="flex items-center gap-1.5">
+          {TrendIcon && (
+            <span className="flex items-center gap-0.5 ss-caption font-bold" style={{ color: trendColor }}>
+              <TrendIcon size={11} /> {Math.abs(trend).toFixed(1)}%
+            </span>
+          )}
+          {hasData && (
+            <span className="ss-caption font-bold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(27,138,90,0.12)", color: "var(--ss-success)" }}>
+              Measured
+            </span>
+          )}
+        </div>
       </div>
 
-      <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--color-text-secondary)" }}>{title}</p>
+      <p className="ss-caption font-bold" style={{ color: "var(--ss-secondary)" }}>{title}</p>
 
       {loading ? (
-        <div className="h-8 rounded-lg animate-pulse" style={{ background: "var(--color-cream-200)" }} />
+        <div className="h-8 rounded-lg ss-shimmer" />
       ) : (
-        <p className="text-sm font-semibold leading-snug" style={{ color: hasData ? "var(--color-brown-900)" : "var(--color-text-muted)" }}>
+        <p className="ss-small font-semibold leading-snug" style={{ color: hasData ? "var(--ss-primary)" : "var(--ss-secondary)" }}>
           {text}
         </p>
       )}

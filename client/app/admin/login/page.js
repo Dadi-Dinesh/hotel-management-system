@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { UtensilsCrossed, LogIn, Shield } from "lucide-react";
+import Link from "next/link";
+import { Shield, LogIn } from "lucide-react";
 import api from "../../lib/api";
 import { setAuth } from "../../lib/auth";
-import { PLATFORM_NAME } from "../../lib/branding";
+import AuthShell from "../../components/AuthShell";
+import Input from "../../components/ui/Input";
 import toast from "react-hot-toast";
-import Link from "next/link";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -39,94 +40,47 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center px-6"
-      style={{ background: "var(--color-cream-50)" }}
+    <AuthShell
+      icon={Shield}
+      title="ServeSync Admin"
+      subtitle="Platform Administration"
+      tagline="Manage your restaurant's menu, tables, orders, and analytics from one dashboard."
+      footer={
+        <Link href="/restaurant/login" className="ss-caption font-semibold hover:underline" style={{ color: "var(--ss-secondary)" }}>
+          Managing a restaurant? Sign in to Restaurant Dashboard →
+        </Link>
+      }
     >
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-            style={{
-              background: "var(--color-brown-800)",
-              boxShadow: "0 8px 32px rgba(92, 61, 26, 0.3)",
-            }}
-          >
-            <Shield size={28} color="white" />
-          </div>
-          <h1
-            className="text-2xl font-bold mb-1"
-            style={{
-              fontFamily: "var(--font-heading)",
-              color: "var(--color-brown-900)",
-            }}
-          >
-            ServeSync Admin
-          </h1>
-          <p
-            className="text-sm"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            Platform Administration
-          </p>
-        </div>
-
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label
-              className="block text-sm font-medium mb-1.5"
-              style={{ color: "var(--color-text-secondary)" }}
-            >
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@servesync.com"
-              required
-              className="input"
-            />
-          </div>
-
-          <div>
-            <label
-              className="block text-sm font-medium mb-1.5"
-              style={{ color: "var(--color-text-secondary)" }}
-            >
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter admin password"
-              required
-              className="input"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary w-full py-3"
-            style={{ background: "var(--color-brown-800)" }}
-          >
-            <LogIn size={18} />
-            {loading ? "Logging in..." : "Login to ServeSync"}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center">
-          <Link
-            href="/restaurant/login"
-            className="text-xs font-semibold hover:underline"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
-            Managing a restaurant? Sign in to Restaurant Dashboard →
-          </Link>
-        </div>
-      </div>
-    </div>
+      <form onSubmit={handleLogin} className="space-y-4">
+        <Input
+          id="admin-email"
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="admin@servesync.com"
+          required
+        />
+        <Input
+          id="admin-password"
+          label="Password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Enter admin password"
+          required
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          className="ss-btn w-full py-4 ss-body font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+          data-variant="primary"
+          style={{ background: "var(--ss-accent)", color: "var(--ss-on-accent)", borderRadius: "var(--ss-radius-button)", boxShadow: "var(--ss-shadow-md)" }}
+        >
+          <LogIn size={18} />
+          {loading ? "Logging in..." : "Login to ServeSync"}
+        </button>
+      </form>
+    </AuthShell>
   );
 }

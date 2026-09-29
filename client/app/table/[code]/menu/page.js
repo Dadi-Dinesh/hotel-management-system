@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Search, ShoppingBag } from "lucide-react";
 import api from "../../../lib/api";
-import Navbar from "../../../components/Navbar";
+import StickyHeader from "../../../components/customer/StickyHeader";
 import MenuCard from "../../../components/MenuCard";
 import CategoryTabs from "../../../components/CategoryTabs";
 import CartDrawer from "../../../components/CartDrawer";
 import EmptyState from "../../../components/EmptyState";
+import { SkeletonCard } from "../../../components/customer/SkeletonCard";
 import { useCart } from "../../../hooks/useCart";
 import { useSocket } from "../../../components/SocketProvider";
 import { requestOrQueue } from "../../../lib/pwa/queuedRequest";
@@ -24,6 +25,7 @@ export default function MenuPage() {
   const router = useRouter();
   const tableCode = params.code?.toUpperCase();
   const { socket } = useSocket();
+  const searchInputRef = useRef(null);
 
   const [menu, setMenu] = useState([]);
   const [session, setSession] = useState(null);
@@ -36,11 +38,16 @@ export default function MenuPage() {
   const [sortBy, setSortBy] = useState("NONE"); // "NONE", "PRICE_LOW", "PRICE_HIGH"
   const [showCart, setShowCart] = useState(false);
   const [isOrdering, setIsOrdering] = useState(false);
+  const [seatNumber, setSeatNumber] = useState("");
   // Stable reference point for "New" filtering — captured once on mount, not on every render.
   const [pageLoadTime] = useState(() => Date.now());
 
   const cart = useCart();
   const shouldReduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    setSeatNumber(localStorage.getItem(`seat-${tableCode}`) || "");
+  }, [tableCode]);
 
   const fetchSession = useCallback(async () => {
     const sessionId = localStorage.getItem(`session-${tableCode}`);
@@ -99,6 +106,14 @@ export default function MenuPage() {
   const handleOpenCart = () => {
     fetchSession();
     setShowCart(true);
+  };
+
+  // Add-to-cart feedback (Step 6): the cart hook itself stays silent/pure —
+  // this page-level wrapper is what shows the toast, matching how the roti
+  // quantity flow already toasts on its own "Add" tap.
+  const handleAddToCart = (item) => {
+    cart.addItem(item);
+    toast.success(`Added ${item.name} to cart!`, { icon: "🛒", duration: 2200 });
   };
 
   // Get all items, filtered by category, diet (Veg / Non-Veg), and search query
@@ -187,46 +202,22 @@ export default function MenuPage() {
   );
 
   return (
-    <div
-      className="min-h-screen flex flex-col"
-      style={{ background: "var(--color-cream-50)" }}
-    >
-      <Navbar
-        title="Menu"
-        subtitle={`Table ${tableCode}`}
-        backHref={`/table/${tableCode}`}
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--ss-bg)" }}>
+      <StickyHeader
+        title={DEMO_RESTAURANT.shortName}
+        tableCode={seatNumber ? `${tableCode} · Seat ${seatNumber}` : tableCode}
         logoSrc={DEMO_RESTAURANT.logo}
-        rightContent={
-          <button
-            onClick={handleOpenCart}
-            className="relative flex items-center gap-1.5 px-3 py-2 rounded-xl transition-all"
-            style={{
-              background:
-                cart.totalItems > 0 || placedItemsCount > 0
-                  ? "var(--color-orange-500)"
-                  : "var(--color-cream-100)",
-              color:
-                cart.totalItems > 0 || placedItemsCount > 0
-                  ? "white"
-                  : "var(--color-brown-800)",
-              border:
-                cart.totalItems > 0 || placedItemsCount > 0
-                  ? "none"
-                  : "1px solid var(--color-cream-200)",
-            }}
-          >
-            <ShoppingBag size={18} />
-            {cart.totalItems > 0 ? (
-              <span className="text-sm font-bold">
-                {cart.totalItems} · ₹{cart.totalPrice}
-              </span>
-            ) : placedItemsCount > 0 ? (
-              <span className="text-sm font-bold">
-                Orders ({placedItemsCount}) · ₹{runningTotal}
-              </span>
-            ) : null}
-          </button>
+        onSearchClick={() => searchInputRef.current?.focus()}
+        cartCount={cart.totalItems || placedItemsCount}
+        cartLabel={
+          cart.totalItems > 0
+            ? `${cart.totalItems} · ₹${cart.totalPrice}`
+            : placedItemsCount > 0
+            ? `${placedItemsCount} · ₹${runningTotal}`
+            : undefined
         }
+        cartBumpKey={cart.totalItems}
+        onCartClick={handleOpenCart}
       />
 
       <CategoryTabs
@@ -243,24 +234,26 @@ export default function MenuPage() {
         onNewChange={setNewOnly}
         sortBy={sortBy}
         onSortChange={setSortBy}
+        loading={loading}
+        searchInputRef={searchInputRef}
       />
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-3 sm:px-4 py-3 sm:py-4 pb-28 sm:pb-36 overflow-x-hidden">
         {/* Search & Filter status banner */}
         {filtersActive && !loading && (
-          <div className="flex items-center justify-between mb-3 text-xs text-gray-600 bg-amber-50/70 border border-amber-200 px-3 py-1.5 rounded-lg">
+          <div
+            className="flex items-center justify-between mb-3 ss-caption px-3 py-2 rounded-xl"
+            style={{ background: "var(--ss-accent-tint)", border: "1px solid var(--ss-border)", color: "var(--ss-secondary)" }}
+          >
             <span>
-              Showing <strong>{filteredItems.length}</strong> {filteredItems.length === 1 ? "dish" : "dishes"}
-              {searchQuery && <> matching &quot;<strong>{searchQuery}</strong>&quot;</>}
+              Showing <strong style={{ color: "var(--ss-primary)" }}>{filteredItems.length}</strong> {filteredItems.length === 1 ? "dish" : "dishes"}
+              {searchQuery && <> matching &quot;<strong style={{ color: "var(--ss-primary)" }}>{searchQuery}</strong>&quot;</>}
               {dietFilter !== "ALL" && <> ({dietFilter === "VEG" ? "Veg Only" : "Non-Veg Only"})</>}
               {popularOnly && <> (Popular)</>}
               {newOnly && <> (New)</>}
             </span>
-            <button
-              onClick={resetFilters}
-              className="text-orange-600 font-bold uppercase tracking-wider hover:underline ml-2 flex-shrink-0"
-            >
-              Reset Filters
+            <button onClick={resetFilters} className="font-bold ml-2 flex-shrink-0" style={{ color: "var(--ss-accent-dark)" }}>
+              Reset
             </button>
           </div>
         )}
@@ -268,20 +261,13 @@ export default function MenuPage() {
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="rounded-2xl overflow-hidden border" style={{ borderColor: "var(--color-border-light)" }}>
-                <div className="w-full aspect-[4/3] animate-pulse" style={{ background: "var(--color-cream-200)" }} />
-                <div className="p-3.5 space-y-2">
-                  <div className="h-4 w-3/4 rounded animate-pulse" style={{ background: "var(--color-cream-200)" }} />
-                  <div className="h-3 w-1/2 rounded animate-pulse" style={{ background: "var(--color-cream-200)" }} />
-                  <div className="h-8 w-full rounded-lg animate-pulse mt-2" style={{ background: "var(--color-cream-200)" }} />
-                </div>
-              </div>
+              <SkeletonCard key={i} />
             ))}
           </div>
         ) : filteredItems.length === 0 ? (
           <EmptyState
-            icon={<Search size={30} style={{ color: "var(--color-text-muted)" }} />}
-            title={menu.length === 0 ? "No Menu Items" : "No Dishes Found"}
+            icon={<Search size={28} style={{ color: "var(--ss-secondary)" }} />}
+            title={menu.length === 0 ? "No Menu Items" : "No matching dishes"}
             description={
               menu.length === 0
                 ? "This restaurant hasn't added any menu items yet. Please check back soon."
@@ -289,7 +275,12 @@ export default function MenuPage() {
             }
             action={
               filtersActive && (
-                <button onClick={resetFilters} className="btn-secondary text-xs font-bold px-4 py-2 uppercase tracking-wider">
+                <button
+                  onClick={resetFilters}
+                  className="ss-btn px-5 py-2.5 ss-small font-semibold"
+                  data-variant="secondary"
+                  style={{ background: "var(--ss-surface)", color: "var(--ss-primary)", border: "1px solid var(--ss-border)", borderRadius: "var(--ss-radius-button)" }}
+                >
                   Clear All Filters
                 </button>
               )
@@ -309,7 +300,7 @@ export default function MenuPage() {
                 cartQuantity={
                   cart.items.find((c) => c.menuItemId === item.id)?.quantity || 0
                 }
-                onAdd={cart.addItem}
+                onAdd={handleAddToCart}
                 onUpdateQuantity={cart.updateQuantity}
               />
             ))}
@@ -327,11 +318,13 @@ export default function MenuPage() {
         <div className="fixed bottom-4 left-4 right-4 z-40 md:hidden animate-slide-in-up">
           <button
             onClick={handleOpenCart}
-            className="btn-primary w-full py-3.5 flex items-center justify-between"
+            className="ss-btn w-full py-4 flex items-center justify-between ss-body font-semibold"
+            data-variant="primary"
             style={{
-              fontSize: "1rem",
-              borderRadius: "1rem",
-              boxShadow: "0 8px 32px rgba(232, 137, 28, 0.35)",
+              background: "var(--ss-accent)",
+              color: "var(--ss-on-accent)",
+              borderRadius: "var(--ss-radius-button)",
+              boxShadow: "var(--ss-shadow-lg)",
             }}
           >
             <span className="flex items-center gap-2">

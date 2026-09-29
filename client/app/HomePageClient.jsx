@@ -1,17 +1,31 @@
 "use client";
 
-import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, PlayCircle, QrCode, ChefHat, Users, Receipt, BarChart3, Sparkles, ClipboardCheck, ShieldCheck, PackageCheck, Rocket } from "lucide-react";
+import {
+  PlayCircle,
+  ArrowRight,
+  QrCode,
+  ChefHat,
+  Users,
+  Receipt,
+  BarChart3,
+  Sparkles,
+  ClipboardCheck,
+  ShieldCheck,
+  PackageCheck,
+} from "lucide-react";
 import { PLATFORM_NAME } from "./lib/branding";
 import MarketingNav from "./components/marketing/MarketingNav";
 import MarketingFooter from "./components/marketing/MarketingFooter";
 import HeroMockup from "./components/marketing/HeroMockup";
+import TrustSection from "./components/marketing/TrustSection";
 import InstallSection from "./components/marketing/InstallSection";
 import FeatureCard from "./components/marketing/FeatureCard";
 import TimelineStep from "./components/marketing/TimelineStep";
 import TestimonialCard from "./components/marketing/TestimonialCard";
 import CTASection from "./components/marketing/CTASection";
+import Button from "./components/ui/Button";
+import Section from "./components/ui/Section";
 import { SAMPLE_TESTIMONIALS } from "./lib/marketing/testimonials";
 
 const FEATURES = [
@@ -24,131 +38,130 @@ const FEATURES = [
 ];
 
 const STEPS = [
-  { icon: PlayCircle, title: "Explore Demo", description: "Try the full ordering experience live on our demo restaurant — no signup or login needed." },
-  { icon: ClipboardCheck, title: "Register Restaurant", description: "Submit your restaurant details and requested table count in a simple guided registration." },
-  { icon: ShieldCheck, title: "Verification", description: "Our platform team verifies your restaurant application and approves your account." },
-  { icon: PackageCheck, title: "QR Kit Delivered", description: "Your complete QR Kit, login credentials, and setup guides arrive via email and WhatsApp." },
-  { icon: Rocket, title: "Start Receiving Orders", description: "Place your table QR posters — customers scan, order, and your kitchen receives it in real time." },
+  { icon: PlayCircle, title: "Explore Demo", description: "Try the full ordering experience live on our demo restaurant — no signup needed." },
+  { icon: ClipboardCheck, title: "Register Restaurant", description: "Submit your restaurant details and requested table count in a guided form." },
+  { icon: ShieldCheck, title: "Verification", description: "Our platform team verifies your application and approves your account." },
+  { icon: PackageCheck, title: "QR Kit Delivered", description: "Your QR kit, login credentials, and setup guide arrive by email and WhatsApp." },
 ];
 
 export default function HomePageClient() {
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-hidden" style={{ background: "var(--color-surface)" }}>
-      {/* Decorative ambient gradient blobs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full opacity-30" style={{ background: "radial-gradient(circle, var(--color-orange-500) 0%, transparent 70%)", filter: "blur(60px)" }} />
-        <div className="absolute top-1/3 -right-24 w-96 h-96 rounded-full opacity-20" style={{ background: "radial-gradient(circle, var(--color-brown-900) 0%, transparent 70%)", filter: "blur(70px)" }} />
-      </div>
-
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--ss-bg)" }}>
       <MarketingNav />
 
-      {/* Hero */}
-      <section className="relative px-6 pt-16 pb-20 sm:pt-24 sm:pb-24 text-center">
-        <motion.div
-          initial="hidden"
-          animate="show"
-          variants={{ show: { transition: { staggerChildren: 0.12 } } }}
-          className="max-w-3xl mx-auto flex flex-col items-center"
-        >
-          <motion.h1
-            variants={{ hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="text-4xl sm:text-5xl md:text-6xl font-black mb-5 uppercase tracking-tighter leading-[1.05]"
-            style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
-          >
-            Run Your Restaurant Smarter with {PLATFORM_NAME}
-          </motion.h1>
+      {/* Hero — two column on desktop, stacked on mobile */}
+      <section className="relative overflow-hidden px-4 sm:px-6 pt-12 pb-16 sm:pt-16 sm:pb-20">
+        {/* Decorative ambient glow */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+          <div
+            className="absolute -top-24 -left-24 w-96 h-96 rounded-full opacity-40"
+            style={{ background: "radial-gradient(circle, var(--ss-accent) 0%, transparent 70%)", filter: "blur(80px)" }}
+          />
+        </div>
 
-          <motion.p
-            variants={{ hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="text-sm sm:text-base font-bold uppercase tracking-widest mb-9"
-            style={{ color: "var(--color-orange-600)" }}
+        <div className="relative max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+          <motion.div
+            initial="hidden"
+            animate="show"
+            variants={{ show: { transition: { staggerChildren: 0.12 } } }}
+            className="flex flex-col items-center text-center lg:items-start lg:text-left"
           >
-            QR Ordering • Real-Time Kitchen • Smart Billing • AI Insights
-          </motion.p>
+            <motion.p
+              variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              className="ss-eyebrow mb-4"
+            >
+              QR Ordering · Real-Time Kitchen · Smart Billing · AI Insights
+            </motion.p>
+
+            <motion.h1
+              variants={{ hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="ss-hero-heading mb-5"
+            >
+              Run Your Restaurant Smarter with {PLATFORM_NAME}
+            </motion.h1>
+
+            <motion.p
+              variants={{ hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="ss-body mb-8 max-w-md"
+            >
+              One platform for QR ordering, kitchen tickets, waiter tools, billing, and analytics — built for restaurants that want to move faster.
+            </motion.p>
+
+            <motion.div
+              variants={{ hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="w-full flex flex-col sm:flex-row sm:w-auto items-stretch sm:items-center gap-3"
+            >
+              <Button href="/demo" variant="primary" size="lg" icon={PlayCircle} fullWidthOnMobile>
+                Explore Live Demo
+              </Button>
+              <Button href="/apply" variant="secondary" size="lg" icon={ArrowRight} iconPosition="right" fullWidthOnMobile>
+                Register Restaurant
+              </Button>
+            </motion.div>
+          </motion.div>
 
           <motion.div
-            variants={{ hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="flex flex-col sm:flex-row items-center gap-3 mb-16"
+            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, ease: "easeOut", delay: 0.2 }}
           >
-            <Link
-              href="/demo"
-              className="btn-primary inline-flex items-center gap-2 px-8 py-4 text-sm font-bold uppercase tracking-widest shadow-lg"
-              style={{ borderRadius: "9999px" }}
-            >
-              <PlayCircle size={16} /> Explore Live Demo
-            </Link>
-            <Link
-              href="/apply"
-              className="inline-flex items-center gap-2 px-8 py-4 text-sm font-bold uppercase tracking-widest border-2 transition-all hover:bg-brown-900 hover:text-white"
-              style={{ borderRadius: "9999px", borderColor: "var(--color-brown-900)", color: "var(--color-brown-900)" }}
-            >
-              Register Your Restaurant <ArrowRight size={16} />
-            </Link>
+            <HeroMockup />
           </motion.div>
-        </motion.div>
-
-        {/* Hero mockup */}
-        <div className="w-full">
-          <HeroMockup />
         </div>
       </section>
 
-      {/* PWA Install Section */}
-      <InstallSection />
+      <TrustSection />
 
-      {/* How It Works */}
-      <section className="relative px-6 py-16 sm:py-20 max-w-5xl mx-auto w-full">
-        <motion.div initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.4 }} transition={{ duration: 0.5 }} className="text-center mb-12">
-          <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--color-orange-600)" }}>How ServeSync Works</p>
-          <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight" style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}>
-            From Exploring the Demo to Taking Orders
-          </h2>
-        </motion.div>
-        <div className="flex flex-col sm:flex-row items-start gap-10 sm:gap-4">
-          {STEPS.map((step, i) => (
-            <TimelineStep key={step.title} number={i + 1} icon={step.icon} title={step.title} description={step.description} index={i} last={i === STEPS.length - 1} />
-          ))}
-        </div>
-      </section>
-
-      {/* Features teaser */}
-      <section className="relative px-6 py-16 sm:py-20 max-w-5xl mx-auto w-full">
-        <motion.div initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.4 }} transition={{ duration: 0.5 }} className="text-center mb-12">
-          <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--color-orange-600)" }}>Everything Included</p>
-          <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight mb-3" style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}>
-            One Platform, Every Part of the Restaurant
-          </h2>
-          <Link href="/features" className="text-xs font-bold uppercase tracking-widest underline underline-offset-4" style={{ color: "var(--color-brown-900)" }}>
-            See all features →
-          </Link>
-        </motion.div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      {/* Features */}
+      <Section
+        eyebrow="Everything Included"
+        title="One Platform, Every Part of the Restaurant"
+        subtitle="From the first table scan to the end-of-day report."
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {FEATURES.map((f, i) => (
             <FeatureCard key={f.title} icon={f.icon} title={f.title} description={f.description} index={i} />
           ))}
         </div>
-      </section>
+      </Section>
+
+      {/* How It Works */}
+      <Section eyebrow="How ServeSync Works" title="From Exploring the Demo to Taking Orders">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-0 sm:gap-4">
+          {STEPS.map((step, i) => (
+            <TimelineStep
+              key={step.title}
+              number={i + 1}
+              icon={step.icon}
+              title={step.title}
+              description={step.description}
+              index={i}
+              last={i === STEPS.length - 1}
+            />
+          ))}
+        </div>
+      </Section>
+
+      <InstallSection />
 
       {/* Testimonials */}
-      <section className="relative px-6 py-16 sm:py-20 max-w-5xl mx-auto w-full">
-        <motion.div initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.4 }} transition={{ duration: 0.5 }} className="text-center mb-12">
-          <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "var(--color-orange-600)" }}>What Restaurants Say</p>
-          <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight" style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}>
-            Loved by Restaurant Teams
-          </h2>
-          <p className="text-[11px] font-semibold mt-2" style={{ color: "var(--color-text-muted)" }}>Illustrative examples of the kind of impact ServeSync aims to deliver.</p>
-        </motion.div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+      <Section
+        eyebrow="What Restaurants Say"
+        title="Loved by Restaurant Teams"
+        subtitle="Illustrative examples of the kind of impact ServeSync aims to deliver."
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {SAMPLE_TESTIMONIALS.map((t, i) => (
             <TestimonialCard key={t.name + i} {...t} index={i} />
           ))}
         </div>
-      </section>
+      </Section>
 
       <CTASection />
 

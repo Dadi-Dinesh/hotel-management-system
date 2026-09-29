@@ -9,7 +9,7 @@ import {
   Wifi,
   Save,
 } from "lucide-react";
-import Navbar from "../../../components/Navbar";
+import DashboardHeader from "../../../components/admin/DashboardHeader";
 import PrinterNav from "../../../components/admin/PrinterNav";
 import { usePrinterSettings } from "../../../lib/printer/usePrinterSettings";
 import { networkAdapter } from "../../../lib/printer/adapters/networkAdapter";
@@ -70,7 +70,7 @@ export default function PrinterSettingsPage() {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--color-surface)" }}>
-      <Navbar title="Print Settings" subtitle="Universal Print Engine" backHref="/admin/dashboard" />
+      <DashboardHeader title="Print Settings" subtitle="Universal Print Engine" />
 
       <main className="max-w-2xl mx-auto px-4 py-8">
         <PrinterNav active="/admin/printer/settings" />

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { RefreshCcw, Clock, X, Loader2 } from "lucide-react";
-import Navbar from "../../../components/Navbar";
+import DashboardHeader from "../../../components/admin/DashboardHeader";
 import PrinterNav from "../../../components/admin/PrinterNav";
 import EmptyState from "../../../components/EmptyState";
 import { useSocket } from "../../../components/SocketProvider";
@@ -59,7 +59,7 @@ export default function PrintQueuePage() {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--color-surface)" }}>
-      <Navbar title="Print Queue" subtitle="Live pending & in-progress jobs" backHref="/admin/dashboard" />
+      <DashboardHeader title="Print Queue" subtitle="Live pending & in-progress jobs" />
 
       <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         <PrinterNav active="/admin/printer/queue" />

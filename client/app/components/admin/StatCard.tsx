@@ -23,7 +23,7 @@ export default function StatCard({
   suffix = "",
   decimals = 0,
   trend,
-  accent = "var(--color-orange-500)",
+  accent = "var(--ss-accent)",
 }: StatCardProps) {
   const shouldReduceMotion = useReducedMotion();
   const [display, setDisplay] = useState(() => (shouldReduceMotion ? value : 0));
@@ -50,29 +50,28 @@ export default function StatCard({
   const formatted = decimals > 0 ? display.toFixed(decimals) : Math.round(display).toLocaleString("en-IN");
 
   const TrendIcon = trend == null ? null : trend > 0 ? TrendingUp : trend < 0 ? TrendingDown : Minus;
-  const trendColor = trend == null ? "var(--color-text-muted)" : trend > 0 ? "var(--color-success)" : trend < 0 ? "var(--color-danger)" : "var(--color-text-muted)";
+  const trendColor = trend == null ? "var(--ss-secondary)" : trend > 0 ? "var(--ss-success)" : trend < 0 ? "var(--ss-danger)" : "var(--ss-secondary)";
 
   return (
     <motion.div
       whileHover={shouldReduceMotion ? undefined : { y: -3 }}
       transition={{ duration: 0.2 }}
-      className="rounded-2xl p-4 sm:p-5 border flex flex-col gap-3"
+      className="rounded-[var(--ss-radius-card)] p-4 flex flex-col gap-2.5 h-full"
       style={{
-        borderColor: "var(--color-border-light)",
-        background: "rgba(255, 253, 247, 0.75)",
-        backdropFilter: "blur(10px)",
-        boxShadow: "0 8px 24px -14px rgba(61, 39, 16, 0.3)",
+        border: "1px solid var(--ss-border)",
+        background: "var(--ss-surface)",
+        boxShadow: "var(--ss-shadow-sm)",
       }}
     >
       <div className="flex items-center justify-between">
         <span
-          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ background: `${accent}1A`, color: accent }}
         >
           {icon}
         </span>
         {trend != null && TrendIcon && (
-          <span className="flex items-center gap-1 text-[11px] font-bold" style={{ color: trendColor }}>
+          <span className="flex items-center gap-1 ss-caption font-bold" style={{ color: trendColor }}>
             <TrendIcon size={12} />
             {Math.abs(trend).toFixed(1)}%
           </span>
@@ -80,16 +79,14 @@ export default function StatCard({
       </div>
       <div>
         <p
-          className="text-xl sm:text-2xl font-black tabular-nums"
-          style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
+          className="text-xl font-bold tabular-nums"
+          style={{ fontFamily: "var(--font-heading)", color: "var(--ss-primary)" }}
         >
           {prefix}
           {formatted}
           {suffix}
         </p>
-        <p className="text-[11px] font-bold uppercase tracking-wider mt-1" style={{ color: "var(--color-text-secondary)" }}>
-          {label}
-        </p>
+        <p className="ss-caption font-semibold mt-0.5">{label}</p>
       </div>
     </motion.div>
   );

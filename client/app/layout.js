@@ -95,30 +95,39 @@ export default function RootLayout({ children }) {
             </NetworkProvider>
           </ServiceWorkerManager>
           <Toaster
-            position="top-center"
+            position="bottom-center"
             containerClassName="responsive-toaster"
             containerStyle={{
-              top: 80,
+              bottom: 16,
               left: 16,
               right: 16,
             }}
             toastOptions={{
               duration: 4000,
+              className: "ss-toast",
               style: {
-                background: "#FFF8E7",
-                color: "#3D2710",
-                border: "1px solid #E8891C",
-                borderRadius: "0px",
+                background: "var(--ss-surface, #FFFDF8)",
+                color: "var(--ss-primary, #3B220A)",
+                border: "1px solid var(--ss-border, #E4D3B2)",
+                borderRadius: "var(--ss-radius-card, 24px)",
+                boxShadow: "var(--ss-shadow-lg, 0 24px 56px -20px rgba(59,34,10,0.2))",
                 fontFamily: "var(--font-body)",
                 fontSize: "14px",
                 fontWeight: "600",
-                maxWidth: "360px",
+                maxWidth: "380px",
                 width: "100%",
+                padding: "14px 16px 17px",
               },
               success: {
                 iconTheme: {
-                  primary: "#E8891C",
-                  secondary: "#FFF8E7",
+                  primary: "var(--ss-success, #1B8A5A)",
+                  secondary: "var(--ss-on-accent, #fff)",
+                },
+              },
+              error: {
+                iconTheme: {
+                  primary: "var(--ss-danger, #D64545)",
+                  secondary: "var(--ss-on-accent, #fff)",
                 },
               },
             }}

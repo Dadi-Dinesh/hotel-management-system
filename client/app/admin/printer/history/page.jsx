@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { RefreshCcw, History, RotateCcw, CheckCircle2, XCircle, Clock, Loader2 } from "lucide-react";
-import Navbar from "../../../components/Navbar";
+import DashboardHeader from "../../../components/admin/DashboardHeader";
 import PrinterNav from "../../../components/admin/PrinterNav";
 import EmptyState from "../../../components/EmptyState";
 import api from "../../../lib/api";
@@ -68,7 +68,7 @@ export default function PrintHistoryPage() {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--color-surface)" }}>
-      <Navbar title="Print History" subtitle="Every job, permanently" backHref="/admin/dashboard" />
+      <DashboardHeader title="Print History" subtitle="Every job, permanently" />
 
       <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         <PrinterNav active="/admin/printer/history" />

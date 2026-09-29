@@ -1,38 +1,47 @@
 "use client";
 
-import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, PlayCircle } from "lucide-react";
+import Button from "../ui/Button";
 
-export default function CTASection({ title = "Ready to run your restaurant smarter?", subtitle = "Explore the live demo, or apply to get your own restaurant reviewed and set up on ServeSync." }) {
+export default function CTASection({
+  title = "Ready to run your restaurant smarter?",
+  subtitle = "Explore the live demo, or apply to get your own restaurant reviewed and set up on ServeSync.",
+}) {
   const shouldReduceMotion = useReducedMotion();
   return (
     <motion.section
-      initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 24 }}
+      initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.4 }}
       transition={{ duration: 0.5 }}
-      className="max-w-4xl mx-auto px-6 py-16 text-center"
+      className="max-w-6xl mx-auto px-4 sm:px-6 py-12 sm:py-16"
     >
       <div
-        className="rounded-3xl p-10 sm:p-14"
-        style={{ background: "linear-gradient(135deg, var(--color-brown-900) 0%, #5C3D1A 100%)", boxShadow: "0 30px 70px -30px rgba(61,39,16,0.5)" }}
+        className="rounded-[var(--ss-radius-modal)] p-8 sm:p-16 text-center"
+        style={{ background: "var(--ss-primary)", boxShadow: "var(--ss-shadow-lg)" }}
       >
-        <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tight mb-3" style={{ fontFamily: "var(--font-heading)", color: "white" }}>
+        <h2 className="ss-h2 mb-3" style={{ color: "var(--ss-on-accent)" }}>
           {title}
         </h2>
-        <p className="text-sm mb-8 max-w-lg mx-auto" style={{ color: "rgba(255,253,247,0.75)" }}>{subtitle}</p>
+        <p className="ss-body mb-8 max-w-lg mx-auto" style={{ color: "rgba(255,253,248,0.75)" }}>
+          {subtitle}
+        </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link href="/demo" className="btn-primary inline-flex items-center gap-2 px-7 py-3.5 text-xs font-bold uppercase tracking-widest">
-            <PlayCircle size={15} /> Explore Live Demo
-          </Link>
-          <Link
+          <Button href="/demo" variant="primary" size="lg" icon={PlayCircle} fullWidthOnMobile>
+            Explore Live Demo
+          </Button>
+          <Button
             href="/apply"
-            className="inline-flex items-center gap-2 px-7 py-3.5 text-xs font-bold uppercase tracking-widest rounded-xl border-2 transition-all hover:bg-white hover:text-brown-900"
-            style={{ borderColor: "rgba(255,253,247,0.4)", color: "white" }}
+            variant="secondary"
+            size="lg"
+            icon={ArrowRight}
+            iconPosition="right"
+            fullWidthOnMobile
+            style={{ background: "transparent", borderColor: "rgba(255,253,248,0.35)", color: "var(--ss-on-accent)" }}
           >
-            Register Your Restaurant <ArrowRight size={15} />
-          </Link>
+            Register Restaurant
+          </Button>
         </div>
       </div>
     </motion.section>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { RefreshCcw, Usb, Wifi, Bluetooth, Printer, CheckCircle2, XCircle, Info } from "lucide-react";
-import Navbar from "../../../components/Navbar";
+import DashboardHeader from "../../../components/admin/DashboardHeader";
 import PrinterNav from "../../../components/admin/PrinterNav";
 import { usePrinter } from "../../../lib/printer/usePrinter";
 import { usePrinterSettings } from "../../../lib/printer/usePrinterSettings";
@@ -53,7 +53,7 @@ export default function PrinterDiscoveryPage() {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--color-surface)" }}>
-      <Navbar title="Printer Discovery" subtitle="Find & test connected printers" backHref="/admin/dashboard" />
+      <DashboardHeader title="Printer Discovery" subtitle="Find & test connected printers" />
 
       <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
         <PrinterNav active="/admin/printer/discovery" />

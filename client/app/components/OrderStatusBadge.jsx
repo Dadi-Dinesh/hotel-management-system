@@ -1,15 +1,22 @@
 "use client";
 
-const statusConfig = {
-  PENDING: { label: "Pending", class: "badge-pending" },
-  ACCEPTED: { label: "Accepted", class: "badge-accepted" },
-  PREPARING: { label: "Preparing", class: "badge-preparing" },
-  SERVED: { label: "Served", class: "badge-served" },
-  CANCELLED: { label: "Cancelled", class: "badge-cancelled" },
+const STATUS_CONFIG = {
+  PENDING: { label: "Pending", bg: "var(--ss-accent-tint)", color: "var(--ss-accent-dark)" },
+  ACCEPTED: { label: "Accepted", bg: "rgba(59,34,10,0.08)", color: "var(--ss-primary)" },
+  PREPARING: { label: "Preparing", bg: "var(--ss-accent-tint)", color: "var(--ss-accent-dark)" },
+  SERVED: { label: "Served", bg: "rgba(27,138,90,0.12)", color: "var(--ss-success)" },
+  CANCELLED: { label: "Cancelled", bg: "rgba(214,69,69,0.12)", color: "var(--ss-danger)" },
 };
 
 export default function OrderStatusBadge({ status }) {
-  const config = statusConfig[status] || statusConfig.PENDING;
+  const config = STATUS_CONFIG[status] || STATUS_CONFIG.PENDING;
 
-  return <span className={`badge ${config.class}`}>{config.label}</span>;
+  return (
+    <span
+      className="inline-flex items-center ss-caption font-bold px-2.5 py-1 rounded-full whitespace-nowrap"
+      style={{ background: config.bg, color: config.color }}
+    >
+      {config.label}
+    </span>
+  );
 }

@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Utensils, ClipboardList } from "lucide-react";
+import Image from "next/image";
+import { Utensils, ClipboardList, ShieldCheck, UtensilsCrossed } from "lucide-react";
 import api from "../../lib/api";
-import Navbar from "../../components/Navbar";
 import LoadingScreen from "../../components/LoadingScreen";
 import ReminderButtons from "../../components/ReminderButtons";
+import Input from "../../components/ui/Input";
 import { useSocket } from "../../components/SocketProvider";
 import { DEMO_RESTAURANT } from "../../lib/branding";
 import { emitResilient } from "../../lib/pwa/emitResilient";
@@ -24,6 +25,10 @@ export default function TableLandingPage() {
   const [loadingFinished, setLoadingFinished] = useState(false);
   const [starting, setStarting] = useState(false);
   const [callingWaiter, setCallingWaiter] = useState(false);
+  // Client-side-only personalization — never sent to the server (no seat
+  // concept exists in the schema/API today). Only echoed back to this guest
+  // on their own screen, e.g. the menu header subtitle.
+  const [seatNumber, setSeatNumber] = useState("");
 
   useEffect(() => {
     fetchTable();
@@ -75,6 +80,9 @@ export default function TableLandingPage() {
       const res = await api.post("/sessions", { tableCode });
       setSession(res.data.data);
       localStorage.setItem(`session-${tableCode}`, res.data.data.id);
+      if (seatNumber.trim()) {
+        localStorage.setItem(`seat-${tableCode}`, seatNumber.trim());
+      }
       toast.success("Welcome! Browse our menu and order.");
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to start session");
@@ -110,108 +118,111 @@ export default function TableLandingPage() {
       )}
 
       {table ? (
-        <div
-          className="min-h-screen flex flex-col"
-          style={{ background: "var(--color-surface)" }}
-        >
-          <Navbar
-            title={DEMO_RESTAURANT.shortName}
-            subtitle={`Table ${tableCode}`}
-            logoSrc={DEMO_RESTAURANT.logo}
-          />
-
-          <main className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-            <div
-              className="w-32 h-32 flex items-center justify-center mb-8 border-4"
-              style={{
-                background: "var(--color-cream-200)",
-                borderColor: "var(--color-brown-900)",
-              }}
-            >
-              <span
-                className="text-5xl font-black"
-                style={{
-                  fontFamily: "var(--font-heading)",
-                  color: "var(--color-orange-500)",
-                }}
+        <div className="min-h-screen flex flex-col" style={{ background: "var(--ss-bg)" }}>
+          <main className="flex-1 flex flex-col items-center justify-center px-5 py-10 sm:py-14">
+            <div className="w-full max-w-sm flex flex-col items-center text-center">
+              {/* Subtle plate illustration */}
+              <div
+                className="relative w-20 h-20 rounded-full flex items-center justify-center mb-5"
+                style={{ background: "var(--ss-accent-tint)" }}
+                aria-hidden="true"
               >
-                {tableCode}
-              </span>
-            </div>
+                <div
+                  className="absolute inset-2 rounded-full"
+                  style={{ border: "2px dashed rgba(232, 144, 23, 0.35)" }}
+                />
+                <UtensilsCrossed size={30} style={{ color: "var(--ss-accent-dark)" }} />
+              </div>
 
-            <h2
-              className="text-3xl font-black mb-4 uppercase tracking-tighter text-center"
-              style={{
-                fontFamily: "var(--font-heading)",
-                color: "var(--color-brown-900)",
-              }}
-            >
-              Welcome to Table {table.number}
-            </h2>
-            <p
-              className="text-sm font-bold uppercase tracking-widest mb-12 text-center max-w-xs"
-              style={{ color: "var(--color-text-muted)" }}
-            >
-              {session
-                ? "You have an active session. Continue ordering!"
-                : "Tap below to start ordering"}
-            </p>
+              {/* Restaurant identity */}
+              <div
+                className="relative w-14 h-14 rounded-full overflow-hidden border-2 mb-4 -mt-2"
+                style={{ borderColor: "var(--ss-surface)", boxShadow: "var(--ss-shadow-sm)" }}
+              >
+                <Image src={DEMO_RESTAURANT.logo} alt={`${DEMO_RESTAURANT.name} logo`} fill sizes="56px" className="object-cover" priority />
+              </div>
 
-            {/* Action buttons */}
-            <div className="w-full max-w-sm space-y-4">
-              {session ? (
-                <>
-                  <button
-                    onClick={() => router.push(`/table/${tableCode}/menu`)}
-                    className="btn-primary w-full py-4 text-base"
-                  >
-                    <Utensils size={18} />
-                    BROWSE MENU
-                  </button>
-                  <button
-                    onClick={() => router.push(`/table/${tableCode}/orders`)}
-                    className="btn-secondary w-full py-4 text-base"
-                  >
-                    <ClipboardList size={18} />
-                    VIEW ORDERS
-                  </button>
+              <h1 className="ss-h1 mb-2">Welcome to {DEMO_RESTAURANT.name}</h1>
 
-                  {/* Reminders — sends the same socket event instantly to captain dashboard */}
-                  <ReminderButtons onSend={handleCallWaiter} sending={callingWaiter} />
-                </>
-              ) : (
-                <button
-                  onClick={handleStartSession}
-                  disabled={starting}
-                  className="btn-primary w-full py-5 text-lg"
-                >
-                  <Utensils size={20} />
-                  {starting ? "STARTING..." : "START ORDERING"}
-                </button>
-              )}
+              <p className="ss-body mb-1">
+                You&apos;re seated at <span className="font-bold" style={{ color: "var(--ss-accent-dark)" }}>Table {table.number}</span>
+              </p>
+              <p className="ss-small mb-6">
+                {session ? "You have an active session — continue ordering below." : "Enter your seat number to begin, or skip straight to the menu."}
+              </p>
+
+              {/* Trust message */}
+              <div
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full ss-caption font-semibold mb-8"
+                style={{ background: "var(--ss-surface)", border: "1px solid var(--ss-border)", color: "var(--ss-secondary)" }}
+              >
+                <ShieldCheck size={13} style={{ color: "var(--ss-success)" }} />
+                No app needed — order safely, directly from your phone.
+              </div>
+
+              {/* Action buttons */}
+              <div className="w-full space-y-3">
+                {session ? (
+                  <>
+                    <button
+                      onClick={() => router.push(`/table/${tableCode}/menu`)}
+                      className="ss-btn w-full py-4 ss-body font-semibold flex items-center justify-center gap-2"
+                      data-variant="primary"
+                      style={{ background: "var(--ss-accent)", color: "var(--ss-on-accent)", borderRadius: "var(--ss-radius-button)", boxShadow: "var(--ss-shadow-md)" }}
+                    >
+                      <Utensils size={18} />
+                      Browse Menu
+                    </button>
+                    <button
+                      onClick={() => router.push(`/table/${tableCode}/orders`)}
+                      className="ss-btn w-full py-4 ss-body font-semibold flex items-center justify-center gap-2"
+                      data-variant="secondary"
+                      style={{ background: "var(--ss-surface)", color: "var(--ss-primary)", border: "1px solid var(--ss-border)", borderRadius: "var(--ss-radius-button)" }}
+                    >
+                      <ClipboardList size={18} />
+                      View Orders
+                    </button>
+
+                    {/* Reminders — sends the same socket event instantly to captain dashboard */}
+                    <div className="pt-2">
+                      <ReminderButtons onSend={handleCallWaiter} sending={callingWaiter} />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Input
+                      id="seat-number"
+                      label="Seat number (optional)"
+                      inputMode="numeric"
+                      placeholder="e.g. 3"
+                      value={seatNumber}
+                      onChange={(e) => setSeatNumber(e.target.value)}
+                    />
+                    <button
+                      onClick={handleStartSession}
+                      disabled={starting}
+                      className="ss-btn w-full py-4 ss-body font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+                      data-variant="primary"
+                      style={{ background: "var(--ss-accent)", color: "var(--ss-on-accent)", borderRadius: "var(--ss-radius-button)", boxShadow: "var(--ss-shadow-md)" }}
+                    >
+                      <Utensils size={18} />
+                      {starting ? "Starting..." : "Continue to Menu"}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </main>
         </div>
       ) : !loading ? (
-        <div
-          className="min-h-screen flex items-center justify-center p-6"
-          style={{ background: "var(--color-surface)" }}
-        >
-          <div className="text-center border-2 p-10 max-w-sm w-full" style={{ borderColor: "var(--color-brown-900)" }}>
+        <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--ss-bg)" }}>
+          <div
+            className="text-center p-10 max-w-sm w-full rounded-[var(--ss-radius-card)]"
+            style={{ background: "var(--ss-surface)", border: "1px solid var(--ss-border)", boxShadow: "var(--ss-shadow-sm)" }}
+          >
             <p className="text-6xl mb-6">😕</p>
-            <h2
-              className="text-2xl font-black uppercase tracking-widest mb-4"
-              style={{
-                fontFamily: "var(--font-heading)",
-                color: "var(--color-brown-900)",
-              }}
-            >
-              Table Not Found
-            </h2>
-            <p
-              className="text-sm font-bold uppercase tracking-wider leading-relaxed"
-              style={{ color: "var(--color-text-muted)" }}
-            >
+            <h2 className="ss-h2 mb-3">Table Not Found</h2>
+            <p className="ss-small">
               The table code &quot;{tableCode}&quot; doesn&apos;t exist. Please check and scan again.
             </p>
           </div>

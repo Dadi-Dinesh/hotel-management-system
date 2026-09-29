@@ -1,7 +1,10 @@
 "use client";
 
-import { ArrowDownAZ, Flame, Search, Sparkles, X } from "lucide-react";
+import { ArrowDownAZ, Flame, Sparkles } from "lucide-react";
 import { VegBadge, NonVegBadge } from "./LoadingScreen";
+import SearchBar from "./customer/SearchBar";
+import CategoryPill from "./customer/CategoryPill";
+import { CategoryPillSkeleton } from "./customer/SkeletonCard";
 
 export default function CategoryTabs({
   categories,
@@ -17,177 +20,102 @@ export default function CategoryTabs({
   onNewChange,
   sortBy = "NONE",
   onSortChange,
+  loading = false,
+  searchInputRef,
 }) {
   return (
     <div
-      className="sticky top-[53px] sm:top-[61px] z-40 border-b w-full shadow-xs backdrop-blur-md"
-      style={{
-        background: "var(--color-surface)",
-        borderColor: "var(--color-brown-900)",
-      }}
+      className="sticky top-14 sm:top-16 z-30 backdrop-blur-md border-b w-full"
+      style={{ background: "rgba(255, 253, 248, 0.92)", borderColor: "var(--ss-border)" }}
     >
-      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-2 flex flex-col gap-2">
-        {/* Single Line Row: Search Input (Left) + Compact Diet Segmented Control (Right) */}
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-2.5 flex flex-col gap-2.5">
+        {/* Search + diet segmented control */}
         <div className="flex items-center gap-2 w-full min-w-0">
-          {/* Search Input (Takes available space) */}
-          <div className="relative flex-1 min-w-0">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
-            />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search dishes..."
-              className="w-full pl-8 pr-7 py-1.5 text-xs font-semibold rounded-full border focus:outline-none focus:ring-1 focus:ring-orange-500 truncate"
-              style={{
-                background: "var(--color-cream-100)",
-                color: "var(--color-brown-900)",
-                borderColor: "var(--color-brown-900)",
-              }}
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => onSearchChange("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 text-gray-500"
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
+          <SearchBar ref={searchInputRef} value={searchQuery} onChange={onSearchChange} className="flex-1 min-w-0" />
 
-          {/* Compact Diet Segmented Control (Always side-by-side) */}
           <div
-            className="flex items-center p-0.5 rounded-full border flex-shrink-0"
-            style={{
-              background: "var(--color-cream-100)",
-              borderColor: "var(--color-brown-900)",
-            }}
+            className="flex items-center p-1 rounded-full flex-shrink-0"
+            style={{ background: "var(--ss-bg)", border: "1px solid var(--ss-border)" }}
           >
             <button
               type="button"
               onClick={() => onDietChange("ALL")}
-              className={`px-2 sm:px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all ${
-                dietFilter === "ALL"
-                  ? "bg-brown-900 text-white shadow-xs"
-                  : "text-brown-900 hover:text-orange-600"
-              }`}
+              className="px-2.5 py-1.5 rounded-full ss-caption font-bold transition-all"
               style={{
-                background: dietFilter === "ALL" ? "var(--color-brown-900)" : "transparent",
-                color: dietFilter === "ALL" ? "white" : "var(--color-brown-900)",
+                background: dietFilter === "ALL" ? "var(--ss-primary)" : "transparent",
+                color: dietFilter === "ALL" ? "var(--ss-on-accent)" : "var(--ss-secondary)",
               }}
             >
               All
             </button>
-
             <button
               type="button"
               onClick={() => onDietChange("VEG")}
-              className={`flex items-center gap-1 px-1.5 sm:px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all ${
-                dietFilter === "VEG"
-                  ? "bg-emerald-700 text-white shadow-xs"
-                  : "text-emerald-800 hover:bg-emerald-100/50"
-              }`}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-full ss-caption font-bold transition-all"
+              style={{
+                background: dietFilter === "VEG" ? "var(--ss-success)" : "transparent",
+                color: dietFilter === "VEG" ? "#fff" : "var(--ss-secondary)",
+              }}
             >
               <VegBadge className="w-3 h-3" /> Veg
             </button>
-
             <button
               type="button"
               onClick={() => onDietChange("NON_VEG")}
-              className={`flex items-center gap-1 px-1.5 sm:px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all ${
-                dietFilter === "NON_VEG"
-                  ? "bg-amber-900 text-white shadow-xs"
-                  : "text-amber-900 hover:bg-amber-100/50"
-              }`}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-full ss-caption font-bold transition-all"
+              style={{
+                background: dietFilter === "NON_VEG" ? "var(--ss-accent-dark)" : "transparent",
+                color: dietFilter === "NON_VEG" ? "#fff" : "var(--ss-secondary)",
+              }}
             >
               <NonVegBadge className="w-3 h-3" /> Non-Veg
             </button>
           </div>
         </div>
 
-        {/* Bottom Row: Horizontal Category Carousel */}
+        {/* Category pills — horizontal scroll */}
         <div
-          className="flex gap-1.5 sm:gap-2 overflow-x-auto py-0.5 scrollbar-hide"
-          style={{
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
-            WebkitOverflowScrolling: "touch",
-          }}
+          className="flex gap-2 overflow-x-auto py-0.5"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch" }}
         >
-          <button
-            type="button"
-            onClick={() => onSelect(null)}
-            className="flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-all border"
-            style={{
-              fontFamily: "var(--font-heading)",
-              background: !activeCategory ? "var(--color-orange-500)" : "transparent",
-              color: !activeCategory ? "#FFFDF7" : "var(--color-brown-900)",
-              borderColor: "var(--color-brown-900)",
-            }}
-          >
-            All
-          </button>
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => onSelect(cat.id)}
-              className="flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-all border whitespace-nowrap"
-              style={{
-                fontFamily: "var(--font-heading)",
-                background: activeCategory === cat.id ? "var(--color-orange-500)" : "transparent",
-                color: activeCategory === cat.id ? "#FFFDF7" : "var(--color-brown-900)",
-                borderColor: "var(--color-brown-900)",
-              }}
-            >
-              {cat.name}
-            </button>
-          ))}
+          {loading ? (
+            <CategoryPillSkeleton />
+          ) : (
+            <>
+              <CategoryPill active={!activeCategory} onClick={() => onSelect(null)}>
+                All
+              </CategoryPill>
+              {categories.map((cat) => (
+                <CategoryPill key={cat.id} active={activeCategory === cat.id} onClick={() => onSelect(cat.id)}>
+                  {cat.name}
+                </CategoryPill>
+              ))}
+            </>
+          )}
         </div>
 
-        {/* Third Row: Popular / New toggles + price sort */}
-        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto py-0.5 scrollbar-hide" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-          <button
-            type="button"
-            onClick={() => onPopularChange?.(!popularOnly)}
-            className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all border"
-            style={{
-              background: popularOnly ? "#F59E0B" : "transparent",
-              color: popularOnly ? "white" : "var(--color-brown-900)",
-              borderColor: popularOnly ? "#F59E0B" : "var(--color-brown-900)",
-            }}
-          >
-            <Flame size={11} /> Popular
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onNewChange?.(!newOnly)}
-            className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all border"
-            style={{
-              background: newOnly ? "var(--color-brown-900)" : "transparent",
-              color: newOnly ? "white" : "var(--color-brown-900)",
-              borderColor: "var(--color-brown-900)",
-            }}
-          >
-            <Sparkles size={11} /> New
-          </button>
+        {/* Popular / New / Sort */}
+        <div className="flex items-center gap-2 overflow-x-auto py-0.5" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+          <CategoryPill active={popularOnly} onClick={() => onPopularChange?.(!popularOnly)} icon={Flame}>
+            Popular
+          </CategoryPill>
+          <CategoryPill active={newOnly} onClick={() => onNewChange?.(!newOnly)} icon={Sparkles}>
+            New
+          </CategoryPill>
 
           <div className="flex-1 min-w-[8px]" />
 
           <div className="flex-shrink-0 relative flex items-center">
-            <ArrowDownAZ size={11} className="absolute left-2 pointer-events-none" style={{ color: "var(--color-text-muted)" }} />
+            <ArrowDownAZ size={12} className="absolute left-3 pointer-events-none" style={{ color: "var(--ss-secondary)" }} />
             <select
               value={sortBy}
               onChange={(e) => onSortChange?.(e.target.value)}
-              className="pl-6 pr-2 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider border appearance-none focus:outline-none"
+              aria-label="Sort menu items"
+              className="pl-7 pr-3 py-1.5 rounded-full ss-caption font-bold appearance-none focus:outline-none"
               style={{
-                background: sortBy !== "NONE" ? "var(--color-orange-500)" : "transparent",
-                color: sortBy !== "NONE" ? "white" : "var(--color-brown-900)",
-                borderColor: sortBy !== "NONE" ? "var(--color-orange-500)" : "var(--color-brown-900)",
+                background: sortBy !== "NONE" ? "var(--ss-accent)" : "var(--ss-surface)",
+                color: sortBy !== "NONE" ? "var(--ss-on-accent)" : "var(--ss-secondary)",
+                border: `1px solid ${sortBy !== "NONE" ? "var(--ss-accent)" : "var(--ss-border)"}`,
               }}
             >
               <option value="NONE">Sort</option>

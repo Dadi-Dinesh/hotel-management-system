@@ -86,6 +86,10 @@ export default function InstallSection() {
   const isAlreadyInstalled = isStandalone || installed;
   const canInstall = Boolean(deferredPrompt) && !isAlreadyInstalled;
 
+  // Already running as an installed PWA — nothing to promote, so the whole
+  // section disappears instead of nagging with a leftover "installed" card.
+  if (isAlreadyInstalled) return null;
+
   return (
     <section className="relative px-4 sm:px-6 py-12 sm:py-16">
       <div className="max-w-5xl mx-auto">
@@ -95,11 +99,11 @@ export default function InstallSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.2 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="relative rounded-3xl p-6 sm:p-10 md:p-14 overflow-hidden border-2 shadow-2xl transition-all"
+          className="relative rounded-[var(--ss-radius-modal)] p-6 sm:p-10 md:p-14 overflow-hidden border transition-all"
           style={{
-            borderColor: "rgba(232, 137, 28, 0.35)",
-            background: "linear-gradient(135deg, #FFFFFF 0%, #FFF8EC 60%, #FEF3C7 100%)",
-            boxShadow: "0 20px 50px -15px rgba(232, 137, 28, 0.15), 0 10px 25px -10px rgba(61, 39, 16, 0.08)",
+            borderColor: "var(--ss-border)",
+            background: "linear-gradient(135deg, var(--ss-surface) 0%, var(--ss-bg) 100%)",
+            boxShadow: "var(--ss-shadow-lg)",
           }}
         >
           {/* Subtle amber ambient glow in corner */}
@@ -116,43 +120,40 @@ export default function InstallSection() {
             {/* Left Content Column */}
             <div className="lg:col-span-7 space-y-6 text-left">
               {/* Badge */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border"
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full ss-caption font-bold uppercase border"
                 style={{
-                  background: "rgba(245, 158, 11, 0.12)",
-                  borderColor: "rgba(217, 119, 6, 0.4)",
-                  color: "#B45309",
+                  background: "var(--ss-accent-tint)",
+                  borderColor: "var(--ss-border)",
+                  color: "var(--ss-accent-dark)",
                 }}
               >
-                <Sparkles size={14} className="text-amber-500" />
+                <Sparkles size={14} style={{ color: "var(--ss-accent)" }} />
                 Progressive Web App
               </div>
 
               {/* Title & Description */}
               <div>
-                <h2
-                  className="text-3xl sm:text-4xl font-black uppercase tracking-tight mb-3"
-                  style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}
-                >
+                <h2 className="ss-h2 mb-3">
                   Install {PLATFORM_NAME}
                 </h2>
-                <p className="text-base sm:text-lg font-medium text-stone-700 leading-relaxed">
+                <p className="ss-body font-medium" style={{ color: "var(--ss-primary)" }}>
                   Add {PLATFORM_NAME} to your home screen for faster access.
                 </p>
-                <p className="text-xs sm:text-sm text-stone-500 mt-1.5 leading-relaxed">
+                <p className="ss-small mt-1.5">
                   Instant launch, zero app store downloads, offline resiliency, and responsive speed on any tablet or smartphone.
                 </p>
               </div>
 
               {/* Feature Pills */}
               <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-stone-800">
-                  <div className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-700 flex items-center justify-center flex-shrink-0">
+                <div className="flex items-center gap-2 ss-small font-bold" style={{ color: "var(--ss-primary)" }}>
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "var(--ss-accent-tint)", color: "var(--ss-accent-dark)" }}>
                     <Zap size={12} />
                   </div>
                   <span>Instant 1-Tap Launch</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs font-bold text-stone-800">
-                  <div className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-700 flex items-center justify-center flex-shrink-0">
+                <div className="flex items-center gap-2 ss-small font-bold" style={{ color: "var(--ss-primary)" }}>
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "var(--ss-accent-tint)", color: "var(--ss-accent-dark)" }}>
                     <QrCode size={12} />
                   </div>
                   <span>Offline Ready POS</span>
@@ -164,11 +165,14 @@ export default function InstallSection() {
                 {canInstall ? (
                   <button
                     onClick={handleInstallClick}
-                    className="btn-primary inline-flex items-center gap-2.5 px-7 py-4 text-sm font-black uppercase tracking-wider rounded-xl shadow-lg transition-transform active:scale-98 hover:shadow-xl"
+                    className="ss-btn inline-flex items-center gap-2.5 px-8 py-4 text-sm font-bold transition-transform active:scale-98"
                     style={{
-                      background: "linear-gradient(135deg, #E8891C 0%, #D97706 100%)",
-                      boxShadow: "0 10px 25px -5px rgba(232, 137, 28, 0.4)",
+                      background: "var(--ss-accent)",
+                      color: "var(--ss-on-accent)",
+                      borderRadius: "var(--ss-radius-button)",
+                      boxShadow: "var(--ss-shadow-md)",
                     }}
+                    data-variant="primary"
                     id="install-servesync-btn"
                   >
                     <Download size={18} strokeWidth={2.5} />
@@ -177,28 +181,28 @@ export default function InstallSection() {
                 ) : (
                   <div className="space-y-2">
                     <div
-                      className="inline-flex items-center gap-2.5 px-5 py-3 rounded-xl border text-xs sm:text-sm font-semibold"
+                      className="inline-flex items-center gap-2.5 px-5 py-3 rounded-2xl border ss-small font-semibold"
                       style={{
-                        background: isAlreadyInstalled ? "#ECFDF5" : "#FFFBEB",
-                        borderColor: isAlreadyInstalled ? "#A7F3D0" : "#FDE68A",
-                        color: isAlreadyInstalled ? "#065F46" : "#92400E",
+                        background: isAlreadyInstalled ? "rgba(27, 138, 90, 0.1)" : "var(--ss-accent-tint)",
+                        borderColor: isAlreadyInstalled ? "rgba(27, 138, 90, 0.3)" : "var(--ss-border)",
+                        color: isAlreadyInstalled ? "var(--ss-success)" : "var(--ss-accent-dark)",
                       }}
                     >
                       {isAlreadyInstalled ? (
                         <>
-                          <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
+                          <CheckCircle2 size={18} className="flex-shrink-0" />
                           <span>{PLATFORM_NAME} is installed on this device.</span>
                         </>
                       ) : (
                         <>
-                          <Info size={18} className="text-amber-600 flex-shrink-0" />
+                          <Info size={18} className="flex-shrink-0" />
                           <span>Already installed or unsupported on this device.</span>
                         </>
                       )}
                     </div>
 
                     {isIOS && !isAlreadyInstalled && (
-                      <p className="text-[11px] text-stone-500 flex items-center gap-1.5 pt-1">
+                      <p className="ss-caption flex items-center gap-1.5 pt-1">
                         <Smartphone size={12} />
                         <span>iOS tip: Tap Safari&apos;s Share button and select <strong>&quot;Add to Home Screen&quot;</strong>.</span>
                       </p>
@@ -213,7 +217,8 @@ export default function InstallSection() {
               <div className="relative w-64 sm:w-72">
                 {/* Decorative Amber Ring / Glow behind the phone */}
                 <div
-                  className="absolute inset-0 rounded-[44px] -m-3 border-2 border-dashed border-amber-400/40 pointer-events-none"
+                  className="absolute inset-0 rounded-[44px] -m-3 border-2 border-dashed pointer-events-none"
+                  style={{ borderColor: "rgba(232, 144, 23, 0.35)" }}
                   aria-hidden="true"
                 />
 

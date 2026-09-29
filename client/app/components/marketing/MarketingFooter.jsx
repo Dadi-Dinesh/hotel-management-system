@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { PLATFORM_NAME, PLATFORM_TAGLINE, DEMO_RESTAURANT } from "../../lib/branding";
+import { PLATFORM_NAME, PLATFORM_TAGLINE, DEMO_BADGE_TEXT } from "../../lib/branding";
 
 const COLUMNS = [
   {
@@ -10,7 +10,7 @@ const COLUMNS = [
       { href: "/features", label: "Features" },
       { href: "/pricing", label: "Pricing" },
       { href: "/demo", label: "Demo" },
-      { href: "/apply", label: "Apply for Your Restaurant" },
+      { href: "/apply", label: "Register Restaurant" },
     ],
   },
   {
@@ -40,22 +40,33 @@ const COLUMNS = [
 
 export default function MarketingFooter() {
   return (
-    <footer className="border-t" style={{ borderColor: "var(--color-border-light)", background: "var(--color-brown-900)" }}>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-10">
-          <div className="col-span-2 sm:col-span-1">
-            <p className="font-black text-lg uppercase tracking-widest mb-2" style={{ fontFamily: "var(--font-heading)", color: "var(--color-orange-500)" }}>
+    <footer style={{ background: "var(--ss-primary)" }}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16">
+        <div className="grid grid-cols-2 sm:grid-cols-6 gap-8 mb-12">
+          <div className="col-span-2 sm:col-span-2">
+            <p
+              className="font-bold text-lg mb-2"
+              style={{ fontFamily: "var(--font-heading)", color: "var(--ss-accent)" }}
+            >
               {PLATFORM_NAME}
             </p>
-            <p className="text-xs leading-relaxed" style={{ color: "rgba(255,253,247,0.6)" }}>{PLATFORM_TAGLINE}</p>
+            <p className="ss-small leading-relaxed" style={{ color: "rgba(255,253,248,0.6)" }}>
+              {PLATFORM_TAGLINE}
+            </p>
           </div>
           {COLUMNS.map((col) => (
-            <div key={col.title}>
-              <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: "rgba(255,253,247,0.4)" }}>{col.title}</p>
+            <div key={col.title} className="sm:col-span-1">
+              <p className="ss-caption font-bold mb-3" style={{ color: "rgba(255,253,248,0.4)" }}>
+                {col.title}
+              </p>
               <ul className="space-y-2">
                 {col.links.map((link) => (
                   <li key={link.href}>
-                    <Link href={link.href} className="text-xs font-semibold hover:opacity-100 transition-opacity" style={{ color: "rgba(255,253,247,0.75)" }}>
+                    <Link
+                      href={link.href}
+                      className="ss-small font-medium hover:opacity-100 transition-opacity"
+                      style={{ color: "rgba(255,253,248,0.75)" }}
+                    >
                       {link.label}
                     </Link>
                   </li>
@@ -64,24 +75,21 @@ export default function MarketingFooter() {
             </div>
           ))}
         </div>
-        <div className="pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-3" style={{ borderColor: "rgba(255,253,247,0.12)" }}>
-          <p className="text-[11px] uppercase tracking-wider" style={{ color: "rgba(255,253,247,0.55)" }}>
-            © 2026 ServeSync — Smart QR Restaurant Management Platform
+        <div
+          className="pt-8 border-t flex flex-col sm:flex-row items-center justify-between gap-4"
+          style={{ borderColor: "rgba(255,253,248,0.12)" }}
+        >
+          <p className="ss-caption" style={{ color: "rgba(255,253,248,0.55)" }}>
+            &copy; {new Date().getFullYear()} {PLATFORM_NAME} — {PLATFORM_TAGLINE}
           </p>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/demo"
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold transition-all hover:bg-amber-400/20"
-              style={{
-                background: "rgba(245, 158, 11, 0.12)",
-                border: "1px solid rgba(245, 158, 11, 0.3)",
-                color: "#FBBF24",
-              }}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Live Demo • Sree Nookambika Family Dhaba
-            </Link>
-          </div>
+          <Link
+            href="/demo"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full ss-caption font-semibold transition-colors"
+            style={{ background: "rgba(232, 144, 23, 0.14)", border: "1px solid rgba(232, 144, 23, 0.3)", color: "var(--ss-accent)" }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "var(--ss-success)" }} />
+            {DEMO_BADGE_TEXT}
+          </Link>
         </div>
       </div>
     </footer>

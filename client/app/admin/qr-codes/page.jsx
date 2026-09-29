@@ -19,7 +19,7 @@ import api from "../../lib/api";
 import { getUser, isAuthenticated } from "../../lib/auth";
 import { useRestaurant } from "../../components/RestaurantContext";
 import { DEMO_RESTAURANT } from "../../lib/branding";
-import Navbar from "../../components/Navbar";
+import DashboardHeader from "../../components/admin/DashboardHeader";
 import QRCodeGenerator from "../../components/QRCodeGenerator";
 import EmptyState from "../../components/EmptyState";
 import {
@@ -178,24 +178,39 @@ export default function QRManagementPage() {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--color-surface)" }}>
-      <Navbar title="QR Management" subtitle={restaurant?.name} backHref="/admin/tables" />
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--ss-bg)" }}>
+      <DashboardHeader title="QR Management" subtitle={restaurant?.name} />
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8">
         {/* Bulk action bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6 p-3 rounded-xl border" style={{ borderColor: "var(--color-border-light)", background: "var(--color-cream-100)" }}>
-          <button onClick={toggleSelectAll} className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide" style={{ color: "var(--color-brown-900)" }}>
-            {selectedIds.size === tables.length && tables.length > 0 ? <CheckSquare size={16} /> : <Square size={16} />}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6 p-3 rounded-2xl" style={{ border: "1px solid var(--ss-border)", background: "var(--ss-surface)" }}>
+          <button onClick={toggleSelectAll} className="flex items-center gap-2 ss-small font-bold" style={{ color: "var(--ss-primary)" }}>
+            {selectedIds.size === tables.length && tables.length > 0 ? <CheckSquare size={16} style={{ color: "var(--ss-accent)" }} /> : <Square size={16} style={{ color: "var(--ss-secondary)" }} />}
             {selectedIds.size > 0 ? `${selectedIds.size} selected` : "Select all"}
           </button>
           <div className="flex flex-wrap items-center gap-2">
-            <button onClick={handleBulkRegenerate} disabled={bulkBusy} className="btn-secondary text-xs font-bold uppercase tracking-wider py-2 px-3 flex items-center gap-1.5 disabled:opacity-50">
+            <button
+              onClick={handleBulkRegenerate}
+              disabled={bulkBusy}
+              className="ss-btn ss-caption font-bold py-2 px-3 flex items-center gap-1.5 disabled:opacity-50"
+              style={{ background: "var(--ss-surface)", border: "1px solid var(--ss-border)", color: "var(--ss-primary)", borderRadius: "var(--ss-radius-button)" }}
+            >
               <RefreshCcw size={13} /> Regenerate Selected
             </button>
-            <button onClick={handleDownloadAllZip} disabled={bulkBusy} className="btn-secondary text-xs font-bold uppercase tracking-wider py-2 px-3 flex items-center gap-1.5 disabled:opacity-50">
+            <button
+              onClick={handleDownloadAllZip}
+              disabled={bulkBusy}
+              className="ss-btn ss-caption font-bold py-2 px-3 flex items-center gap-1.5 disabled:opacity-50"
+              style={{ background: "var(--ss-surface)", border: "1px solid var(--ss-border)", color: "var(--ss-primary)", borderRadius: "var(--ss-radius-button)" }}
+            >
               <Download size={13} /> Download All (ZIP)
             </button>
-            <button onClick={handlePrintAll} disabled={bulkBusy} className="btn-primary text-xs font-bold uppercase tracking-wider py-2 px-3 flex items-center gap-1.5 disabled:opacity-50">
+            <button
+              onClick={handlePrintAll}
+              disabled={bulkBusy}
+              className="ss-btn ss-caption font-bold py-2 px-3 flex items-center gap-1.5 disabled:opacity-50"
+              style={{ background: "var(--ss-accent)", color: "var(--ss-on-accent)", borderRadius: "var(--ss-radius-button)" }}
+            >
               <Printer size={13} /> Print All
             </button>
           </div>
@@ -203,12 +218,12 @@ export default function QRManagementPage() {
 
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3, 4].map((i) => <div key={i} className="h-64 rounded-2xl animate-pulse" style={{ background: "var(--color-cream-200)" }} />)}
+            {[1, 2, 3, 4].map((i) => <div key={i} className="h-64 rounded-[var(--ss-radius-card)] ss-shimmer" />)}
           </div>
         ) : tables.length === 0 ? (
           <EmptyState
-            icon={<QrCode size={30} style={{ color: "var(--color-text-muted)" }} />}
-            title="No Tables"
+            icon={<QrCode size={28} style={{ color: "var(--ss-secondary)" }} />}
+            title="No tables"
             description="Add tables from Table Management first — QR codes will appear here automatically."
           />
         ) : (
@@ -226,36 +241,36 @@ export default function QRManagementPage() {
                 <motion.div
                   key={table.id}
                   variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}
-                  className="rounded-2xl p-4 border flex flex-col items-center gap-3 text-center"
-                  style={{ borderColor: "var(--color-border-light)", background: "var(--color-surface)" }}
+                  className="rounded-[var(--ss-radius-card)] p-4 flex flex-col items-center gap-3 text-center"
+                  style={{ border: "1px solid var(--ss-border)", background: "var(--ss-surface)", boxShadow: "var(--ss-shadow-sm)" }}
                 >
                   <button onClick={() => toggleSelect(table.id)} className="self-start" aria-label={`Select table ${table.code}`}>
-                    {selectedIds.has(table.id) ? <CheckSquare size={18} style={{ color: "var(--color-orange-500)" }} /> : <Square size={18} style={{ color: "var(--color-text-muted)" }} />}
+                    {selectedIds.has(table.id) ? <CheckSquare size={18} style={{ color: "var(--ss-accent)" }} /> : <Square size={18} style={{ color: "var(--ss-secondary)" }} />}
                   </button>
 
                   <QRCodeGenerator slug={restaurant.slug} table={table} token={cachedToken} locked={locked} size={140} />
 
                   <div>
-                    <p className="text-lg font-black" style={{ fontFamily: "var(--font-heading)", color: "var(--color-brown-900)" }}>Table {table.number}</p>
-                    <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--color-text-muted)" }}>{table.code}</p>
+                    <p className="text-lg font-bold" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-primary)" }}>Table {table.number}</p>
+                    <p className="ss-caption font-semibold">{table.code}</p>
                   </div>
 
                   <div className="flex items-center gap-1.5 flex-wrap justify-center">
                     <span
-                      className="text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full flex items-center gap-1"
-                      style={{ background: table.secureQR ? "#ECFDF5" : "var(--color-cream-100)", color: table.secureQR ? "#065F46" : "var(--color-text-muted)" }}
+                      className="ss-caption font-bold px-2 py-0.5 rounded-full flex items-center gap-1"
+                      style={{ background: table.secureQR ? "rgba(27,138,90,0.12)" : "var(--ss-bg)", color: table.secureQR ? "var(--ss-success)" : "var(--ss-secondary)" }}
                     >
                       {table.secureQR ? <ShieldCheck size={10} /> : <ShieldOff size={10} />} {table.secureQR ? "Secure" : "Legacy"}
                     </span>
                     <span
-                      className="text-[9px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full"
-                      style={{ background: table.isOccupied ? "#FFF7ED" : "var(--color-cream-100)", color: table.isOccupied ? "#C2410C" : "var(--color-text-muted)" }}
+                      className="ss-caption font-bold px-2 py-0.5 rounded-full"
+                      style={{ background: table.isOccupied ? "var(--ss-accent-tint)" : "var(--ss-bg)", color: table.isOccupied ? "var(--ss-accent-dark)" : "var(--ss-secondary)" }}
                     >
                       {table.isOccupied ? "Occupied" : "Available"}
                     </span>
                   </div>
 
-                  <div className="w-full space-y-1 text-[11px] font-semibold" style={{ color: "var(--color-text-secondary)" }}>
+                  <div className="w-full space-y-1 ss-caption font-semibold">
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-1"><Clock size={11} /> Last Scanned</span>
                       <span>{timeAgo(table.lastScannedAt)}</span>
@@ -266,28 +281,28 @@ export default function QRManagementPage() {
                     </div>
                   </div>
 
-                  <div className="w-full flex items-center gap-1.5 pt-2 mt-1 border-t" style={{ borderColor: "var(--color-border-light)" }}>
+                  <div className="w-full flex items-center gap-1.5 pt-2 mt-1 border-t" style={{ borderColor: "var(--ss-border)" }}>
                     <button
                       onClick={() => handleRegenerate(table)}
                       disabled={isRegenerating}
-                      className="flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border flex items-center justify-center gap-1 disabled:opacity-50"
-                      style={{ borderColor: "var(--color-brown-900)", color: "var(--color-brown-900)" }}
+                      className="flex-1 py-2 ss-caption font-bold rounded-full flex items-center justify-center gap-1 disabled:opacity-50"
+                      style={{ border: "1px solid var(--ss-border)", color: "var(--ss-primary)" }}
                     >
                       <RefreshCcw size={11} className={isRegenerating ? "animate-spin" : ""} /> Regen
                     </button>
                     <button
                       onClick={() => handleDownload(table)}
                       disabled={locked}
-                      className="flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg border flex items-center justify-center gap-1 disabled:opacity-30"
-                      style={{ borderColor: "var(--color-brown-900)", color: "var(--color-brown-900)" }}
+                      className="flex-1 py-2 ss-caption font-bold rounded-full flex items-center justify-center gap-1 disabled:opacity-30"
+                      style={{ border: "1px solid var(--ss-border)", color: "var(--ss-primary)" }}
                     >
                       <Download size={11} /> Save
                     </button>
                     <button
                       onClick={() => handlePrint(table)}
                       disabled={locked}
-                      className="flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wide rounded-lg flex items-center justify-center gap-1 text-white disabled:opacity-30"
-                      style={{ background: "var(--color-orange-500)" }}
+                      className="flex-1 py-2 ss-caption font-bold rounded-full flex items-center justify-center gap-1 disabled:opacity-30"
+                      style={{ background: "var(--ss-accent)", color: "var(--ss-on-accent)" }}
                     >
                       <Printer size={11} /> Print
                     </button>

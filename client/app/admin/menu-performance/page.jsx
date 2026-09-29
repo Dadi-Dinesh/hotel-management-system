@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "../../lib/api";
 import { getUser, isAuthenticated } from "../../lib/auth";
-import Navbar from "../../components/Navbar";
+import DashboardHeader from "../../components/admin/DashboardHeader";
 import MenuItemImage from "../../components/MenuItemImage";
 import AnalyticsTable from "../../components/admin/AnalyticsTable";
 import ExportButton from "../../components/admin/ExportButton";
@@ -102,8 +102,8 @@ export default function MenuPerformancePage() {
   ];
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--color-surface)" }}>
-      <Navbar title="Menu Performance" subtitle="Per-item analytics" backHref="/admin/dashboard" />
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--ss-bg)" }}>
+      <DashboardHeader title="Menu Performance" subtitle="Per-item analytics" />
 
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-5">

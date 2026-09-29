@@ -32,8 +32,8 @@ export default function OrderTimeline({ status }: OrderTimelineProps) {
   if (status === "CANCELLED") {
     return (
       <div
-        className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider"
-        style={{ background: "#FEF2F2", color: "var(--color-danger)", border: "1px solid #FECACA" }}
+        className="flex items-center gap-2 px-3 py-2 rounded-xl ss-small font-bold"
+        style={{ background: "rgba(214, 69, 69, 0.1)", color: "var(--ss-danger)", border: "1px solid rgba(214, 69, 69, 0.25)" }}
       >
         <XCircle size={16} />
         Order Cancelled
@@ -58,9 +58,9 @@ export default function OrderTimeline({ status }: OrderTimelineProps) {
                 transition={{ duration: 1.4, repeat: isCurrent ? Infinity : 0, ease: "easeInOut" }}
                 className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center border-2 flex-shrink-0"
                 style={{
-                  background: reached ? "var(--color-orange-500)" : "var(--color-cream-100)",
-                  borderColor: reached ? "var(--color-orange-500)" : "var(--color-border-light)",
-                  color: reached ? "#FFFDF7" : "var(--color-text-muted)",
+                  background: reached ? "var(--ss-accent)" : "var(--ss-bg)",
+                  borderColor: reached ? "var(--ss-accent)" : "var(--ss-border)",
+                  color: reached ? "var(--ss-on-accent)" : "var(--ss-secondary)",
                 }}
                 aria-current={isCurrent ? "step" : undefined}
               >
@@ -68,19 +68,19 @@ export default function OrderTimeline({ status }: OrderTimelineProps) {
               </motion.div>
               <span
                 className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-center leading-tight"
-                style={{ color: reached ? "var(--color-brown-900)" : "var(--color-text-muted)" }}
+                style={{ color: reached ? "var(--ss-primary)" : "var(--ss-secondary)" }}
               >
                 {stage.label}
               </span>
             </div>
             {i < STAGES.length - 1 && (
-              <div className="flex-1 h-[2px] mx-1 -mt-4 rounded-full overflow-hidden" style={{ background: "var(--color-cream-200)" }}>
+              <div className="flex-1 h-[2px] mx-1 -mt-4 rounded-full overflow-hidden" style={{ background: "var(--ss-border)" }}>
                 <motion.div
                   initial={false}
                   animate={{ width: i < activeIndex ? "100%" : "0%" }}
                   transition={{ duration: shouldReduceMotion ? 0 : 0.5, ease: "easeOut" }}
                   className="h-full"
-                  style={{ background: "var(--color-orange-500)" }}
+                  style={{ background: "var(--ss-accent)" }}
                 />
               </div>
             )}

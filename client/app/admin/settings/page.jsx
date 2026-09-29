@@ -22,7 +22,7 @@ import {
 import api from "../../lib/api";
 import { getUser, isAuthenticated } from "../../lib/auth";
 import { useRestaurant } from "../../components/RestaurantContext";
-import Navbar from "../../components/Navbar";
+import DashboardHeader from "../../components/admin/DashboardHeader";
 import PwaSettingsPanel from "../../components/admin/PwaSettingsPanel";
 import toast from "react-hot-toast";
 
@@ -147,8 +147,8 @@ export default function RestaurantSettingsPage() {
   const showSaveBar = ["general", "branding", "operations", "receipt"].includes(activeTab);
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--color-surface)" }}>
-      <Navbar title="Restaurant Settings" subtitle={restaurant?.name} backHref="/admin/dashboard" />
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--ss-bg)" }}>
+      <DashboardHeader title="Restaurant Settings" subtitle={restaurant?.name} />
 
       <main className="max-w-2xl mx-auto px-4 py-8">
         {/* Tab switcher */}

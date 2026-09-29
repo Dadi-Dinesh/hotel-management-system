@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
-import { UtensilsCrossed } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
+import { MessageCircleHeart } from "lucide-react";
 import { PLATFORM_NAME, DEMO_RESTAURANT } from "../../../lib/branding";
 
 export default function ThankYouPage() {
@@ -11,16 +13,14 @@ export default function ThankYouPage() {
   const router = useRouter();
   const tableCode = params.code?.toUpperCase();
   const [countdown, setCountdown] = useState(9);
-  const [animate, setAnimate] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     // Clear the session from localStorage — table is now free
     if (tableCode) {
       localStorage.removeItem(`session-${tableCode}`);
+      localStorage.removeItem(`seat-${tableCode}`);
     }
-
-    // Trigger entrance animation on next tick
-    const animTimer = setTimeout(() => setAnimate(true), 50);
 
     // Countdown tick every second
     const interval = setInterval(() => {
@@ -39,171 +39,78 @@ export default function ThankYouPage() {
     }, 9000);
 
     return () => {
-      clearTimeout(animTimer);
       clearInterval(interval);
       clearTimeout(redirectTimer);
     };
   }, [tableCode, router]);
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center px-6"
-      style={{ background: "var(--color-surface)" }}
-    >
-      {/* Checkmark circle */}
-      <div
-        className="flex items-center justify-center mb-8"
-        style={{
-          width: "6rem",
-          height: "6rem",
-          border: "3px solid var(--color-brown-900)",
-          background: "var(--color-cream-200)",
-          transition: "transform 0.5s ease, opacity 0.5s ease",
-          transform: animate ? "scale(1)" : "scale(0.5)",
-          opacity: animate ? 1 : 0,
-        }}
-      >
-        <svg
-          viewBox="0 0 52 52"
-          width="44"
-          height="44"
-          style={{ overflow: "visible" }}
-        >
-          <polyline
-            points="14,28 23,37 38,18"
-            fill="none"
-            stroke="var(--color-orange-500)"
-            strokeWidth="4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{
-              strokeDasharray: 50,
-              strokeDashoffset: animate ? 0 : 50,
-              transition: "stroke-dashoffset 0.6s ease 0.3s",
-            }}
-          />
-        </svg>
-      </div>
-
-      {/* Main content */}
-      <div
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-10" style={{ background: "var(--ss-bg)" }}>
+      <motion.div
+        initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
         className="text-center max-w-sm w-full"
-        style={{
-          transition: "opacity 0.6s ease 0.15s, transform 0.6s ease 0.15s",
-          opacity: animate ? 1 : 0,
-          transform: animate ? "translateY(0)" : "translateY(16px)",
-        }}
       >
-        {/* Greeting */}
-        <p className="text-5xl mb-4">🙏</p>
-
-        <h1
-          className="text-4xl font-black uppercase tracking-tight mb-2"
-          style={{
-            fontFamily: "var(--font-heading)",
-            color: "var(--color-brown-900)",
-          }}
+        {/* Warm illustration — checkmark medallion */}
+        <div
+          className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6"
+          style={{ background: "var(--ss-accent-tint)" }}
         >
-          Dhanyavad!
-        </h1>
+          <svg viewBox="0 0 52 52" width="44" height="44" style={{ overflow: "visible" }} aria-hidden="true">
+            <circle cx="26" cy="26" r="24" fill="none" stroke="var(--ss-accent)" strokeWidth="2" opacity="0.35" />
+            <motion.polyline
+              points="14,28 23,37 38,18"
+              fill="none"
+              stroke="var(--ss-accent-dark)"
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              initial={shouldReduceMotion ? { pathLength: 1 } : { pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
+            />
+          </svg>
+        </div>
 
-        <p
-          className="text-lg font-bold mb-6"
-          style={{ color: "var(--color-orange-500)" }}
-        >
-          Thank You for Dining with Us ❤️
+        <h1 className="ss-h1 mb-2">Thank You!</h1>
+        <p className="ss-body font-semibold mb-6" style={{ color: "var(--ss-accent-dark)" }}>
+          We hope you enjoyed dining with us ❤️
         </p>
 
-        {/* Divider */}
-        <div
-          className="mx-auto mb-6"
-          style={{
-            width: "3rem",
-            height: "3px",
-            background: "var(--color-brown-900)",
-          }}
-        />
-
-        {/* Restaurant name */}
-        <div
-          className="flex items-center justify-center gap-2 mb-6"
-          style={{ color: "var(--color-brown-900)" }}
-        >
-          <div className="w-7 h-7 rounded-full overflow-hidden border border-amber-600 flex-shrink-0">
+        {/* Restaurant identity */}
+        <div className="flex items-center justify-center gap-2 mb-6">
+          <div className="w-7 h-7 rounded-full overflow-hidden border flex-shrink-0" style={{ borderColor: "var(--ss-border)" }}>
             <Image src={DEMO_RESTAURANT.logo} alt="Logo" width={28} height={28} className="w-full h-full object-cover" />
           </div>
-          <span
-            className="font-black text-sm uppercase tracking-widest"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            {DEMO_RESTAURANT.name}
-          </span>
+          <span className="ss-small font-bold" style={{ color: "var(--ss-primary)" }}>{DEMO_RESTAURANT.name}</span>
         </div>
 
-        {/* Messages */}
-        <div className="space-y-2 mb-10">
-          <p
-            className="text-sm font-medium"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
-            &quot;We hope you enjoyed your meal.&quot;
-          </p>
-          <p
-            className="text-sm font-medium"
-            style={{ color: "var(--color-text-secondary)" }}
-          >
-            &quot;We look forward to serving you again.&quot;
-          </p>
-          <p
-            className="text-sm font-bold mt-3"
-            style={{ color: "var(--color-brown-900)" }}
-          >
-            Visit Again 😊
-          </p>
-        </div>
+        <p className="ss-body mb-1">Your session is complete.</p>
+        <p className="ss-h3 mb-8" style={{ color: "var(--ss-primary)" }}>Visit Again 😊</p>
 
-        {/* Icons row */}
-        <div
-          className="flex items-center justify-center gap-6 mb-10 text-2xl"
-          style={{ color: "var(--color-text-muted)" }}
+        {/* Optional feedback shortcut — links to the real contact page rather
+            than pretending to submit somewhere; no session/feedback API call
+            happens here. */}
+        <Link
+          href="/contact"
+          className="ss-link-hover inline-flex items-center gap-2 px-4 py-2.5 rounded-full ss-small font-semibold mb-8"
+          style={{ background: "var(--ss-surface)", border: "1px solid var(--ss-border)", color: "var(--ss-secondary)" }}
         >
-          <span title="Rate Us">⭐</span>
-          <span title="Safe Journey">❤️</span>
-          <span title="Thank You">🍽️</span>
-        </div>
+          <MessageCircleHeart size={15} style={{ color: "var(--ss-accent-dark)" }} />
+          Share more feedback
+        </Link>
 
         {/* Auto-redirect notice */}
-        <div
-          className="border p-4"
-          style={{
-            borderColor: "var(--color-cream-300)",
-            background: "var(--color-cream-100)",
-          }}
-        >
-          <p
-            className="text-xs font-bold uppercase tracking-widest"
-            style={{ color: "var(--color-text-muted)" }}
-          >
-            Returning to home in
-          </p>
-          <p
-            className="text-3xl font-black mt-1"
-            style={{
-              fontFamily: "var(--font-heading)",
-              color: "var(--color-orange-500)",
-            }}
-          >
+        <div className="p-4 rounded-[var(--ss-radius-card)]" style={{ background: "var(--ss-surface)", border: "1px solid var(--ss-border)" }}>
+          <p className="ss-caption font-semibold">Returning to home in</p>
+          <p className="text-3xl font-bold mt-1" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-accent-dark)" }}>
             {countdown}s
           </p>
         </div>
 
-        <p
-          className="mt-6 text-[10px] font-bold uppercase tracking-widest"
-          style={{ color: "var(--color-text-muted)" }}
-        >
-          Powered by {PLATFORM_NAME}
-        </p>
-      </div>
+        <p className="ss-caption mt-6">Powered by {PLATFORM_NAME}</p>
+      </motion.div>
     </div>
   );
 }

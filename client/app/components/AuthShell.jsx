@@ -29,7 +29,7 @@ export default function AuthShell({ icon: Icon, title, subtitle, tagline, childr
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6" style={{ background: "var(--ss-accent)", color: "var(--ss-on-accent)" }}>
             <Icon size={30} />
           </div>
-          <h1 className="text-3xl font-bold mb-3" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-on-accent)" }}>
+          <h1 className="text-3xl font-bold mb-3" style={{ fontFamily: "var(--font-heading)", color: "#FFFDF8" }}>
             {title}
           </h1>
           <p className="text-base" style={{ color: "rgba(255,253,248,0.7)" }}>{tagline || subtitle}</p>

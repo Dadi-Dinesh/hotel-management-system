@@ -13,6 +13,11 @@ const VARIANT_STYLES = {
     color: "var(--ss-primary)",
     border: "1px solid var(--ss-border)",
   },
+  "secondary-light": {
+    background: "rgba(255, 253, 248, 0.12)",
+    color: "#FFFDF8",
+    border: "1px solid rgba(255, 253, 248, 0.35)",
+  },
   ghost: {
     background: "transparent",
     color: "var(--ss-primary)",

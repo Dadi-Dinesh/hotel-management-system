@@ -18,27 +18,35 @@ export default function CTASection({
       className="max-w-6xl mx-auto px-4 sm:px-6 py-12 sm:py-16"
     >
       <div
-        className="rounded-[var(--ss-radius-modal)] p-8 sm:p-16 text-center"
-        style={{ background: "var(--ss-primary)", boxShadow: "var(--ss-shadow-lg)" }}
+        className="rounded-[var(--ss-radius-modal)] p-8 sm:p-16 text-center relative overflow-hidden"
+        style={{
+          background: "linear-gradient(135deg, #3B220A 0%, #2A1705 100%)",
+          boxShadow: "var(--ss-shadow-lg)",
+        }}
       >
-        <h2 className="ss-h2 mb-3" style={{ color: "var(--ss-on-accent)" }}>
+        {/* Subtle ambient warm glow */}
+        <div
+          className="pointer-events-none absolute -top-24 -right-24 w-80 h-80 rounded-full opacity-20"
+          style={{ background: "radial-gradient(circle, var(--ss-accent) 0%, transparent 70%)", filter: "blur(60px)" }}
+          aria-hidden="true"
+        />
+        <h2 className="ss-h2 mb-3 relative" style={{ color: "#FFFDF8" }}>
           {title}
         </h2>
-        <p className="ss-body mb-8 max-w-lg mx-auto" style={{ color: "rgba(255,253,248,0.75)" }}>
+        <p className="ss-body mb-8 max-w-lg mx-auto relative" style={{ color: "rgba(255,253,248,0.85)" }}>
           {subtitle}
         </p>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 relative">
           <Button href="/demo" variant="primary" size="lg" icon={PlayCircle} fullWidthOnMobile>
             Explore Live Demo
           </Button>
           <Button
             href="/apply"
-            variant="secondary"
+            variant="secondary-light"
             size="lg"
             icon={ArrowRight}
             iconPosition="right"
             fullWidthOnMobile
-            style={{ background: "transparent", borderColor: "rgba(255,253,248,0.35)", color: "var(--ss-on-accent)" }}
           >
             Register Restaurant
           </Button>

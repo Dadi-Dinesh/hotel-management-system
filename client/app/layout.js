@@ -4,7 +4,6 @@ import { Toaster } from "react-hot-toast";
 import { SocketProvider } from "./components/SocketProvider";
 import { NetworkProvider } from "./components/NetworkProvider";
 import { ServiceWorkerManager } from "./components/ServiceWorkerManager";
-import ConnectionBanner from "./components/ConnectionBanner";
 import { PLATFORM_NAME, PLATFORM_TAGLINE } from "./lib/branding";
 import { SITE_URL } from "./lib/siteUrl";
 
@@ -90,7 +89,6 @@ export default function RootLayout({ children }) {
         <SocketProvider>
           <ServiceWorkerManager>
             <NetworkProvider>
-              <ConnectionBanner />
               {children}
             </NetworkProvider>
           </ServiceWorkerManager>

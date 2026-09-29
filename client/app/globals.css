@@ -462,10 +462,16 @@ h1, h2, h3, h4, h5, h6 {
 .ss-btn[data-variant="primary"]:hover {
   background: var(--ss-accent-dark) !important;
   border-color: var(--ss-accent-dark) !important;
+  color: #FFFDF8 !important;
 }
 .ss-btn[data-variant="secondary"]:hover {
   background: var(--ss-bg) !important;
   border-color: var(--ss-primary) !important;
+}
+.ss-btn[data-variant="secondary-light"]:hover {
+  background: rgba(255, 253, 248, 0.22) !important;
+  border-color: rgba(255, 253, 248, 0.6) !important;
+  color: #FFFDF8 !important;
 }
 .ss-btn[data-variant="ghost"]:hover {
   background: var(--ss-bg) !important;

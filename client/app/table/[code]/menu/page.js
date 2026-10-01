@@ -15,10 +15,8 @@ import { useCart } from "../../../hooks/useCart";
 import { useSocket } from "../../../components/SocketProvider";
 import { requestOrQueue } from "../../../lib/pwa/queuedRequest";
 import { DEMO_RESTAURANT } from "../../../lib/branding";
+import { isDietFilterApplicable } from "../../../lib/menuCategoryType";
 import toast from "react-hot-toast";
-
-// An item counts as "New" if it was added to the menu within the last 14 days.
-const NEW_ITEM_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
 export default function MenuPage() {
   const params = useParams();
@@ -33,14 +31,9 @@ export default function MenuPage() {
   const [activeCategory, setActiveCategory] = useState(null);
   const [dietFilter, setDietFilter] = useState("ALL"); // "ALL", "VEG", "NON_VEG"
   const [searchQuery, setSearchQuery] = useState("");
-  const [popularOnly, setPopularOnly] = useState(false);
-  const [newOnly, setNewOnly] = useState(false);
-  const [sortBy, setSortBy] = useState("NONE"); // "NONE", "PRICE_LOW", "PRICE_HIGH"
   const [showCart, setShowCart] = useState(false);
   const [isOrdering, setIsOrdering] = useState(false);
   const [seatNumber, setSeatNumber] = useState("");
-  // Stable reference point for "New" filtering — captured once on mount, not on every render.
-  const [pageLoadTime] = useState(() => Date.now());
 
   const cart = useCart();
   const shouldReduceMotion = useReducedMotion();
@@ -121,41 +114,46 @@ export default function MenuPage() {
     cat.items.map((item) => ({ ...item, category: { id: cat.id, name: cat.name } }))
   );
 
-  const filteredItems = allItems
-    .filter((item) => {
-      if (activeCategory && item.category.id !== activeCategory) return false;
+  const categories = menu.map((cat) => ({ id: cat.id, name: cat.name }));
+
+  const activeCategoryObj = activeCategory ? categories.find((c) => c.id === activeCategory) : null;
+  // Diet filter only makes sense for food categories — hidden entirely for
+  // drinks/paan/service-request categories (see lib/menuCategoryType).
+  const dietFilterVisible = activeCategory
+    ? isDietFilterApplicable(activeCategoryObj?.name)
+    : categories.some((c) => isDietFilterApplicable(c.name));
+
+  const filteredItems = allItems.filter((item) => {
+    if (activeCategory && item.category.id !== activeCategory) return false;
+    // Never apply Veg/Non-Veg to items whose category doesn't support it,
+    // even if the global filter is still set from a previous category.
+    if (isDietFilterApplicable(item.category?.name)) {
       if (dietFilter === "VEG" && !item.isVeg) return false;
       if (dietFilter === "NON_VEG" && item.isVeg) return false;
-      if (popularOnly && !item.isPopular) return false;
-      if (newOnly) {
-        const createdAt = item.createdAt ? new Date(item.createdAt).getTime() : 0;
-        if (!createdAt || pageLoadTime - createdAt > NEW_ITEM_WINDOW_MS) return false;
-      }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const nameMatch = item.name.toLowerCase().includes(q);
-        const catMatch = item.category?.name?.toLowerCase().includes(q);
-        const descMatch = item.description?.toLowerCase().includes(q);
-        if (!nameMatch && !catMatch && !descMatch) return false;
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      if (sortBy === "PRICE_LOW") return a.price - b.price;
-      if (sortBy === "PRICE_HIGH") return b.price - a.price;
-      return 0;
-    });
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const nameMatch = item.name.toLowerCase().includes(q);
+      const catMatch = item.category?.name?.toLowerCase().includes(q);
+      const descMatch = item.description?.toLowerCase().includes(q);
+      if (!nameMatch && !catMatch && !descMatch) return false;
+    }
+    return true;
+  });
 
-  const categories = menu.map((cat) => ({ id: cat.id, name: cat.name }));
-  const filtersActive = Boolean(searchQuery || dietFilter !== "ALL" || activeCategory || popularOnly || newOnly || sortBy !== "NONE");
+  const filtersActive = Boolean(searchQuery || dietFilter !== "ALL" || activeCategory);
+
+  const handleSelectCategory = (categoryId) => {
+    setActiveCategory(categoryId);
+    const nextCategory = categoryId ? categories.find((c) => c.id === categoryId) : null;
+    const nextDietVisible = categoryId ? isDietFilterApplicable(nextCategory?.name) : true;
+    if (!nextDietVisible && dietFilter !== "ALL") setDietFilter("ALL");
+  };
 
   const resetFilters = () => {
     setSearchQuery("");
     setDietFilter("ALL");
     setActiveCategory(null);
-    setPopularOnly(false);
-    setNewOnly(false);
-    setSortBy("NONE");
   };
 
   const handlePlaceOrder = async () => {
@@ -223,17 +221,12 @@ export default function MenuPage() {
       <CategoryTabs
         categories={categories}
         activeCategory={activeCategory}
-        onSelect={setActiveCategory}
+        onSelect={handleSelectCategory}
         dietFilter={dietFilter}
         onDietChange={setDietFilter}
+        dietFilterVisible={dietFilterVisible}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        popularOnly={popularOnly}
-        onPopularChange={setPopularOnly}
-        newOnly={newOnly}
-        onNewChange={setNewOnly}
-        sortBy={sortBy}
-        onSortChange={setSortBy}
         loading={loading}
         searchInputRef={searchInputRef}
       />
@@ -246,11 +239,9 @@ export default function MenuPage() {
             style={{ background: "var(--ss-accent-tint)", border: "1px solid var(--ss-border)", color: "var(--ss-secondary)" }}
           >
             <span>
-              Showing <strong style={{ color: "var(--ss-primary)" }}>{filteredItems.length}</strong> {filteredItems.length === 1 ? "dish" : "dishes"}
+              Showing <strong style={{ color: "var(--ss-primary)" }}>{filteredItems.length}</strong> {filteredItems.length === 1 ? "item" : "items"}
               {searchQuery && <> matching &quot;<strong style={{ color: "var(--ss-primary)" }}>{searchQuery}</strong>&quot;</>}
               {dietFilter !== "ALL" && <> ({dietFilter === "VEG" ? "Veg Only" : "Non-Veg Only"})</>}
-              {popularOnly && <> (Popular)</>}
-              {newOnly && <> (New)</>}
             </span>
             <button onClick={resetFilters} className="font-bold ml-2 flex-shrink-0" style={{ color: "var(--ss-accent-dark)" }}>
               Reset
@@ -267,7 +258,7 @@ export default function MenuPage() {
         ) : filteredItems.length === 0 ? (
           <EmptyState
             icon={<Search size={28} style={{ color: "var(--ss-secondary)" }} />}
-            title={menu.length === 0 ? "No Menu Items" : "No matching dishes"}
+            title={menu.length === 0 ? "No Menu Items" : "No matching items"}
             description={
               menu.length === 0
                 ? "This restaurant hasn't added any menu items yet. Please check back soon."

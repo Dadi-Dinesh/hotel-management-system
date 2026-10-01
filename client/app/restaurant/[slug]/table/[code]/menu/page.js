@@ -13,9 +13,8 @@ import EmptyState from "../../../../../components/EmptyState";
 import { useCart } from "../../../../../hooks/useCart";
 import { useSocket } from "../../../../../components/SocketProvider";
 import { requestOrQueue } from "../../../../../lib/pwa/queuedRequest";
+import { isDietFilterApplicable } from "../../../../../lib/menuCategoryType";
 import toast from "react-hot-toast";
-
-const NEW_ITEM_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
 export default function TenantMenuPage() {
   const params = useParams();
@@ -30,12 +29,8 @@ export default function TenantMenuPage() {
   const [activeCategory, setActiveCategory] = useState(null);
   const [dietFilter, setDietFilter] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
-  const [popularOnly, setPopularOnly] = useState(false);
-  const [newOnly, setNewOnly] = useState(false);
-  const [sortBy, setSortBy] = useState("NONE");
   const [showCart, setShowCart] = useState(false);
   const [isOrdering, setIsOrdering] = useState(false);
-  const [pageLoadTime] = useState(() => Date.now());
 
   const cart = useCart();
   const shouldReduceMotion = useReducedMotion();
@@ -92,38 +87,43 @@ export default function TenantMenuPage() {
 
   const allItems = menu.flatMap((cat) => cat.items.map((item) => ({ ...item, category: { id: cat.id, name: cat.name } })));
 
-  const filteredItems = allItems
-    .filter((item) => {
-      if (activeCategory && item.category.id !== activeCategory) return false;
+  const categories = menu.map((cat) => ({ id: cat.id, name: cat.name }));
+
+  const activeCategoryObj = activeCategory ? categories.find((c) => c.id === activeCategory) : null;
+  // Diet filter only makes sense for food categories — hidden entirely for
+  // drinks/paan/service-request categories (see lib/menuCategoryType).
+  const dietFilterVisible = activeCategory
+    ? isDietFilterApplicable(activeCategoryObj?.name)
+    : categories.some((c) => isDietFilterApplicable(c.name));
+
+  const filteredItems = allItems.filter((item) => {
+    if (activeCategory && item.category.id !== activeCategory) return false;
+    // Never apply Veg/Non-Veg to items whose category doesn't support it,
+    // even if the global filter is still set from a previous category.
+    if (isDietFilterApplicable(item.category?.name)) {
       if (dietFilter === "VEG" && !item.isVeg) return false;
       if (dietFilter === "NON_VEG" && item.isVeg) return false;
-      if (popularOnly && !item.isPopular) return false;
-      if (newOnly) {
-        const createdAt = item.createdAt ? new Date(item.createdAt).getTime() : 0;
-        if (!createdAt || pageLoadTime - createdAt > NEW_ITEM_WINDOW_MS) return false;
-      }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        if (!item.name.toLowerCase().includes(q) && !item.category?.name?.toLowerCase().includes(q) && !item.description?.toLowerCase().includes(q)) return false;
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      if (sortBy === "PRICE_LOW") return a.price - b.price;
-      if (sortBy === "PRICE_HIGH") return b.price - a.price;
-      return 0;
-    });
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      if (!item.name.toLowerCase().includes(q) && !item.category?.name?.toLowerCase().includes(q) && !item.description?.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
 
-  const categories = menu.map((cat) => ({ id: cat.id, name: cat.name }));
-  const filtersActive = Boolean(searchQuery || dietFilter !== "ALL" || activeCategory || popularOnly || newOnly || sortBy !== "NONE");
+  const filtersActive = Boolean(searchQuery || dietFilter !== "ALL" || activeCategory);
+
+  const handleSelectCategory = (categoryId) => {
+    setActiveCategory(categoryId);
+    const nextCategory = categoryId ? categories.find((c) => c.id === categoryId) : null;
+    const nextDietVisible = categoryId ? isDietFilterApplicable(nextCategory?.name) : true;
+    if (!nextDietVisible && dietFilter !== "ALL") setDietFilter("ALL");
+  };
 
   const resetFilters = () => {
     setSearchQuery("");
     setDietFilter("ALL");
     setActiveCategory(null);
-    setPopularOnly(false);
-    setNewOnly(false);
-    setSortBy("NONE");
   };
 
   const handlePlaceOrder = async () => {
@@ -193,24 +193,19 @@ export default function TenantMenuPage() {
       <CategoryTabs
         categories={categories}
         activeCategory={activeCategory}
-        onSelect={setActiveCategory}
+        onSelect={handleSelectCategory}
         dietFilter={dietFilter}
         onDietChange={setDietFilter}
+        dietFilterVisible={dietFilterVisible}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        popularOnly={popularOnly}
-        onPopularChange={setPopularOnly}
-        newOnly={newOnly}
-        onNewChange={setNewOnly}
-        sortBy={sortBy}
-        onSortChange={setSortBy}
       />
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-3 sm:px-4 py-3 sm:py-4 pb-28 sm:pb-36 overflow-x-hidden">
         {filtersActive && !loading && (
           <div className="flex items-center justify-between mb-3 text-xs text-gray-600 bg-amber-50/70 border border-amber-200 px-3 py-1.5 rounded-lg">
             <span>
-              Showing <strong>{filteredItems.length}</strong> {filteredItems.length === 1 ? "dish" : "dishes"}
+              Showing <strong>{filteredItems.length}</strong> {filteredItems.length === 1 ? "item" : "items"}
             </span>
             <button onClick={resetFilters} className="text-orange-600 font-bold uppercase tracking-wider hover:underline ml-2 flex-shrink-0">
               Reset Filters
@@ -233,7 +228,7 @@ export default function TenantMenuPage() {
         ) : filteredItems.length === 0 ? (
           <EmptyState
             icon={<Search size={30} style={{ color: "var(--color-text-muted)" }} />}
-            title={menu.length === 0 ? "No Menu Items" : "No Dishes Found"}
+            title={menu.length === 0 ? "No Menu Items" : "No matching items"}
             description={menu.length === 0 ? "This restaurant hasn't added any menu items yet." : "Try clearing your search or filters."}
             action={filtersActive && <button onClick={resetFilters} className="btn-secondary text-xs font-bold px-4 py-2 uppercase tracking-wider">Clear All Filters</button>}
           />

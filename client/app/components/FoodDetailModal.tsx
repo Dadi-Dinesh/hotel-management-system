@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { X, Plus, Minus, UtensilsCrossed, ShoppingCart } from "lucide-react";
+import { isDietFilterApplicable } from "../lib/menuCategoryType";
 import { MenuItem } from "../types";
 
 interface FoodDetailModalProps {
@@ -36,6 +37,7 @@ export default function FoodDetailModal({
   const [imgError, setImgError] = useState(false);
   const [visible, setVisible] = useState(false);
   const imgSrc = item.imageUrl || item.image;
+  const isFoodItem = isDietFilterApplicable(item.category?.name);
 
   // Animate in
   useEffect(() => {
@@ -172,31 +174,33 @@ export default function FoodDetailModal({
             </span>
           </div>
 
-          {/* Rating + spice level bar */}
-          <div
-            className="px-5 py-2.5 flex items-center justify-between border-b bg-cream-50"
-            style={{ borderColor: "var(--color-cream-300)" }}
-          >
-            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600">
-              <span className="text-amber-500 text-sm">
-                {"★".repeat(Math.floor(item.displayRating || item.rating || 4.2))}
-                {(item.displayRating || item.rating || 4.2) % 1 >= 0.5 ? "★" : ""}
-                {"☆".repeat(5 - Math.floor(item.displayRating || item.rating || 4.2) - ((item.displayRating || item.rating || 4.2) % 1 >= 0.5 ? 1 : 0))}
-              </span>
-              <span className="font-bold text-brown-900">
-                {(item.displayRating || item.rating || 4.2).toFixed(1)}
-              </span>
-              <span className="text-[11px] font-normal text-gray-500">
-                ({item.ratingCount || 100} Reviews)
-              </span>
-            </div>
+          {/* Rating + spice level bar — food items only; not meaningful for drinks/paan/service requests */}
+          {isFoodItem && (
+            <div
+              className="px-5 py-2.5 flex items-center justify-between border-b bg-cream-50"
+              style={{ borderColor: "var(--color-cream-300)" }}
+            >
+              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600">
+                <span className="text-amber-500 text-sm">
+                  {"★".repeat(Math.floor(item.displayRating || item.rating || 4.2))}
+                  {(item.displayRating || item.rating || 4.2) % 1 >= 0.5 ? "★" : ""}
+                  {"☆".repeat(5 - Math.floor(item.displayRating || item.rating || 4.2) - ((item.displayRating || item.rating || 4.2) % 1 >= 0.5 ? 1 : 0))}
+                </span>
+                <span className="font-bold text-brown-900">
+                  {(item.displayRating || item.rating || 4.2).toFixed(1)}
+                </span>
+                <span className="text-[11px] font-normal text-gray-500">
+                  ({item.ratingCount || 100} Reviews)
+                </span>
+              </div>
 
-            {item.spiceLevel && (
-              <span className="text-xs font-semibold text-orange-600">
-                🌶️ {item.spiceLevel}
-              </span>
-            )}
-          </div>
+              {item.spiceLevel && (
+                <span className="text-xs font-semibold text-orange-600">
+                  🌶️ {item.spiceLevel}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Serving info + calories */}
           {(item.servingInformation || item.calories != null) && (

@@ -84,6 +84,9 @@ async function main() {
     "Rotis",
     "Non-Veg Starters",
     "Non-Veg Curries",
+    "Beverages",
+    "Pan",
+    "Cutlery",
   ];
 
   const categories = {};
@@ -170,7 +173,30 @@ async function main() {
     { name: "Anda Bujji", category: "Non-Veg Curries", price: 100, description: "Scrambled eggs stir-fried with green chillies, onions, and fresh coriander.", servingInformation: "Serves 8–10 Rotis", isVeg: false, isPopular: false, spiceLevel: "Medium", rating: 3.5, displayRating: 3.5, ratingCount: 60, totalRating: 210.0 },
     { name: "Anda Keema", category: "Non-Veg Curries", price: 100, description: "Minced boiled eggs cooked in thick spicy minced gravy with garlicky herbs.", servingInformation: "Serves 8–10 Rotis", isVeg: false, isPopular: false, spiceLevel: "Spicy", rating: 3.7, displayRating: 3.7, ratingCount: 76, totalRating: 281.2 },
     { name: "Anda Tadaka", category: "Non-Veg Curries", price: 110, description: "Boiled eggs tempered with mustard seeds, curry leaves, and spicy red gravy.", servingInformation: "Serves 8–10 Rotis", isVeg: false, isPopular: false, spiceLevel: "Spicy", rating: 3.8, displayRating: 3.8, ratingCount: 88, totalRating: 334.4 },
-    { name: "Anda Palak", category: "Non-Veg Curries", price: 110, description: "Hard-boiled eggs cooked in smooth, garlic-infused creamy spinach gravy.", servingInformation: "Serves 8–10 Rotis", isVeg: false, isPopular: false, spiceLevel: "Mild", rating: 3.6, displayRating: 3.6, ratingCount: 64, totalRating: 230.4 }
+    { name: "Anda Palak", category: "Non-Veg Curries", price: 110, description: "Hard-boiled eggs cooked in smooth, garlic-infused creamy spinach gravy.", servingInformation: "Serves 8–10 Rotis", isVeg: false, isPopular: false, spiceLevel: "Mild", rating: 3.6, displayRating: 3.6, ratingCount: 64, totalRating: 230.4 },
+
+    // Beverages — veg/non-veg doesn't apply here (see client/app/lib/menuCategoryType.js)
+    { name: "Masala Chai", category: "Beverages", price: 25, description: "Hot spiced milk tea brewed with cardamom, ginger, and cloves.", servingInformation: null, isVeg: true, isPopular: false, spiceLevel: null, rating: null, displayRating: null, ratingCount: null, totalRating: null },
+    { name: "Sweet Lassi", category: "Beverages", price: 60, description: "Chilled yogurt-based drink blended with sugar and a hint of cardamom.", servingInformation: null, isVeg: true, isPopular: false, spiceLevel: null, rating: null, displayRating: null, ratingCount: null, totalRating: null },
+    { name: "Fresh Lime Soda", category: "Beverages", price: 50, description: "Freshly squeezed lime with soda — sweet, salted, or mixed.", servingInformation: null, isVeg: true, isPopular: false, spiceLevel: null, rating: null, displayRating: null, ratingCount: null, totalRating: null },
+    { name: "Mango Juice", category: "Beverages", price: 70, description: "Freshly blended seasonal mango juice.", servingInformation: null, isVeg: true, isPopular: false, spiceLevel: null, rating: null, displayRating: null, ratingCount: null, totalRating: null },
+    { name: "Mineral Water", category: "Beverages", price: 20, description: "Packaged drinking water, 1 litre.", servingInformation: null, isVeg: true, isPopular: false, spiceLevel: null, rating: null, displayRating: null, ratingCount: null, totalRating: null },
+
+    // Pan — veg/non-veg doesn't apply here
+    { name: "Meetha Pan", category: "Pan", price: 40, description: "Sweet betel leaf filled with gulkand, fennel, and candied fruit.", servingInformation: null, isVeg: true, isPopular: false, spiceLevel: null, rating: null, displayRating: null, ratingCount: null, totalRating: null },
+    { name: "Banarasi Pan", category: "Pan", price: 50, description: "Classic betel leaf pan with areca nut, lime, and traditional spices.", servingInformation: null, isVeg: true, isPopular: false, spiceLevel: null, rating: null, displayRating: null, ratingCount: null, totalRating: null },
+    { name: "Chocolate Pan", category: "Pan", price: 60, description: "Betel leaf pan filled with chocolate sauce and gulkand.", servingInformation: null, isVeg: true, isPopular: false, spiceLevel: null, rating: null, displayRating: null, ratingCount: null, totalRating: null },
+
+    // Cutlery — requestable table-service items, reuse the existing menu/cart/order flow.
+    // Complimentary (price 0); a restaurant can change pricing from the admin Menu page like any other item.
+    { name: "Extra Plate", category: "Cutlery", price: 0, description: "For additional plates at your table.", servingInformation: null, isVeg: true, isPopular: false, spiceLevel: null, rating: null, displayRating: null, ratingCount: null, totalRating: null },
+    { name: "Extra Spoon", category: "Cutlery", price: 0, description: "Request additional spoons for your table.", servingInformation: null, isVeg: true, isPopular: false, spiceLevel: null, rating: null, displayRating: null, ratingCount: null, totalRating: null },
+    { name: "Extra Fork", category: "Cutlery", price: 0, description: "Request additional forks for your table.", servingInformation: null, isVeg: true, isPopular: false, spiceLevel: null, rating: null, displayRating: null, ratingCount: null, totalRating: null },
+    { name: "Extra Knife", category: "Cutlery", price: 0, description: "Request additional knives for your table.", servingInformation: null, isVeg: true, isPopular: false, spiceLevel: null, rating: null, displayRating: null, ratingCount: null, totalRating: null },
+    { name: "Extra Bowl", category: "Cutlery", price: 0, description: "For additional bowls at your table.", servingInformation: null, isVeg: true, isPopular: false, spiceLevel: null, rating: null, displayRating: null, ratingCount: null, totalRating: null },
+    { name: "Extra Glass", category: "Cutlery", price: 0, description: "Request additional drinking glasses for your table.", servingInformation: null, isVeg: true, isPopular: false, spiceLevel: null, rating: null, displayRating: null, ratingCount: null, totalRating: null },
+    { name: "Extra Cup", category: "Cutlery", price: 0, description: "Request an additional cup for your table.", servingInformation: null, isVeg: true, isPopular: false, spiceLevel: null, rating: null, displayRating: null, ratingCount: null, totalRating: null },
+    { name: "Extra Napkins", category: "Cutlery", price: 0, description: "Request extra napkins for your table.", servingInformation: null, isVeg: true, isPopular: false, spiceLevel: null, rating: null, displayRating: null, ratingCount: null, totalRating: null },
   ];
 
   let itemCount = 0;

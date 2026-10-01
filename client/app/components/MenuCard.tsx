@@ -7,6 +7,7 @@ import MenuItemImage from "./MenuItemImage";
 import FoodDetailModal from "./FoodDetailModal";
 import QuantitySelector from "./customer/QuantitySelector";
 import { VegBadge, NonVegBadge } from "./LoadingScreen";
+import { isDietFilterApplicable } from "../lib/menuCategoryType";
 import { MenuItem } from "../types";
 
 import toast from "react-hot-toast";
@@ -55,6 +56,7 @@ export default function MenuCard({
   const shouldReduceMotion = useReducedMotion();
 
   const isQtyItem = isQuantityItem(item.name);
+  const isFoodItem = isDietFilterApplicable(item.category?.name);
 
   const handleApplyQuantity = () => {
     const parsed = parseInt(inputString, 10);
@@ -95,9 +97,11 @@ export default function MenuCard({
             variant="large"
             onClick={() => setShowDetail(true)}
           />
-          <div className="absolute top-2.5 left-2.5 z-10">
-            {item.isVeg ? <VegBadge /> : <NonVegBadge />}
-          </div>
+          {isFoodItem && (
+            <div className="absolute top-2.5 left-2.5 z-10">
+              {item.isVeg ? <VegBadge /> : <NonVegBadge />}
+            </div>
+          )}
           {item.isPopular && (
             <span
               className="absolute top-2.5 right-2.5 z-10 ss-caption font-bold px-2 py-1 rounded-full"
@@ -132,7 +136,7 @@ export default function MenuCard({
             </p>
           )}
 
-          {(item.servingInformation || item.spiceLevel) && (
+          {(item.servingInformation || (isFoodItem && item.spiceLevel)) && (
             <div className="flex items-center gap-1.5 flex-wrap">
               {item.servingInformation && (
                 <span
@@ -142,7 +146,7 @@ export default function MenuCard({
                   {getServingEmoji(item.servingInformation)} {item.servingInformation}
                 </span>
               )}
-              {item.spiceLevel && (
+              {isFoodItem && item.spiceLevel && (
                 <span className="inline-flex items-center gap-0.5 ss-caption font-semibold" style={{ color: "var(--ss-accent-dark)" }}>
                   🌶️ {item.spiceLevel}
                 </span>

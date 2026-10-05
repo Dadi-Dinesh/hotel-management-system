@@ -16,4 +16,10 @@ async function sendEmail({ to, subject, html }) {
   return { sent: false, reason: "No email provider configured yet." };
 }
 
-module.exports = { sendEmail };
+/** False until a real provider is wired into sendEmail() above — lets the
+ * Platform Admin UI say "not configured" instead of implying delivery. */
+function isEmailConfigured() {
+  return false;
+}
+
+module.exports = { sendEmail, isEmailConfigured };

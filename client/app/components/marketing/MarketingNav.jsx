@@ -72,7 +72,7 @@ export default function MarketingNav() {
         <div className="flex items-center justify-end gap-2">
           <div className="hidden md:flex items-center gap-3">
             <Link
-              href="/admin/login"
+              href="/login"
               className="ss-link-hover px-2 py-2 text-sm font-medium"
               style={{ color: "var(--ss-secondary)" }}
             >
@@ -139,7 +139,7 @@ export default function MarketingNav() {
                   );
                 })}
                 <Link
-                  href="/admin/login"
+                  href="/login"
                   onClick={() => setOpen(false)}
                   className="px-4 py-3 rounded-xl text-sm font-semibold"
                   style={{ color: "var(--ss-primary)" }}

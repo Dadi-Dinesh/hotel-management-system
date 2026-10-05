@@ -26,6 +26,17 @@ const nextConfig = {
   // the production dependencies actually used, copied into the Docker
   // image (see client/Dockerfile). Has no effect on `next dev`.
   output: "standalone",
+  // The ServeSync Admin portal lives under /platform, fully separate from the
+  // Restaurant Admin suite under /admin. These aliases keep the
+  // /admin/applications and /admin/restaurants URLs working.
+  async redirects() {
+    return [
+      { source: "/admin/applications", destination: "/platform/applications", permanent: false },
+      { source: "/admin/applications/:id", destination: "/platform/applications/:id", permanent: false },
+      { source: "/admin/restaurants", destination: "/platform/restaurants", permanent: false },
+      { source: "/admin/restaurants/:id", destination: "/platform/restaurants/:id", permanent: false },
+    ];
+  },
   images: {
     remotePatterns: [
       {

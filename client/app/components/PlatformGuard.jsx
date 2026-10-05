@@ -9,15 +9,23 @@
  */
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, isPlatformOwner } from "../lib/auth";
+import toast from "react-hot-toast";
+import { isAuthenticated, isPlatformOwner, getUser, getPostLoginRoute } from "../lib/auth";
 
 export default function PlatformGuard({ children }) {
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated() || !isPlatformOwner()) {
-      router.push("/admin/login");
+    if (!isAuthenticated()) {
+      router.replace("/login");
+      return;
+    }
+    if (!isPlatformOwner()) {
+      // A real, authenticated Restaurant Admin — just not a Platform Owner.
+      // Distinct from the unauthenticated case above, which needs no message.
+      toast.error("That page is for ServeSync administrators only.");
+      router.replace(getPostLoginRoute(getUser()));
       return;
     }
     setAuthorized(true);

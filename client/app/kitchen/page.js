@@ -278,8 +278,12 @@ export default function KitchenDashboard() {
       return;
     }
     const u = getUser();
-    if (!["KITCHEN", "ADMIN", "CAPTAIN"].includes(u?.role)) {
+    // ADMIN and CAPTAIN deliberately excluded — each role has its own portal
+    // and must not be able to reach the Kitchen display directly (see the
+    // login architecture audit in kitchen/login/page.js).
+    if (u?.role !== "KITCHEN") {
       router.push("/kitchen/login");
+      return;
     }
 
     if (typeof window !== "undefined") {

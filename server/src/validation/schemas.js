@@ -69,7 +69,8 @@ const checkApplicationStatusSchema = z.object({
 });
 
 const rejectApplicationSchema = z.object({
-  rejectionReason: z.string().trim().min(1, "A rejection reason is required.").max(1000, "Reason is too long."),
+  // Optional — an empty/missing reason is stored as null.
+  rejectionReason: z.string().trim().max(1000, "Reason is too long.").optional(),
 });
 
 const requestMoreInfoSchema = z.object({

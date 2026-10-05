@@ -8,20 +8,46 @@
 const prisma = require("../config/db");
 const { uploadToCloudinary } = require("../middleware/upload");
 const { provisionRestaurant } = require("../services/restaurantProvisioning");
+const { buildStaffAccountSpecs } = require("../services/platformClients");
 const { generateTempPassword } = require("../utils/tokenUtils");
 const { logAudit } = require("../utils/auditLog");
 const { sendEmail } = require("../services/email/emailService");
-const {
-  applicationReceivedEmail,
-  applicationApprovedEmail,
-  applicationRejectedEmail,
-} = require("../services/email/templates");
-const { sendWhatsApp, resendWhatsAppMessage } = require("../services/whatsapp/whatsappService");
+const { applicationReceivedEmail, applicationRejectedEmail } = require("../services/email/templates");
+const { resendWhatsAppMessage } = require("../services/whatsapp/whatsappService");
 
-function getClientBaseUrl() {
-  const configured = process.env.CLIENT_URL?.split(",")[0]?.trim();
-  return configured || "https://hotel-management-system-psi-kohl.vercel.app";
+/** Platform-admin-only realtime event. Never broadcast globally — the
+ * payload carries applicant details that customer/staff sockets must not see. */
+function emitPlatformEvent(event, payload) {
+  try {
+    const { getIO } = require("../socket");
+    getIO().to("platform:admins").emit(event, payload);
+  } catch (e) {
+    // Socket not initialised (tests/scripts) — the persisted AuditLog entry is the source of truth.
+  }
 }
+
+/**
+ * Adds explicit approvedAt/approvedBy/rejectedAt/rejectedBy fields derived
+ * from the single reviewedAt/reviewedBy pair the schema already stores —
+ * an application is only ever reviewed once (PENDING → APPROVED|REJECTED).
+ */
+function withReviewFields(application) {
+  const reviewer = application.reviewedBy
+    ? { id: application.reviewedBy.id, name: application.reviewedBy.name, email: application.reviewedBy.email }
+    : null;
+  const approved = application.status === "APPROVED";
+  const rejected = application.status === "REJECTED";
+  return {
+    ...application,
+    submittedAt: application.createdAt,
+    approvedAt: approved ? application.reviewedAt : null,
+    approvedBy: approved ? reviewer : null,
+    rejectedAt: rejected ? application.reviewedAt : null,
+    rejectedBy: rejected ? reviewer : null,
+  };
+}
+
+const REVIEWER_SELECT = { select: { id: true, name: true, email: true } };
 
 const PUBLIC_STATUS_FIELDS = {
   id: true,
@@ -99,24 +125,16 @@ const submitApplication = async (req, res, next) => {
 
     res.status(201).json({ success: true, message: "Application submitted.", data: application });
 
-    // Real-time Platform Admin notification via Socket.IO (no page refresh)
-    try {
-      const { getIO } = require("../socket");
-      const io = getIO();
-      const notifPayload = {
-        id: application.id,
-        restaurantName: application.restaurantName,
-        ownerName: application.ownerName,
-        city: application.city,
-        tableCount: application.tableCount,
-        createdAt: application.createdAt,
-        status: application.status,
-      };
-      io.to("platform:admins").emit("application:new", notifPayload);
-      io.emit("application:new", notifPayload);
-    } catch (socketErr) {
-      // Non-blocking if socket is uninitialized or in test mode
-    }
+    // Real-time Platform Admin notification (platform room only).
+    emitPlatformEvent("application:new", {
+      id: application.id,
+      restaurantName: application.restaurantName,
+      ownerName: application.ownerName,
+      city: application.city,
+      tableCount: application.tableCount,
+      createdAt: application.createdAt,
+      status: application.status,
+    });
 
     logAudit({ action: "application.submitted", metadata: { applicationId: application.id, restaurantName: application.restaurantName } });
 
@@ -154,8 +172,10 @@ const checkApplicationStatus = async (req, res, next) => {
 };
 
 /**
- * List applications — Platform Owner only. Supports status filter + a
- * simple text search across restaurant/owner name and city.
+ * List applications — Platform Owner only. Status filter + text search
+ * across restaurant/owner name, email, phone and city. `counts` are the
+ * real per-status totals (independent of the current filter/search) for
+ * the All / Pending / Approved / Rejected tabs.
  * GET /api/platform/applications
  */
 const listApplications = async (req, res, next) => {
@@ -165,20 +185,34 @@ const listApplications = async (req, res, next) => {
     if (status && ["PENDING", "APPROVED", "REJECTED"].includes(status)) {
       where.status = status;
     }
-    if (q) {
+    const term = typeof q === "string" ? q.trim() : "";
+    if (term) {
       where.OR = [
-        { restaurantName: { contains: q, mode: "insensitive" } },
-        { ownerName: { contains: q, mode: "insensitive" } },
-        { city: { contains: q, mode: "insensitive" } },
-        { email: { contains: q, mode: "insensitive" } },
+        { restaurantName: { contains: term, mode: "insensitive" } },
+        { ownerName: { contains: term, mode: "insensitive" } },
+        { email: { contains: term, mode: "insensitive" } },
+        { phone: { contains: term } },
+        { whatsapp: { contains: term } },
+        { city: { contains: term, mode: "insensitive" } },
       ];
     }
 
-    const applications = await prisma.restaurantApplication.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
+    const [applications, grouped] = await Promise.all([
+      prisma.restaurantApplication.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        include: { reviewedBy: REVIEWER_SELECT },
+      }),
+      prisma.restaurantApplication.groupBy({ by: ["status"], _count: { _all: true } }),
+    ]);
+
+    const counts = { ALL: 0, PENDING: 0, APPROVED: 0, REJECTED: 0 };
+    grouped.forEach((g) => {
+      counts[g.status] = g._count._all;
+      counts.ALL += g._count._all;
     });
-    res.json({ success: true, data: applications });
+
+    res.json({ success: true, data: applications.map(withReviewFields), counts });
   } catch (error) {
     next(error);
   }
@@ -192,25 +226,31 @@ const getApplication = async (req, res, next) => {
   try {
     const application = await prisma.restaurantApplication.findUnique({
       where: { id: req.params.id },
-      include: { reviewedBy: { select: { id: true, name: true, email: true } }, whatsappMessages: true },
+      include: {
+        reviewedBy: REVIEWER_SELECT,
+        restaurant: { select: { id: true, name: true, slug: true, isActive: true } },
+        whatsappMessages: { orderBy: { createdAt: "desc" } },
+      },
     });
     if (!application) {
       return res.status(404).json({ success: false, message: "Application not found." });
     }
-    res.json({ success: true, data: application });
+    res.json({ success: true, data: withReviewFields(application) });
   } catch (error) {
     next(error);
   }
 };
 
 /**
- * Approve — the automation the brief calls "the most important part."
- * Provisions the real tenant via the SAME transaction the legacy onboarding
- * endpoint uses, issues a temporary password, marks the application
- * APPROVED, and fires off (queued, non-blocking) email + WhatsApp
- * notifications. Returns everything the Platform Dashboard needs to render
- * the QR Kit download immediately (raw QR tokens are one-time-visible,
- * exactly like the legacy onboarding response).
+ * Approve — PENDING → APPROVED, and provisions the real tenant in one
+ * transaction (restaurant + Restaurant Admin + Captain + Kitchen logins +
+ * one table per requested table, each with a secure hashed QR token).
+ *
+ * Passwords are random and hashed; none are returned here. Delivery is a
+ * separate, explicit step (POST /platform/restaurants/:id/credentials) so
+ * nothing is ever claimed as "sent" when no provider is configured. The raw
+ * QR tokens ARE returned once so the QR package can be downloaded right away
+ * — they're printed on public posters anyway and can be rotated at any time.
  * POST /api/platform/applications/:id/approve
  */
 const approveApplication = async (req, res, next) => {
@@ -228,8 +268,6 @@ const approveApplication = async (req, res, next) => {
       return res.status(409).json({ success: false, message: "An account with this applicant's email already exists." });
     }
 
-    const tempPassword = generateTempPassword();
-
     const result = await provisionRestaurant({
       name: application.restaurantName,
       cuisine: application.cuisine,
@@ -240,8 +278,13 @@ const approveApplication = async (req, res, next) => {
       tableCount: application.tableCount,
       adminName: application.ownerName,
       adminEmail: application.email,
-      adminPassword: tempPassword,
+      adminPassword: generateTempPassword(),
+      staffAccounts: (slug) => buildStaffAccountSpecs(slug, application.restaurantName),
     });
+
+    // Persist the applicant's contact email on the tenant too (provisioning
+    // only takes a phone), so the client profile is complete.
+    await prisma.restaurant.update({ where: { id: result.restaurant.id }, data: { email: application.email } });
 
     const updated = await prisma.restaurantApplication.update({
       where: { id: application.id },
@@ -251,65 +294,54 @@ const approveApplication = async (req, res, next) => {
         reviewedAt: new Date(),
         restaurantId: result.restaurant.id,
       },
+      include: { reviewedBy: REVIEWER_SELECT },
     });
-
-    const dashboardUrl = `${getClientBaseUrl()}/admin/login`;
 
     res.json({
       success: true,
-      message: `${result.restaurant.name} approved and provisioned!`,
+      message: "Restaurant approved successfully. Credentials and QR package are ready to be sent.",
       data: {
-        application: updated,
-        restaurant: result.restaurant,
-        admin: { email: result.admin.email, tempPassword },
-        // Strip the hash before it ever leaves the server — same rule as
-        // the legacy onboarding response this reuses provisionRestaurant from.
+        application: withReviewFields(updated),
+        restaurant: { id: result.restaurant.id, name: result.restaurant.name, slug: result.restaurant.slug, primaryColor: result.restaurant.primaryColor },
+        accounts: [result.admin, ...result.staff].map((u) => ({ role: u.role, email: u.email })),
+        // Strip the hash before it ever leaves the server.
         tables: result.tables.map(({ qrTokenHash, ...t }) => t),
-        dashboardUrl,
       },
     });
 
-    // Never log tempPassword itself — logAudit's metadata is retained
-    // indefinitely and this endpoint's own response already carries it once.
     logAudit({
       action: "application.approved",
       restaurantId: result.restaurant.id,
       userId: req.user.id,
       metadata: { applicationId: application.id, restaurantName: result.restaurant.name, tableCount: result.tables.length },
     });
-
-    const approvedEmail = applicationApprovedEmail({
-      ownerName: application.ownerName,
-      restaurantName: result.restaurant.name,
-      loginEmail: result.admin.email,
-      tempPassword,
-      dashboardUrl,
-      qrKitUrl: dashboardUrl,
+    logAudit({
+      action: "platform.credentials.provisioned",
+      restaurantId: result.restaurant.id,
+      userId: req.user.id,
+      metadata: { restaurantName: result.restaurant.name, roles: ["ADMIN", "CAPTAIN", "KITCHEN"] },
     });
-    sendEmail({ to: application.email, subject: approvedEmail.subject, html: approvedEmail.html }).catch(() => {});
+    logAudit({
+      action: "platform.qr_package.generated",
+      restaurantId: result.restaurant.id,
+      userId: req.user.id,
+      metadata: { restaurantName: result.restaurant.name, tableCount: result.tables.length },
+    });
 
-    const whatsappMessage = `Congratulations! Your ServeSync restaurant "${result.restaurant.name}" has been approved.\n\nYour QR Kit is ready.\nLogin: ${result.admin.email}\nDashboard: ${dashboardUrl}`;
-    sendWhatsApp({ to: application.whatsapp, message: whatsappMessage, applicationId: application.id }).catch(() => {});
-
-    // Real-time Platform Admin event
-    try {
-      const { getIO } = require("../socket");
-      const io = getIO();
-      io.to("platform:admins").emit("application:approved", { id: application.id, restaurantName: result.restaurant.name });
-      io.emit("application:approved", { id: application.id, restaurantName: result.restaurant.name });
-    } catch (e) {}
+    emitPlatformEvent("application:approved", { id: application.id, restaurantName: result.restaurant.name });
   } catch (error) {
     next(error);
   }
 };
 
 /**
- * Reject — requires a reason, sends a polite email, never deletes the record.
+ * Reject — PENDING → REJECTED with an optional reason. Never deletes the
+ * record; rejectedAt/rejectedBy are the stored reviewedAt/reviewedBy.
  * POST /api/platform/applications/:id/reject
  */
 const rejectApplication = async (req, res, next) => {
   try {
-    const { rejectionReason } = req.body;
+    const rejectionReason = req.body?.rejectionReason?.trim() || null;
     const application = await prisma.restaurantApplication.findUnique({ where: { id: req.params.id } });
     if (!application) {
       return res.status(404).json({ success: false, message: "Application not found." });
@@ -326,22 +358,21 @@ const rejectApplication = async (req, res, next) => {
         reviewedAt: new Date(),
         rejectionReason,
       },
+      include: { reviewedBy: REVIEWER_SELECT },
     });
 
-    res.json({ success: true, message: "Application rejected.", data: updated });
+    res.json({ success: true, message: "Application rejected.", data: withReviewFields(updated) });
 
     logAudit({ action: "application.rejected", userId: req.user.id, metadata: { applicationId: application.id, restaurantName: application.restaurantName, rejectionReason } });
 
-    const rejectedEmail = applicationRejectedEmail({ ownerName: application.ownerName, restaurantName: application.restaurantName, rejectionReason });
+    const rejectedEmail = applicationRejectedEmail({
+      ownerName: application.ownerName,
+      restaurantName: application.restaurantName,
+      rejectionReason: rejectionReason || "No specific reason was provided.",
+    });
     sendEmail({ to: application.email, subject: rejectedEmail.subject, html: rejectedEmail.html }).catch(() => {});
 
-    // Real-time Platform Admin event
-    try {
-      const { getIO } = require("../socket");
-      const io = getIO();
-      io.to("platform:admins").emit("application:rejected", { id: application.id, restaurantName: application.restaurantName });
-      io.emit("application:rejected", { id: application.id, restaurantName: application.restaurantName });
-    } catch (e) {}
+    emitPlatformEvent("application:rejected", { id: application.id, restaurantName: application.restaurantName });
   } catch (error) {
     next(error);
   }
@@ -362,7 +393,7 @@ const requestMoreInfo = async (req, res, next) => {
 
     res.json({ success: true, message: "Request sent." });
 
-    logAudit({ action: "application.info_requested", userId: req.user.id, metadata: { applicationId: application.id, message } });
+    logAudit({ action: "application.info_requested", userId: req.user.id, metadata: { applicationId: application.id, restaurantName: application.restaurantName, message } });
 
     const { wrapEmail, escapeHtml } = require("../services/email/emailLayout");
     const html = wrapEmail({
@@ -384,144 +415,32 @@ const requestMoreInfo = async (req, res, next) => {
 };
 
 /**
- * Platform overview statistics: Pending, Approved, Rejected, Active Restaurants, Revenue
+ * Platform overview — real counts only.
  * GET /api/platform/stats
  */
 const getPlatformStats = async (req, res, next) => {
   try {
-    const [
-      pendingApplications,
-      approvedApplications,
-      rejectedApplications,
-      activeRestaurants,
-      totalRestaurants,
-    ] = await Promise.all([
-      prisma.restaurantApplication.count({ where: { status: "PENDING" } }),
-      prisma.restaurantApplication.count({ where: { status: "APPROVED" } }),
-      prisma.restaurantApplication.count({ where: { status: "REJECTED" } }),
-      prisma.restaurant.count({ where: { isActive: true } }),
-      prisma.restaurant.count(),
-    ]);
-
-    // Platform revenue placeholder calculated from active count
-    const platformRevenue = activeRestaurants * 2499;
+    const [pendingApplications, approvedApplications, rejectedApplications, activeRestaurants, totalRestaurants] =
+      await Promise.all([
+        prisma.restaurantApplication.count({ where: { status: "PENDING" } }),
+        prisma.restaurantApplication.count({ where: { status: "APPROVED" } }),
+        prisma.restaurantApplication.count({ where: { status: "REJECTED" } }),
+        prisma.restaurant.count({ where: { isActive: true } }),
+        prisma.restaurant.count(),
+      ]);
 
     res.json({
       success: true,
       data: {
+        totalRestaurants,
+        activeRestaurants,
+        suspendedRestaurants: totalRestaurants - activeRestaurants,
         pendingApplications,
         approvedApplications,
         rejectedApplications,
-        activeRestaurants,
-        totalRestaurants,
-        platformRevenue,
+        totalApplications: pendingApplications + approvedApplications + rejectedApplications,
       },
     });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * List all restaurants across the platform — Platform Owner only.
- * GET /api/platform/restaurants
- */
-const listPlatformRestaurants = async (req, res, next) => {
-  try {
-    const restaurants = await prisma.restaurant.findMany({
-      orderBy: { createdAt: "desc" },
-      include: {
-        users: {
-          where: { role: "ADMIN" },
-          select: { id: true, name: true, email: true },
-        },
-        _count: {
-          select: { tables: true, orders: true },
-        },
-      },
-    });
-    res.json({ success: true, data: restaurants });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Disable or re-enable a restaurant — Platform Owner only.
- * PATCH /api/platform/restaurants/:id/toggle-status
- */
-const togglePlatformRestaurantStatus = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const restaurant = await prisma.restaurant.findUnique({ where: { id } });
-    if (!restaurant) {
-      return res.status(404).json({ success: false, message: "Restaurant not found." });
-    }
-    const updated = await prisma.restaurant.update({
-      where: { id },
-      data: { isActive: !restaurant.isActive },
-    });
-    logAudit({
-      action: updated.isActive ? "platform.restaurant.activated" : "platform.restaurant.deactivated",
-      restaurantId: id,
-      userId: req.user.id,
-      metadata: { restaurantName: updated.name, isActive: updated.isActive },
-    });
-    res.json({
-      success: true,
-      message: `Restaurant ${updated.name} ${updated.isActive ? "activated" : "disabled"}.`,
-      data: updated,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Resend QR Kit / welcome instructions to restaurant admin — Platform Owner only.
- * POST /api/platform/restaurants/:id/resend-kit
- */
-const resendPlatformRestaurantKit = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const restaurant = await prisma.restaurant.findUnique({
-      where: { id },
-      include: {
-        users: { where: { role: "ADMIN" } },
-      },
-    });
-    if (!restaurant) {
-      return res.status(404).json({ success: false, message: "Restaurant not found." });
-    }
-    const adminUser = restaurant.users[0];
-    if (!adminUser) {
-      return res.status(400).json({ success: false, message: "No admin user found for this restaurant." });
-    }
-
-    const dashboardUrl = `${getClientBaseUrl()}/admin/login`;
-    const approvedEmail = applicationApprovedEmail({
-      ownerName: adminUser.name,
-      restaurantName: restaurant.name,
-      loginEmail: adminUser.email,
-      tempPassword: "[Your existing password or reset via forgot password]",
-      dashboardUrl,
-      qrKitUrl: dashboardUrl,
-    });
-    await sendEmail({ to: adminUser.email, subject: approvedEmail.subject, html: approvedEmail.html });
-
-    const whatsappMessage = `ServeSync QR Kit & Access Link:\nRestaurant: "${restaurant.name}"\nLogin: ${adminUser.email}\nDashboard: ${dashboardUrl}`;
-    if (restaurant.phone) {
-      await sendWhatsApp({ to: restaurant.phone, message: whatsappMessage });
-    }
-
-    logAudit({
-      action: "platform.restaurant.kit_resent",
-      restaurantId: id,
-      userId: req.user.id,
-      metadata: { restaurantName: restaurant.name, email: adminUser.email },
-    });
-
-    res.json({ success: true, message: `QR Kit resent to ${adminUser.email}.` });
   } catch (error) {
     next(error);
   }
@@ -573,9 +492,6 @@ module.exports = {
   rejectApplication,
   requestMoreInfo,
   getPlatformStats,
-  listPlatformRestaurants,
-  togglePlatformRestaurantStatus,
-  resendPlatformRestaurantKit,
   listWhatsAppMessages,
   resendWhatsAppMessageHandler,
 };

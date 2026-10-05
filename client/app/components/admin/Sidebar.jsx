@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Menu, X, ChevronsLeft, ChevronsRight, LogOut, ShieldCheck } from "lucide-react";
+import { Menu, X, ChevronsLeft, ChevronsRight, LogOut } from "lucide-react";
 import { ADMIN_NAV_ITEMS } from "./adminNavConfig";
 import { useRestaurant } from "../RestaurantContext";
 import { clearAuth } from "../../lib/auth";
@@ -14,7 +14,7 @@ const COLLAPSE_KEY = "servesync-admin-sidebar-collapsed";
 
 /** Nav link list — module-scope component (not defined inside Sidebar's
  * render) so it isn't recreated, and therefore reset, on every render. */
-function NavLinks({ pathname, collapsed, isPlatformOwner, onNavigate }) {
+function NavLinks({ pathname, collapsed, onNavigate }) {
   const showLabel = !collapsed || Boolean(onNavigate);
   return (
     <nav className="flex-1 overflow-y-auto py-2 space-y-0.5" aria-label="Admin navigation">
@@ -39,18 +39,6 @@ function NavLinks({ pathname, collapsed, isPlatformOwner, onNavigate }) {
           </Link>
         );
       })}
-      {isPlatformOwner && (
-        <Link
-          href="/platform"
-          onClick={onNavigate}
-          className="ss-link-hover flex items-center gap-3 mx-2 px-3 py-2.5 rounded-xl text-sm font-semibold"
-          style={{ color: "var(--ss-accent-dark)" }}
-          title={collapsed ? "Review Applications" : undefined}
-        >
-          <ShieldCheck size={18} className="flex-shrink-0" />
-          {showLabel && <span className="truncate">Review Applications</span>}
-        </Link>
-      )}
     </nav>
   );
 }
@@ -65,7 +53,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
-  const { isPlatformOwner, restaurant } = useRestaurant();
+  const { restaurant } = useRestaurant();
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -122,12 +110,12 @@ export default function Sidebar() {
               <p className="text-sm font-bold truncate" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-primary)" }}>
                 {PLATFORM_NAME}
               </p>
-              <p className="ss-caption truncate">{restaurant?.name || "Admin"}</p>
+              <p className="ss-caption truncate">{restaurant?.name ? `${restaurant.name} Management` : "Restaurant Admin"}</p>
             </div>
           )}
         </div>
 
-        <NavLinks pathname={pathname} collapsed={collapsed} isPlatformOwner={isPlatformOwner} />
+        <NavLinks pathname={pathname} collapsed={collapsed} />
 
         <div className="p-2 border-t space-y-0.5 flex-shrink-0" style={{ borderColor: "var(--ss-border)" }}>
           <button
@@ -182,7 +170,7 @@ export default function Sidebar() {
                   <X size={20} />
                 </button>
               </div>
-              <NavLinks pathname={pathname} collapsed={false} isPlatformOwner={isPlatformOwner} onNavigate={() => setMobileOpen(false)} />
+              <NavLinks pathname={pathname} collapsed={false} onNavigate={() => setMobileOpen(false)} />
               <div className="p-2 border-t flex-shrink-0" style={{ borderColor: "var(--ss-border)" }}>
                 <button
                   onClick={handleLogout}

@@ -30,8 +30,7 @@ const COLUMNS = [
   {
     title: "Portals",
     links: [
-      { href: "/restaurant/login", label: "Restaurant Login" },
-      { href: "/admin/login", label: "Platform Admin" },
+      { href: "/admin/login", label: "Restaurant Login" },
       { href: "/captain/login", label: "Staff Login" },
       { href: "/kitchen/login", label: "Kitchen KDS" },
     ],

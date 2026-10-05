@@ -125,6 +125,39 @@ function applicationApprovedEmail({ ownerName, restaurantName, loginEmail, tempP
   };
 }
 
+/**
+ * Sent by "Send Credentials" on the Platform Admin side — the role logins
+ * (Restaurant Admin, Captain, Kitchen) for one restaurant. Carries live
+ * temporary passwords: never log the rendered HTML.
+ */
+function clientCredentialsEmail({ ownerName, restaurantName, accounts, loginUrl }) {
+  const ROLE_LABELS = { ADMIN: "Restaurant Admin", CAPTAIN: "Captain", KITCHEN: "Kitchen" };
+  const rows = accounts
+    .map(
+      (a) => `<tr><td style="padding:8px 20px;border-top:1px solid #EADFC8;">
+        <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#78716C;">${escapeHtml(ROLE_LABELS[a.role] || a.role)}</p>
+        <p style="margin:0 0 2px;"><strong>Login:</strong> ${escapeHtml(a.email)}</p>
+        <p style="margin:0;"><strong>Temporary Password:</strong> <code style="background:#fff;padding:2px 8px;border-radius:4px;border:1px solid #EADFC8;">${escapeHtml(a.tempPassword)}</code></p>
+      </td></tr>`
+    )
+    .join("");
+  return {
+    subject: `Your ServeSync logins for ${restaurantName}`,
+    html: wrapEmail({
+      title: "Your ServeSync Access",
+      preheader: `Restaurant Admin, Captain and Kitchen logins for ${restaurantName}.`,
+      bodyHtml: `
+        <p style="margin:0 0 16px;">Hi ${escapeHtml(ownerName)},</p>
+        <p style="margin:0 0 16px;">Here are the ServeSync logins for <strong>${escapeHtml(restaurantName)}</strong>. Each role signs in from the same login page.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;background:#FFF8E7;border:1px solid #EADFC8;border-radius:10px;">${rows}</table>
+        <p style="margin:0;">Please sign in and change these temporary passwords as soon as possible.</p>
+      `,
+      ctaLabel: "Sign In",
+      ctaUrl: loginUrl,
+    }),
+  };
+}
+
 /** Sent on rejection — polite, includes the reason and reapply guidance. */
 function applicationRejectedEmail({ ownerName, restaurantName, rejectionReason }) {
   return {
@@ -158,4 +191,5 @@ module.exports = {
   applicationReceivedEmail,
   applicationApprovedEmail,
   applicationRejectedEmail,
+  clientCredentialsEmail,
 };

@@ -7,12 +7,18 @@ const {
   rejectApplication,
   requestMoreInfo,
   getPlatformStats,
-  listPlatformRestaurants,
-  togglePlatformRestaurantStatus,
-  resendPlatformRestaurantKit,
   listWhatsAppMessages,
   resendWhatsAppMessageHandler,
 } = require("../controllers/application.controller");
+const {
+  listClients,
+  getClient,
+  setClientStatus,
+  sendClientCredentials,
+  regenerateQrPackage,
+  listActivity,
+  getPlatformSettings,
+} = require("../controllers/platform.controller");
 const { authenticate, requirePlatformOwner } = require("../middleware/auth");
 const { rateLimit } = require("../middleware/rateLimit");
 const { validate } = require("../middleware/validate");
@@ -40,10 +46,18 @@ router.post(
 router.post("/applications/:id/reject", validate(rejectApplicationSchema), rejectApplication);
 router.post("/applications/:id/request-info", validate(requestMoreInfoSchema), requestMoreInfo);
 
-// All Restaurants Management (Platform Owner view)
-router.get("/restaurants", listPlatformRestaurants);
-router.patch("/restaurants/:id/toggle-status", togglePlatformRestaurantStatus);
-router.post("/restaurants/:id/resend-kit", resendPlatformRestaurantKit);
+// ServeSync clients (approved restaurants) — platform-level profile only.
+router.get("/restaurants", listClients);
+router.get("/restaurants/:id", getClient);
+router.patch("/restaurants/:id/status", setClientStatus);
+// Credential + QR provisioning — both rotate secrets, so rate-limited like approve.
+const provisioningLimit = rateLimit({ windowMs: 60 * 1000, max: 20, message: "Too many provisioning requests — please slow down." });
+router.post("/restaurants/:id/credentials", provisioningLimit, sendClientCredentials);
+router.post("/restaurants/:id/qr-package", provisioningLimit, regenerateQrPackage);
+
+// Platform activity feed (notifications) + settings
+router.get("/activity", listActivity);
+router.get("/settings", getPlatformSettings);
 
 // WhatsApp Outbox & Manual Resend
 router.get("/whatsapp-messages", listWhatsAppMessages);

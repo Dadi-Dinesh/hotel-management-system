@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import api from "../api";
 import { connectSocket } from "../socket";
+import { getEffectiveRestaurantId } from "../auth";
 
 export type PrinterStatusState = "CONNECTED" | "CONNECTING" | "DISCONNECTED" | "ERROR";
 export type KitchenModeSetting = "LIVE" | "NORMAL";
@@ -167,7 +168,10 @@ export function usePrinter() {
 
     // Connect to Socket.IO and join admin room for instant printer status broadcasts
     const socket = connectSocket();
-    socket.emit("join-admin");
+    // Always scope to the signed-in restaurant — an empty payload would fall
+    // back to the demo restaurant's room on the server.
+    const restaurantId = getEffectiveRestaurantId();
+    if (restaurantId) socket.emit("join-admin", { restaurantId });
 
     const handleSocketStatusUpdate = (data: any) => {
       if (data) {

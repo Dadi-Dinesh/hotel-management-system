@@ -103,9 +103,14 @@ export default function TenantTableLandingPage() {
     }
   };
 
-  const handleCallWaiter = (message = "🔔 Waiter has been called! They'll be with you shortly.") => {
+  const handleCallWaiter = (message = "🔔 Waiter has been called! They'll be with you shortly.", extraPayload = null) => {
     setCallingWaiter(true);
-    emitResilient(socket, "call-waiter", tableCode, {
+
+    const socketPayload = extraPayload
+      ? { tableCode, ...extraPayload }
+      : { tableCode, message: `Table ${tableCode}: ${message.replace(/^[^\w]+/, "").trim()}` };
+
+    emitResilient(socket, "call-waiter", socketPayload, {
       onlineMessage: message,
       offlineMessage: "You're offline — this will reach the waiter the moment you're back online.",
       icon: "🙋",
@@ -162,7 +167,7 @@ export default function TenantTableLandingPage() {
                   >
                     <ClipboardList size={18} /> VIEW ORDERS
                   </button>
-                  <ReminderButtons onSend={handleCallWaiter} sending={callingWaiter} />
+                  <ReminderButtons onSend={handleCallWaiter} sending={callingWaiter} tableCode={tableCode} />
                 </>
               ) : (
                 <button onClick={handleStartSession} disabled={starting} className="btn-primary w-full py-5 text-lg">

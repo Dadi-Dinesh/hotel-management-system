@@ -95,10 +95,14 @@ export default function TableLandingPage() {
    * Send a "call-waiter" socket event to the server.
    * The server immediately forwards it to all captains/admins rooms.
    */
-  const handleCallWaiter = (message = "🔔 Waiter has been called! They'll be with you shortly.") => {
+  const handleCallWaiter = (message = "🔔 Waiter has been called! They'll be with you shortly.", extraPayload = null) => {
     setCallingWaiter(true);
 
-    emitResilient(socket, "call-waiter", tableCode, {
+    const socketPayload = extraPayload
+      ? { tableCode, ...extraPayload }
+      : { tableCode, message: `Table ${tableCode}: ${message.replace(/^[^\w]+/, "").trim()}` };
+
+    emitResilient(socket, "call-waiter", socketPayload, {
       onlineMessage: message,
       offlineMessage: "You're offline — this will reach the waiter the moment you're back online.",
       icon: "🙋",
@@ -185,7 +189,7 @@ export default function TableLandingPage() {
 
                     {/* Reminders — sends the same socket event instantly to captain dashboard */}
                     <div className="pt-2">
-                      <ReminderButtons onSend={handleCallWaiter} sending={callingWaiter} />
+                      <ReminderButtons onSend={handleCallWaiter} sending={callingWaiter} tableCode={tableCode} />
                     </div>
                   </>
                 ) : (

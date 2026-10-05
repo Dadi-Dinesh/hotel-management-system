@@ -236,3 +236,81 @@ export async function generateWelcomeKitPDF({ restaurant, tables, adminEmail, te
   doc.save(`${restaurant.slug || "restaurant"}-qr-kit.pdf`);
   return doc;
 }
+
+const ROLE_LABELS = { ADMIN: "Restaurant Admin", CAPTAIN: "Captain", KITCHEN: "Kitchen" };
+
+/** Credentials letter listing every role login (Restaurant Admin, Captain, Kitchen). */
+function drawCredentialsLetter(doc, { restaurant, accounts, loginUrl }) {
+  const { pageWidth } = drawFrame(doc, restaurant);
+  heading(doc, "Your ServeSync Access", 45, pageWidth);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.setTextColor(61, 39, 16);
+  doc.text(restaurant.name, pageWidth / 2, 55, { align: "center" });
+
+  let y = paragraph(
+    doc,
+    [
+      "Your restaurant is live on ServeSync. Each role below signs in from the same login page",
+      "and only ever sees this restaurant's data. Change every temporary password after first login.",
+    ],
+    20,
+    72,
+    pageWidth - 40
+  );
+
+  y += 6;
+  accounts.forEach((account) => {
+    doc.setDrawColor(232, 137, 28);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(20, y, pageWidth - 40, 30, 3, 3);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(120, 100, 80);
+    doc.text((ROLE_LABELS[account.role] || account.role).toUpperCase(), 28, y + 9);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.setTextColor(61, 39, 16);
+    doc.text(`Login: ${account.email}`, 28, y + 17);
+    doc.text(`Temporary Password: ${account.tempPassword}`, 28, y + 24);
+    y += 36;
+  });
+
+  y += 4;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(120, 100, 80);
+  doc.text("SIGN IN AT", 20, y);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(232, 137, 28);
+  doc.text(loginUrl, 20, y + 7);
+
+  doc.setFontSize(9);
+  doc.setTextColor(160, 140, 120);
+  doc.text("Confidential — share only with the restaurant owner.", pageWidth / 2, doc.internal.pageSize.getHeight() - 18, { align: "center" });
+}
+
+/**
+ * ServeSync Admin → client handover package: credentials letter for all
+ * role logins, the setup guides, and (when the raw QR tokens are available,
+ * i.e. right after approval or a QR regeneration) the table QR posters.
+ */
+export async function generateClientPackagePDF({ restaurant, accounts, loginUrl, tables = [] }) {
+  const { default: jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+
+  drawCredentialsLetter(doc, { restaurant, accounts, loginUrl });
+  doc.addPage();
+  drawQuickSetupGuide(doc, restaurant);
+  doc.addPage();
+  drawPrinterSetupGuide(doc, restaurant);
+
+  for (let i = 0; i < tables.length; i++) {
+    doc.addPage();
+    // eslint-disable-next-line no-await-in-loop
+    await drawPosterPage(doc, restaurant, tables[i]);
+  }
+
+  doc.save(`${restaurant.slug || "restaurant"}-servesync-access.pdf`);
+}

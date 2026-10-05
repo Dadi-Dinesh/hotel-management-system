@@ -97,16 +97,17 @@ const resolveTenant = async (req, res, next) => {
 
         if (user && !user.restaurantId) {
           // Platform Owner — only trust an explicit target, never a bare fallback.
+          // In particular: do NOT fall through to resolvePublicTenant below —
+          // its demo-restaurant default exists for genuinely anonymous QR
+          // traffic, and previously leaked Nookambika's menu/categories to any
+          // authenticated Platform Owner who simply hadn't picked a restaurant
+          // via the switcher yet. "Platform-wide" must mean no restaurant, not
+          // a silent default to the demo tenant.
           const requested = req.headers["x-restaurant-id"] || req.query.restaurantId;
-          if (requested) {
-            req.restaurantId = requested;
-            req.isPlatformOwner = true;
-            req.user = user;
-            return next();
-          }
           req.user = user;
           req.isPlatformOwner = true;
-          // fall through to public resolution below
+          req.restaurantId = requested || null;
+          return next();
         }
       } catch (e) {
         // Invalid/expired token on a route that doesn't strictly require auth —

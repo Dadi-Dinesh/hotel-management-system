@@ -147,7 +147,10 @@ export default function CaptainDashboard() {
       return;
     }
     const u = getUser();
-    if (!["CAPTAIN", "MANAGER", "ADMIN"].includes(u?.role)) {
+    // ADMIN deliberately excluded — an admin account has its own portal and
+    // must not be able to reach the Captain dashboard directly (see the
+    // login architecture audit in captain/login/page.js).
+    if (!["CAPTAIN", "MANAGER"].includes(u?.role)) {
       router.push("/captain/login");
       return;
     }

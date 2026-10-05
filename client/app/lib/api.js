@@ -53,10 +53,10 @@ api.interceptors.response.use(
       if (typeof window !== "undefined") {
         const path = window.location.pathname;
         // Only redirect if on protected routes
-        if (path.startsWith("/captain") || path.startsWith("/admin") || path.startsWith("/kitchen")) {
+        if (path.startsWith("/captain") || path.startsWith("/admin") || path.startsWith("/kitchen") || path.startsWith("/platform")) {
           localStorage.removeItem("token");
           localStorage.removeItem("user");
-          if (path.startsWith("/admin")) {
+          if (path.startsWith("/admin") || path.startsWith("/platform")) {
             window.location.href = "/admin/login";
           } else if (path.startsWith("/kitchen")) {
             window.location.href = "/kitchen/login";

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Users, LogIn } from "lucide-react";
 import api from "../../lib/api";
-import { setAuth } from "../../lib/auth";
+import { setAuth, getPostLoginRoute } from "../../lib/auth";
 import AuthShell from "../../components/AuthShell";
 import Input from "../../components/ui/Input";
 import toast from "react-hot-toast";
@@ -24,14 +24,20 @@ export default function CaptainLoginPage() {
       const res = await api.post("/auth/login", { email, password });
       const { token, user, restaurant } = res.data.data;
 
-      if (!["CAPTAIN", "MANAGER", "ADMIN"].includes(user.role)) {
-        toast.error("Access denied. Captain credentials required.");
+      // MANAGER is included alongside CAPTAIN — it's a real, invitable staff
+      // role (see invite.controller.js's INVITABLE_ROLES) with no dashboard
+      // of its own; the Captain UI is its only usable surface today. ADMIN is
+      // deliberately excluded: an admin account has its own portal and must
+      // not be able to walk into Captain's via a shared allow-list.
+      // ServeSync Platform Admin credentials are routed to the platform portal.
+      if (user.restaurantId && !["CAPTAIN", "MANAGER"].includes(user.role)) {
+        toast.error("This account does not have access to this portal.");
         return;
       }
 
       setAuth(token, user, restaurant);
       toast.success(`Welcome, ${user.name}!`);
-      router.push("/captain/dashboard");
+      router.push(getPostLoginRoute(user));
     } catch (error) {
       toast.error(error.response?.data?.message || "Login failed");
     } finally {
@@ -46,8 +52,8 @@ export default function CaptainLoginPage() {
       subtitle="Sign in to manage tables and orders"
       tagline="Live seating, order acceptance, bill requests, and KOT printing in one place."
       footer={
-        <Link href="/restaurant/login" className="ss-caption font-semibold hover:underline" style={{ color: "var(--ss-secondary)" }}>
-          Restaurant Owner? Go to Restaurant Dashboard →
+        <Link href="/login" className="ss-caption font-semibold hover:underline" style={{ color: "var(--ss-secondary)" }}>
+          Looking for a different workspace? →
         </Link>
       }
     >

@@ -50,7 +50,7 @@ async function generateUniqueSlug(base) {
  * (issuing a login token, sending emails, audit logging) — this function's
  * only job is the provisioning transaction itself.
  *
- * @returns {{ restaurant, admin, tables: Array<table & { qrToken: string }> }}
+ * @returns {{ restaurant, admin, staff: User[], tables: Array<table & { qrToken: string }> }}
  */
 async function provisionRestaurant({
   name,
@@ -63,11 +63,20 @@ async function provisionRestaurant({
   adminName,
   adminEmail,
   adminPassword,
+  // Optional extra role accounts (e.g. the Captain + Kitchen logins issued
+  // on application approval) — created in the same transaction so a tenant
+  // never ends up half-provisioned. May be a function of the final slug.
+  // Legacy callers pass nothing.
+  staffAccounts = [],
 }) {
   const slug = await generateUniqueSlug(name);
   const numTables = Math.min(Math.max(parseInt(tableCount, 10) || 8, 1), 50);
   const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
   const hashedPassword = await bcrypt.hash(adminPassword, 12);
+  const staffSpecs = typeof staffAccounts === "function" ? staffAccounts(slug) : staffAccounts;
+  const hashedStaff = await Promise.all(
+    staffSpecs.map(async (a) => ({ ...a, password: await bcrypt.hash(a.password, 12) }))
+  );
 
   return prisma.$transaction(async (tx) => {
     const restaurant = await tx.restaurant.create({
@@ -97,6 +106,22 @@ async function provisionRestaurant({
       },
     });
 
+    const staff = [];
+    for (const account of hashedStaff) {
+      // eslint-disable-next-line no-await-in-loop
+      staff.push(
+        await tx.user.create({
+          data: {
+            name: account.name,
+            email: account.email.toLowerCase(),
+            password: account.password,
+            role: account.role,
+            restaurantId: restaurant.id,
+          },
+        })
+      );
+    }
+
     // New restaurants get secure QR by default — a real per-table token,
     // shown once here so the caller can generate working posters immediately.
     const tableCreates = [];
@@ -121,7 +146,7 @@ async function provisionRestaurant({
     const createdTables = await Promise.all(tableCreates);
     const tablesWithTokens = createdTables.map((table, i) => ({ ...table, qrToken: rawTokensByIndex[i] }));
 
-    return { restaurant, admin, tables: tablesWithTokens };
+    return { restaurant, admin, staff, tables: tablesWithTokens };
   });
 }
 

@@ -82,9 +82,14 @@ export default function TenantOrdersPage() {
     };
   }, [socket, tableCode, slug, fetchSession, router]);
 
-  const handleCallWaiter = (message = "🔔 Waiter called! They'll be with you shortly.") => {
+  const handleCallWaiter = (message = "🔔 Waiter called! They'll be with you shortly.", extraPayload = null) => {
     setCallingWaiter(true);
-    emitResilient(socket, "call-waiter", tableCode, {
+
+    const socketPayload = extraPayload
+      ? { tableCode, ...extraPayload }
+      : { tableCode, message: `Table ${tableCode}: ${message.replace(/^[^\w]+/, "").trim()}` };
+
+    emitResilient(socket, "call-waiter", socketPayload, {
       onlineMessage: message,
       offlineMessage: "You're offline — this will reach the waiter the moment you're back online.",
     });
@@ -257,7 +262,7 @@ export default function TenantOrdersPage() {
                 <div className="flex-1 py-3 rounded-xl text-center text-sm font-semibold" style={{ background: "var(--color-cream-100)", color: "var(--color-orange-600)", border: "1.5px solid var(--color-orange-400)" }}>🧾 Bill Requested</div>
               )}
             </div>
-            <div className="mt-2"><ReminderButtons onSend={handleCallWaiter} sending={callingWaiter} /></div>
+            <div className="mt-2"><ReminderButtons onSend={handleCallWaiter} sending={callingWaiter} tableCode={tableCode} /></div>
           </div>
         </div>
       )}

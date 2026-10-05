@@ -21,7 +21,7 @@ const authenticate = async (req, res, next) => {
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: { id: true, name: true, email: true, role: true, restaurantId: true },
+      select: { id: true, name: true, email: true, role: true, restaurantId: true, restaurant: { select: { isActive: true } } },
     });
 
     if (!user) {
@@ -31,7 +31,17 @@ const authenticate = async (req, res, next) => {
       });
     }
 
-    req.user = user;
+    // A suspended tenant's staff lose access immediately, not just at next
+    // login. Platform Owners (restaurantId null) are never affected.
+    if (user.restaurantId && user.restaurant && !user.restaurant.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: "This restaurant account is suspended. Please contact ServeSync support.",
+      });
+    }
+
+    const { restaurant, ...userFields } = user;
+    req.user = userFields;
     next();
   } catch (error) {
     if (error.name === "TokenExpiredError") {

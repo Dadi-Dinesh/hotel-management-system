@@ -37,19 +37,29 @@ const login = async (req, res, next) => {
       });
     }
 
+    let restaurant = null;
+    if (user.restaurantId) {
+      restaurant = await prisma.restaurant.findUnique({
+        where: { id: user.restaurantId },
+        select: { id: true, name: true, slug: true, shortName: true, logo: true, primaryColor: true, secondaryColor: true, isActive: true },
+      });
+
+      // A disabled tenant (Platform Owner toggle) must not let its staff operate —
+      // Platform Owner accounts (restaurantId null) are never subject to this.
+      if (!restaurant || !restaurant.isActive) {
+        return res.status(403).json({
+          success: false,
+          message: "This restaurant account is suspended. Please contact ServeSync support.",
+        });
+      }
+      delete restaurant.isActive;
+    }
+
     const token = jwt.sign(
       { userId: user.id, role: user.role, restaurantId: user.restaurantId },
       process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );
-
-    let restaurant = null;
-    if (user.restaurantId) {
-      restaurant = await prisma.restaurant.findUnique({
-        where: { id: user.restaurantId },
-        select: { id: true, name: true, slug: true, shortName: true, logo: true, primaryColor: true, secondaryColor: true },
-      });
-    }
 
     res.json({
       success: true,

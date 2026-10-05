@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { ChefHat, ArrowRight } from "lucide-react";
 import api from "../../lib/api";
-import { setAuth } from "../../lib/auth";
+import { setAuth, getPostLoginRoute } from "../../lib/auth";
 import AuthShell from "../../components/AuthShell";
 import Input from "../../components/ui/Input";
 import toast from "react-hot-toast";
@@ -27,14 +28,15 @@ export default function KitchenLogin() {
       const res = await api.post("/auth/login", { email, password });
       const { user, token, restaurant } = res.data.data;
 
-      if (!["KITCHEN", "ADMIN", "CAPTAIN"].includes(user.role)) {
-        toast.error("Access denied. Kitchen portal permissions required.");
+      // ServeSync Platform Admin credentials are routed to the platform portal.
+      if (user.restaurantId && user.role !== "KITCHEN") {
+        toast.error("This account does not have access to this portal.");
         return;
       }
 
       setAuth(token, user, restaurant);
-      toast.success(`Welcome to Kitchen Portal, ${user.name}! 👨‍🍳`);
-      router.push("/kitchen");
+      toast.success(user.restaurantId ? `Welcome to Kitchen Portal, ${user.name}! 👨‍🍳` : `Welcome, ${user.name}!`);
+      router.push(getPostLoginRoute(user));
     } catch (error) {
       toast.error(error.response?.data?.message || "Invalid credentials");
     } finally {
@@ -50,18 +52,9 @@ export default function KitchenLogin() {
       tagline="Live order tickets, elapsed-time tracking, and one-tap status updates."
       footer={
         <p className="ss-caption">
-          Demo Kitchen credentials:{" "}
-          <button
-            type="button"
-            onClick={() => {
-              setEmail("kitchen@nookambika.com");
-              setPassword("kitchen@123");
-            }}
-            className="font-bold underline"
-            style={{ color: "var(--ss-accent-dark)" }}
-          >
-            Fill Demo Credentials
-          </button>
+          <Link href="/login" className="font-semibold hover:underline" style={{ color: "var(--ss-secondary)" }}>
+            Looking for a different workspace? →
+          </Link>
         </p>
       }
     >

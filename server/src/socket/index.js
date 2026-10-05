@@ -16,6 +16,7 @@
  *   - printer-agents : Cloud Printer Agent connection room (unchanged)
  */
 
+const jwt = require("jsonwebtoken");
 const prisma = require("../config/db");
 const cloudPrinterGateway = require("../services/printer/cloudPrinterGateway");
 
@@ -164,16 +165,24 @@ const initializeSocket = (server, allowedOrigins = []) => {
         socket.join(`restaurant:${restaurantId}:admins`);
         socket.join(`restaurant:${restaurantId}:waiters`);
       }
-      if (payload?.isPlatformOwner) {
-        socket.join("platform:admins");
-      }
       console.log(`🔑 Socket ${socket.id} joined admins room (restaurant: ${restaurantId || "platform-wide"})`);
     });
 
-    // Platform Owner joins platform:admins room for real-time application notifications
-    socket.on("join-platform", () => {
-      socket.join("platform:admins");
-      console.log(`🛡️ Socket ${socket.id} joined platform:admins room`);
+    // Platform Owner joins platform:admins room for real-time application
+    // notifications. Requires a valid Platform Owner JWT — the room carries
+    // applicant contact details, so it is never joinable anonymously.
+    socket.on("join-platform", async (payload) => {
+      try {
+        const token = payload?.token;
+        if (!token) return;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || "nookambika-dhaba-jwt-secret-2024-secure");
+        const user = await prisma.user.findUnique({ where: { id: decoded.userId }, select: { restaurantId: true } });
+        if (!user || user.restaurantId) return;
+        socket.join("platform:admins");
+        console.log(`🛡️ Socket ${socket.id} joined platform:admins room`);
+      } catch (e) {
+        // Invalid/expired token — silently refuse the room.
+      }
     });
 
     // Kitchen staff joins kitchen room.
@@ -202,16 +211,23 @@ const initializeSocket = (server, allowedOrigins = []) => {
     // CUSTOMER → WAITER EVENTS
     // ─────────────────────────────────────────
 
-    socket.on("call-waiter", (tableCode) => {
+    socket.on("call-waiter", (data) => {
+      const tableCode = typeof data === "string" ? data : data?.tableCode;
       if (!tableCode) return;
+
+      const customMessage =
+        typeof data === "object" && data?.message
+          ? data.message
+          : `Table ${tableCode.toUpperCase()} needs assistance`;
 
       const payload = {
         tableCode: tableCode.toUpperCase(),
-        message: `Table ${tableCode.toUpperCase()} needs assistance`,
+        message: customMessage,
+        details: typeof data === "object" ? data.details || null : null,
         timestamp: new Date().toISOString(),
       };
 
-      console.log(`🔔 Waiter call from Table ${tableCode}`);
+      console.log(`🔔 Waiter call from Table ${tableCode}: ${customMessage}`);
 
       // Tenant-scoped only — resolved from this socket's own join-table call,
       // which defaults to the demo restaurant when no slug was given. Every

@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Shield, LogIn } from "lucide-react";
 import api from "../../lib/api";
-import { setAuth } from "../../lib/auth";
+import { setAuth, getPostLoginRoute } from "../../lib/auth";
 import AuthShell from "../../components/AuthShell";
 import Input from "../../components/ui/Input";
 import toast from "react-hot-toast";
 
+// Restaurant Admin sign-in. ServeSync Platform Admin credentials also work
+// here and are routed to the platform portal (/platform), never to a
+// restaurant dashboard — see lib/auth.js getPostLoginRoute.
 export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -24,14 +27,15 @@ export default function AdminLoginPage() {
       const res = await api.post("/auth/login", { email, password });
       const { token, user, restaurant } = res.data.data;
 
-      if (user.role !== "ADMIN") {
-        toast.error("Access denied. Admin credentials required.");
+      const isPlatformAdmin = !user.restaurantId;
+      if (!isPlatformAdmin && user.role !== "ADMIN") {
+        toast.error("This account does not have access to this portal.");
         return;
       }
 
       setAuth(token, user, restaurant);
       toast.success(`Welcome, ${user.name}!`);
-      router.push("/admin/dashboard");
+      router.push(getPostLoginRoute(user));
     } catch (error) {
       toast.error(error.response?.data?.message || "Login failed");
     } finally {
@@ -42,13 +46,23 @@ export default function AdminLoginPage() {
   return (
     <AuthShell
       icon={Shield}
-      title="ServeSync Admin"
-      subtitle="Platform Administration"
-      tagline="Manage your restaurant's menu, tables, orders, and analytics from one dashboard."
+      title="Restaurant Admin"
+      subtitle="Sign in to manage your restaurant"
+      tagline="Manage your restaurant's menu, tables, orders, staff and reports."
       footer={
-        <Link href="/restaurant/login" className="ss-caption font-semibold hover:underline" style={{ color: "var(--ss-secondary)" }}>
-          Managing a restaurant? Sign in to Restaurant Dashboard →
-        </Link>
+        <div className="space-y-2">
+          <p className="ss-caption">
+            <Link href="/login" className="font-semibold hover:underline" style={{ color: "var(--ss-secondary)" }}>
+              Looking for Captain or Kitchen login? →
+            </Link>
+          </p>
+          <p className="ss-caption">
+            New restaurant?{" "}
+            <Link href="/apply" className="font-semibold hover:underline" style={{ color: "var(--ss-accent-dark)" }}>
+              Register here
+            </Link>
+          </p>
+        </div>
       }
     >
       <form onSubmit={handleLogin} className="space-y-4">
@@ -58,7 +72,7 @@ export default function AdminLoginPage() {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="admin@servesync.com"
+          placeholder="you@restaurant.com"
           required
         />
         <Input
@@ -67,7 +81,7 @@ export default function AdminLoginPage() {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Enter admin password"
+          placeholder="Enter your password"
           required
         />
         <button
@@ -78,7 +92,7 @@ export default function AdminLoginPage() {
           style={{ background: "var(--ss-accent)", color: "var(--ss-on-accent)", borderRadius: "var(--ss-radius-button)", boxShadow: "var(--ss-shadow-md)" }}
         >
           <LogIn size={18} />
-          {loading ? "Logging in..." : "Login to ServeSync"}
+          {loading ? "Signing in..." : "Sign in"}
         </button>
       </form>
     </AuthShell>

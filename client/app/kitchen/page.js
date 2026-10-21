@@ -1,4 +1,5 @@
 "use client";
+import { getToken as getSocketStaffToken } from "../lib/auth";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -353,7 +354,7 @@ export default function KitchenDashboard() {
 
     const joinRoom = () => {
       console.log("👨‍🍳 [Enterprise KDS] Joining kitchen room...");
-      socket.emit("join-kitchen", { restaurantId: getEffectiveRestaurantId() });
+      socket.emit("join-kitchen", { restaurantId: getEffectiveRestaurantId(), token: getSocketStaffToken() });
     };
 
     if (socket.connected) {

@@ -1,94 +1,74 @@
-"use client";
-
 import Link from "next/link";
-import { PLATFORM_NAME, PLATFORM_TAGLINE, DEMO_BADGE_TEXT } from "../../lib/branding";
+import { PLATFORM_NAME } from "../../lib/branding";
+import { CONTACT_EMAIL } from "../../lib/marketing/publicContent";
+import styles from "./marketing.module.css";
 
-const COLUMNS = [
+const GROUPS = [
   {
-    title: "Product",
+    title: "Explore",
     links: [
-      { href: "/features", label: "Features" },
-      { href: "/pricing", label: "Pricing" },
-      { href: "/demo", label: "Demo" },
-      { href: "/apply", label: "Register Restaurant" },
+      ["/#features", "Features"],
+      ["/#how-it-works", "How it works"],
+      ["/demo", "Live demo"],
+      ["/faq", "FAQ"],
     ],
   },
   {
-    title: "Company",
+    title: "Get started",
     links: [
-      { href: "/contact", label: "Contact" },
-      { href: "/faq", label: "FAQ" },
+      ["/apply", "Register restaurant"],
+      ["/application-status", "Application status"],
+      ["/login", "Staff login"],
+      ["/contact", "Contact"],
     ],
   },
   {
-    title: "Legal",
+    title: "Details",
     links: [
-      { href: "/privacy", label: "Privacy Policy" },
-      { href: "/terms", label: "Terms of Service" },
-    ],
-  },
-  {
-    title: "Portals",
-    links: [
-      { href: "/admin/login", label: "Restaurant Login" },
-      { href: "/captain/login", label: "Staff Login" },
-      { href: "/kitchen/login", label: "Kitchen KDS" },
+      ["/privacy", "Privacy policy"],
+      ["/terms", "Terms of service"],
     ],
   },
 ];
-
 export default function MarketingFooter() {
   return (
-    <footer style={{ background: "var(--ss-primary)" }}>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16">
-        <div className="grid grid-cols-2 sm:grid-cols-6 gap-8 mb-12">
-          <div className="col-span-2 sm:col-span-2">
-            <p
-              className="font-bold text-lg mb-2"
-              style={{ fontFamily: "var(--font-heading)", color: "var(--ss-accent)" }}
-            >
+    <footer className={styles.footer}>
+      <div className={styles.container}>
+        <div className={styles.footerGrid}>
+          <div>
+            <Link href="/" className={styles.brand}>
+              <span className={styles.brandMark} aria-hidden="true">
+                S
+              </span>
               {PLATFORM_NAME}
+            </Link>
+            <p>
+              Table orders, kitchen updates
+              <br />
+              and restaurant management.
             </p>
-            <p className="ss-small leading-relaxed" style={{ color: "rgba(255,253,248,0.6)" }}>
-              {PLATFORM_TAGLINE}
-            </p>
+            <a className={styles.footerEmail} href={`mailto:${CONTACT_EMAIL}`}>
+              {CONTACT_EMAIL}
+            </a>
           </div>
-          {COLUMNS.map((col) => (
-            <div key={col.title} className="sm:col-span-1">
-              <p className="ss-caption font-bold mb-3" style={{ color: "rgba(255,253,248,0.4)" }}>
-                {col.title}
-              </p>
-              <ul className="space-y-2">
-                {col.links.map((link) => (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className="ss-small font-medium hover:opacity-100 transition-opacity"
-                      style={{ color: "rgba(255,253,248,0.75)" }}
-                    >
-                      {link.label}
-                    </Link>
+          {GROUPS.map((group) => (
+            <nav key={group.title} aria-label={`${group.title} footer links`}>
+              <h2>{group.title}</h2>
+              <ul>
+                {group.links.map(([href, label]) => (
+                  <li key={href}>
+                    <Link href={href}>{label}</Link>
                   </li>
                 ))}
               </ul>
-            </div>
+            </nav>
           ))}
         </div>
-        <div
-          className="pt-8 border-t flex flex-col sm:flex-row items-center justify-between gap-4"
-          style={{ borderColor: "rgba(255,253,248,0.12)" }}
-        >
-          <p className="ss-caption" style={{ color: "rgba(255,253,248,0.55)" }}>
-            &copy; {new Date().getFullYear()} {PLATFORM_NAME} — {PLATFORM_TAGLINE}
+        <div className={styles.footerBottom}>
+          <p>
+            © {new Date().getFullYear()} {PLATFORM_NAME}
           </p>
-          <Link
-            href="/demo"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full ss-caption font-semibold transition-colors"
-            style={{ background: "rgba(232, 144, 23, 0.14)", border: "1px solid rgba(232, 144, 23, 0.3)", color: "var(--ss-accent)" }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: "var(--ss-success)" }} />
-            {DEMO_BADGE_TEXT}
-          </Link>
+          <p>Made for the way restaurants work.</p>
         </div>
       </div>
     </footer>

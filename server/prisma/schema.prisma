@@ -172,6 +172,9 @@ model MenuItem {
 }
 
 model Order {
+  idempotencyKey String?
+  requestHash    String?
+  @@unique([restaurantId, sessionId, idempotencyKey])
   id              String      @id @default(cuid())
   orderNumber     Int         @unique @default(autoincrement())
   sessionId       String

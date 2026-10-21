@@ -1,5 +1,6 @@
 import toast from "react-hot-toast";
 import api from "../api";
+import { customerAccessForSession } from "../customerAccess";
 import { enqueueAction } from "./offlineQueue";
 import { requestBackgroundSync } from "./backgroundSync";
 
@@ -15,6 +16,9 @@ import { requestBackgroundSync } from "./backgroundSync";
  * re-thrown so the caller's existing error handling still runs unchanged.
  */
 export async function requestOrQueue({ type, method, url, body, offlineMessage, label }) {
+  const sessionId = url.match(/^\/sessions\/([^/?]+)/)?.[1];
+  const access = customerAccessForSession(sessionId);
+  if (access) body = { ...body, customerAccess: access };
   try {
     const res = await api.request({ method, url, data: body });
     return { success: true, queued: false, data: res.data };

@@ -1,4 +1,5 @@
 "use client";
+import { getToken as getSocketStaffToken } from "../../lib/auth";
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -115,7 +116,7 @@ export default function AdminTablesPage() {
   // Socket listener for real-time updates
   useEffect(() => {
     if (!socket) return;
-    socket.emit("join-admin", { restaurantId: getEffectiveRestaurantId() });
+    socket.emit("join-admin", { restaurantId: getEffectiveRestaurantId(), token: getSocketStaffToken() });
 
     socket.on("table-updated", () => {
       fetchTables();

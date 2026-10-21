@@ -1,4 +1,5 @@
 const prisma = require("../config/db");
+const { validateTable, issueCustomerAccess } = require("../services/customerAccess");
 const { getIO } = require("../socket");
 const { generateBillHTML } = require("../utils/kotGenerator");
 const { tokenMatches } = require("../utils/tokenUtils");
@@ -47,6 +48,8 @@ const startSession = async (req, res, next) => {
       });
     }
 
+    await validateTable(table, token);
+
     // Check for existing active session
     const existingSession = await prisma.session.findFirst({
       where: {
@@ -69,7 +72,7 @@ const startSession = async (req, res, next) => {
       return res.json({
         success: true,
         message: "Existing session found.",
-        data: existingSession,
+        data: { ...existingSession, customerAccess: issueCustomerAccess(table, existingSession) },
       });
     }
 
@@ -90,14 +93,12 @@ const startSession = async (req, res, next) => {
       sessionId: session.id,
     };
     console.log("Sending new-session event:", session.id);
-    io.to(`restaurant:${table.restaurantId}:waiters`).emit("new-session", sessionPayload);
-    io.to(`restaurant:${table.restaurantId}:captains`).emit("new-session", sessionPayload);
-    io.to(`restaurant:${table.restaurantId}:admins`).emit("new-session", sessionPayload);
+    io.to(["waiters", "captains", "admins"].map(role => `restaurant:${table.restaurantId}:${role}`)).emit("new-session", sessionPayload);
 
     res.status(201).json({
       success: true,
       message: "New session started.",
-      data: session,
+      data: { ...session, customerAccess: issueCustomerAccess(table, session) },
     });
   } catch (error) {
     next(error);
@@ -163,18 +164,20 @@ const requestBill = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const session = await prisma.session.update({
-      where: { id },
+    const changed = await prisma.session.updateMany({
+      where: { id, status: "ACTIVE" },
       data: { status: "BILL_REQUESTED" },
-      include: {
-        table: true,
-        orders: {
-          include: {
-            items: { include: { menuItem: true } },
-          },
-        },
-      },
     });
+    const session = await prisma.session.findUnique({
+      where: { id },
+      include: { table: true, orders: { include: { items: { include: { menuItem: true } } } } },
+    });
+    if (!session || session.status !== "BILL_REQUESTED") {
+      return res.status(409).json({ success: false, message: "This session is closed or unavailable." });
+    }
+    if (!changed.count) {
+      return res.json({ success: true, message: "Bill already requested.", data: { session } });
+    }
 
     // Calculate total safely
     let total = 0;
@@ -211,9 +214,7 @@ const requestBill = async (req, res, next) => {
       billFormats,
     };
     console.log("Sending bill-requested event for table:", session.table.code);
-    io.to(`restaurant:${session.restaurantId}:waiters`).emit("bill-requested", billPayload);
-    io.to(`restaurant:${session.restaurantId}:captains`).emit("bill-requested", billPayload);
-    io.to(`restaurant:${session.restaurantId}:admins`).emit("bill-requested", billPayload);
+    io.to(["waiters", "captains", "admins"].map(role => `restaurant:${session.restaurantId}:${role}`)).emit("bill-requested", billPayload);
 
     res.json({
       success: true,
@@ -301,8 +302,9 @@ const closeSession = async (req, res, next) => {
   try {
     const { id } = req.params;
 
+    if (!req.restaurantId) return res.status(400).json({ success: false, message: "Select a restaurant first." });
     const session = await prisma.session.update({
-      where: { id },
+      where: { id, restaurantId: req.restaurantId },
       data: {
         status: "CLOSED",
         closedAt: new Date(),

@@ -1,4 +1,5 @@
 const express = require("express");
+const { customerAccess } = require("../middleware/customerAccess");
 const router = express.Router();
 const {
   placeOrder,
@@ -14,13 +15,13 @@ const { rateLimit } = require("../middleware/rateLimit");
 const { validate } = require("../middleware/validate");
 const { placeOrderSchema } = require("../validation/schemas");
 
-// Public — placeOrder resolves its restaurant from the session itself (sessionId
-// is already a globally-unique, tenant-correct reference), no tenant middleware needed.
+// Public customer orders require a signed, live table/session capability.
 // Generous rate limit — a real table placing several rounds of orders over a
 // meal never comes close; this only stops automated/abusive submission bursts.
 router.post(
   "/",
   rateLimit({ windowMs: 5 * 60 * 1000, max: 40, message: "Too many orders submitted — please wait a moment and try again." }),
+  customerAccess({ allowClosed: true }), // Only an existing order can replay after closure; the controller rejects new orders.
   validate(placeOrderSchema),
   placeOrder
 );

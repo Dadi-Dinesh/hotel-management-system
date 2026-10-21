@@ -4,8 +4,8 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Minus, Plus } from "lucide-react";
 
 const SIZES = {
-  sm: { btn: "w-7 h-7", text: "text-xs", count: "min-w-[22px]", icon: 13 },
-  md: { btn: "w-9 h-9", text: "text-sm", count: "min-w-[28px]", icon: 15 },
+  sm: { btn: "w-11 h-11", text: "text-xs", count: "min-w-[22px]", icon: 13 },
+  md: { btn: "w-11 h-11", text: "text-sm", count: "min-w-[28px]", icon: 15 },
 };
 
 /**
@@ -15,11 +15,12 @@ const SIZES = {
  */
 export default function QuantitySelector({
   quantity = 0,
-  onAdd,
-  onIncrement,
-  onDecrement,
+  onAdd = undefined,
+  onIncrement = undefined,
+  onDecrement = undefined,
   addLabel = "Add to Cart",
   size = "md",
+  itemName = "item",
   fullWidthAdd = false,
 }) {
   const shouldReduceMotion = useReducedMotion();
@@ -31,6 +32,7 @@ export default function QuantitySelector({
         type="button"
         whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
         onClick={onAdd}
+        aria-label={`Add ${itemName}`}
         className={`ss-btn inline-flex items-center justify-center gap-1.5 font-semibold ${s.text} py-2.5 ${fullWidthAdd ? "w-full" : "px-5"}`}
         data-variant="primary"
         style={{
@@ -47,20 +49,29 @@ export default function QuantitySelector({
   return (
     <div
       className="inline-flex items-center rounded-full overflow-hidden flex-shrink-0"
-      style={{ border: "1px solid var(--ss-border)", background: "var(--ss-surface)" }}
+      style={{
+        border: "1px solid var(--ss-border)",
+        background: "var(--ss-surface)",
+      }}
     >
       <button
         type="button"
         onClick={onDecrement}
-        aria-label="Decrease quantity"
+        aria-label={`Decrease quantity for ${itemName}`}
         className={`${s.btn} flex items-center justify-center transition-colors`}
         style={{ color: "var(--ss-primary)" }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--ss-bg)")}
+        onMouseEnter={(e) =>
+          (e.currentTarget.style.background = "var(--ss-bg)")
+        }
         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
       >
         <Minus size={s.icon} />
       </button>
-      <span className={`${s.count} ${s.text} text-center font-bold overflow-hidden relative`} style={{ color: "var(--ss-primary)" }} aria-live="polite">
+      <span
+        className={`${s.count} ${s.text} text-center font-bold overflow-hidden relative`}
+        style={{ color: "var(--ss-primary)" }}
+        aria-live="polite"
+      >
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span
             key={quantity}
@@ -77,10 +88,12 @@ export default function QuantitySelector({
       <button
         type="button"
         onClick={onIncrement}
-        aria-label="Increase quantity"
+        aria-label={`Increase quantity for ${itemName}`}
         className={`${s.btn} flex items-center justify-center transition-colors`}
         style={{ color: "var(--ss-primary)" }}
-        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--ss-bg)")}
+        onMouseEnter={(e) =>
+          (e.currentTarget.style.background = "var(--ss-bg)")
+        }
         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
       >
         <Plus size={s.icon} />

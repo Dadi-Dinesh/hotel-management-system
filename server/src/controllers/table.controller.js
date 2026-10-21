@@ -1,4 +1,5 @@
 const prisma = require("../config/db");
+const { validateTable, issueCustomerAccess } = require("../services/customerAccess");
 const { getIO } = require("../socket");
 const { generateRawToken, hashToken, tokenMatches } = require("../utils/tokenUtils");
 const { logAudit } = require("../utils/auditLog");
@@ -100,6 +101,8 @@ const getTableByCode = async (req, res, next) => {
       });
     }
 
+    await validateTable(table, token);
+
     // Scan tracking — best-effort, never blocks the response.
     prisma.table.update({ where: { id: table.id }, data: { lastScannedAt: new Date() } }).catch(() => {});
 
@@ -107,6 +110,7 @@ const getTableByCode = async (req, res, next) => {
       success: true,
       data: {
         ...table,
+        customerAccess: issueCustomerAccess(table, table.sessions[0]),
         activeSession: table.sessions[0] || null,
         sessions: undefined,
         qrTokenHash: undefined,

@@ -1,4 +1,5 @@
 "use client";
+import { getToken as getSocketStaffToken } from "../auth";
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import api from "../api";
@@ -49,7 +50,7 @@ export function useAICopilot() {
   useEffect(() => {
     if (!socket) return undefined;
 
-    const joinRoom = () => socket.emit("join-admin", { restaurantId: getEffectiveRestaurantId() });
+    const joinRoom = () => socket.emit("join-admin", { restaurantId: getEffectiveRestaurantId(), token: getSocketStaffToken() });
     if (socket.connected) joinRoom();
     socket.on("connect", joinRoom);
 

@@ -1,4 +1,5 @@
 "use client";
+import { getToken as getSocketStaffToken } from "../auth";
 
 import { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
@@ -171,7 +172,7 @@ export function usePrinter() {
     // Always scope to the signed-in restaurant — an empty payload would fall
     // back to the demo restaurant's room on the server.
     const restaurantId = getEffectiveRestaurantId();
-    if (restaurantId) socket.emit("join-admin", { restaurantId });
+    if (restaurantId) socket.emit("join-admin", { restaurantId, token: getSocketStaffToken() });
 
     const handleSocketStatusUpdate = (data: any) => {
       if (data) {

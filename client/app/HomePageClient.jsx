@@ -1,170 +1,291 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import Link from "next/link";
 import {
-  PlayCircle,
   ArrowRight,
   QrCode,
   ChefHat,
   Users,
   Receipt,
   BarChart3,
-  Sparkles,
-  ClipboardCheck,
-  ShieldCheck,
-  PackageCheck,
+  Smartphone,
+  Check,
+  Mail,
 } from "lucide-react";
-import { PLATFORM_NAME } from "./lib/branding";
 import MarketingNav from "./components/marketing/MarketingNav";
 import MarketingFooter from "./components/marketing/MarketingFooter";
 import HeroMockup from "./components/marketing/HeroMockup";
-import TrustSection from "./components/marketing/TrustSection";
-import InstallSection from "./components/marketing/InstallSection";
-import FeatureCard from "./components/marketing/FeatureCard";
-import TimelineStep from "./components/marketing/TimelineStep";
-import TestimonialCard from "./components/marketing/TestimonialCard";
-import CTASection from "./components/marketing/CTASection";
+import FAQAccordion from "./components/marketing/FAQAccordion";
 import Button from "./components/ui/Button";
-import Section from "./components/ui/Section";
-import { SAMPLE_TESTIMONIALS } from "./lib/marketing/testimonials";
+import { CONTACT_EMAIL, FAQ_ITEMS } from "./lib/marketing/publicContent";
+import styles from "./components/marketing/marketing.module.css";
 
 const FEATURES = [
-  { icon: QrCode, title: "QR Ordering", description: "Guests scan a table QR and order in seconds — no app required." },
-  { icon: ChefHat, title: "Real-Time Kitchen", description: "Orders hit the kitchen display the instant they're placed." },
-  { icon: Users, title: "Waiter Dashboard", description: "Live tables, reminders, and bill requests in one place." },
-  { icon: Receipt, title: "Smart Billing & Printing", description: "Auto-calculated bills with thermal, network, or browser printing." },
-  { icon: BarChart3, title: "Admin Analytics", description: "Revenue, top sellers, and peak hours at a glance." },
-  { icon: Sparkles, title: "AI Copilot", description: "Daily insights and suggestions computed from your own data." },
+  {
+    icon: QrCode,
+    title: "Let guests order at their table",
+    text: "A table QR opens your menu in the browser. Guests choose their items and send an order to your team.",
+  },
+  {
+    icon: ChefHat,
+    title: "Keep the kitchen in the loop",
+    text: "See incoming orders, quantities and preparation progress together in the kitchen workspace.",
+  },
+  {
+    icon: Users,
+    title: "Give waiters a clear overview",
+    text: "Captains can accept orders, follow table activity and respond to reminders and bill requests.",
+  },
+  {
+    icon: Receipt,
+    title: "Bring orders together for billing",
+    text: "Review a table's orders, prepare its bill and close the session after handling payment.",
+  },
+  {
+    icon: BarChart3,
+    title: "Understand your restaurant's orders",
+    text: "Review order history, popular menu items and busy periods using your restaurant's stored data.",
+  },
 ];
-
 const STEPS = [
-  { icon: PlayCircle, title: "Explore Demo", description: "Try the full ordering experience live on our demo restaurant — no signup needed." },
-  { icon: ClipboardCheck, title: "Register Restaurant", description: "Submit your restaurant details and requested table count in a guided form." },
-  { icon: ShieldCheck, title: "Verification", description: "Our platform team verifies your application and approves your account." },
-  { icon: PackageCheck, title: "QR Kit Delivered", description: "Your QR kit, login credentials, and setup guide arrive by email and WhatsApp." },
+  {
+    title: "Explore the demo",
+    text: "Try the existing customer ordering experience. No account needed.",
+  },
+  {
+    title: "Register your restaurant",
+    text: "Tell us about your business, contact details and tables.",
+  },
+  {
+    title: "ServeSync reviews your application",
+    text: "Your application is reviewed before your restaurant is set up.",
+  },
+  {
+    title: "Get your setup details",
+    text: "After approval, the team helps you access your accounts and table QR codes.",
+  },
 ];
 
 export default function HomePageClient() {
-  const shouldReduceMotion = useReducedMotion();
-
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "var(--ss-bg)" }}>
-      <MarketingNav />
-
-      {/* Hero — two column on desktop, stacked on mobile */}
-      <section className="relative overflow-hidden px-4 sm:px-6 pt-12 pb-16 sm:pt-16 sm:pb-20">
-        {/* Decorative ambient glow */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-          <div
-            className="absolute -top-24 -left-24 w-96 h-96 rounded-full opacity-40"
-            style={{ background: "radial-gradient(circle, var(--ss-accent) 0%, transparent 70%)", filter: "blur(80px)" }}
-          />
-        </div>
-
-        <div className="relative max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-          <motion.div
-            initial="hidden"
-            animate="show"
-            variants={{ show: { transition: { staggerChildren: 0.12 } } }}
-            className="flex flex-col items-center text-center lg:items-start lg:text-left"
-          >
-            <motion.p
-              variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-              className="ss-eyebrow mb-4"
-            >
-              QR Ordering · Real-Time Kitchen · Smart Billing · AI Insights
-            </motion.p>
-
-            <motion.h1
-              variants={{ hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-              className="ss-hero-heading mb-5"
-            >
-              Run Your Restaurant Smarter with {PLATFORM_NAME}
-            </motion.h1>
-
-            <motion.p
-              variants={{ hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-              className="ss-body mb-8 max-w-md"
-            >
-              One platform for QR ordering, kitchen tickets, waiter tools, billing, and analytics — built for restaurants that want to move faster.
-            </motion.p>
-
-            <motion.div
-              variants={{ hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0 } }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-              className="w-full flex flex-col sm:flex-row sm:w-auto items-stretch sm:items-center gap-3"
-            >
-              <Button href="/demo" variant="primary" size="lg" icon={PlayCircle} fullWidthOnMobile>
+    <div className={styles.site}>
+      <MarketingNav skipTo="#main-content" />
+      <main id="main-content" tabIndex={-1}>
+        <section
+          className={`${styles.container} ${styles.hero}`}
+          aria-labelledby="hero-title"
+        >
+          <div className={styles.heroCopy}>
+            <p className={styles.eyebrow}>
+              <span /> A little more order. A little less running around.
+            </p>
+            <h1 id="hero-title">
+              From the first order
+              <br className={styles.desktopBreak} /> to the final bill.
+              <br />
+              <em>All in one place.</em>
+            </h1>
+            <p className={styles.heroDescription}>
+              ServeSync brings table ordering, your kitchen and your waiter team
+              together. Give guests an easy way to order, and staff a clear view
+              of what comes next.
+            </p>
+            <div className={styles.heroActions}>
+              <Button
+                href="/demo"
+                icon={ArrowRight}
+                iconPosition="right"
+                fullWidthOnMobile
+              >
                 Explore Live Demo
               </Button>
-              <Button href="/apply" variant="secondary" size="lg" icon={ArrowRight} iconPosition="right" fullWidthOnMobile>
-                Register Restaurant
+              <Button href="/apply" variant="secondary" fullWidthOnMobile>
+                Register Your Restaurant
               </Button>
-            </motion.div>
-          </motion.div>
+            </div>
+            <p className={styles.heroFootnote}>
+              <Check size={16} aria-hidden="true" /> No customer app needed{" "}
+              <span aria-hidden="true">·</span> Try the demo without signing up
+            </p>
+          </div>
+          <HeroMockup />
+        </section>
 
-          <motion.div
-            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, ease: "easeOut", delay: 0.2 }}
-          >
-            <HeroMockup />
-          </motion.div>
-        </div>
-      </section>
+        <section
+          className={styles.customerSection}
+          aria-labelledby="customer-title"
+        >
+          <div className={`${styles.container} ${styles.customerGrid}`}>
+            <div>
+              <p className={styles.eyebrow}>Simple for your guests</p>
+              <h2 id="customer-title">
+                Their phone.
+                <br />
+                Your menu.
+              </h2>
+              <p>
+                Put a QR code on each table. Guests scan it and order from their
+                browser, without downloading an app.
+              </p>
+            </div>
+            <ol className={styles.customerSteps}>
+              <li>
+                <QrCode size={24} aria-hidden="true" />
+                <div>
+                  <h3>Scan the table QR</h3>
+                  <p>Open the restaurant menu on a phone.</p>
+                </div>
+              </li>
+              <li>
+                <Smartphone size={24} aria-hidden="true" />
+                <div>
+                  <h3>Choose and place an order</h3>
+                  <p>Browse items and send the order to the team.</p>
+                </div>
+              </li>
+              <li>
+                <Receipt size={24} aria-hidden="true" />
+                <div>
+                  <h3>Follow along, then request the bill</h3>
+                  <p>See order updates and call for assistance when needed.</p>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </section>
 
-      <TrustSection />
+        <section
+          id="features"
+          className={`${styles.container} ${styles.section}`}
+          aria-labelledby="features-title"
+        >
+          <div className={styles.sectionIntro}>
+            <p className={styles.eyebrow}>
+              Built around a restaurant&apos;s day
+            </p>
+            <h2 id="features-title">The right view for every role.</h2>
+            <p>
+              One connected workflow, from a guest&apos;s table to the kitchen
+              and back.
+            </p>
+          </div>
+          <div className={styles.featureGrid}>
+            {FEATURES.map(({ icon: Icon, title, text }) => (
+              <article key={title} className={styles.feature}>
+                <Icon size={25} aria-hidden="true" />
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </article>
+            ))}
+          </div>
+        </section>
 
-      {/* Features */}
-      <Section
-        eyebrow="Everything Included"
-        title="One Platform, Every Part of the Restaurant"
-        subtitle="From the first table scan to the end-of-day report."
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {FEATURES.map((f, i) => (
-            <FeatureCard key={f.title} icon={f.icon} title={f.title} description={f.description} index={i} />
-          ))}
-        </div>
-      </Section>
+        <section
+          id="how-it-works"
+          className={styles.onboarding}
+          aria-labelledby="steps-title"
+        >
+          <div className={styles.container}>
+            <div className={styles.sectionIntro}>
+              <p className={styles.eyebrow}>Getting started</p>
+              <h2 id="steps-title">
+                Explore first. Apply when you&apos;re ready.
+              </h2>
+              <p>
+                Registration starts an application. Your restaurant is set up
+                after ServeSync reviews and approves it.
+              </p>
+            </div>
+            <ol className={styles.steps}>
+              {STEPS.map((step, index) => (
+                <li key={step.title}>
+                  <span className={styles.stepNumber}>0{index + 1}</span>
+                  <h3>{step.title}</h3>
+                  <p>{step.text}</p>
+                </li>
+              ))}
+            </ol>
+            <div className={styles.applicationNote}>
+              <span>Already sent your details?</span>
+              <Link href="/application-status">
+                Check application status{" "}
+                <ArrowRight size={16} aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
+        </section>
 
-      {/* How It Works */}
-      <Section eyebrow="How ServeSync Works" title="From Exploring the Demo to Taking Orders">
-        <div className="flex flex-col sm:flex-row sm:items-start gap-0 sm:gap-4">
-          {STEPS.map((step, i) => (
-            <TimelineStep
-              key={step.title}
-              number={i + 1}
-              icon={step.icon}
-              title={step.title}
-              description={step.description}
-              index={i}
-              last={i === STEPS.length - 1}
-            />
-          ))}
-        </div>
-      </Section>
+        <section
+          id="faq"
+          className={`${styles.container} ${styles.section} ${styles.faqGrid}`}
+          aria-labelledby="faq-title"
+        >
+          <div className={styles.sectionIntro}>
+            <p className={styles.eyebrow}>A few things to know</p>
+            <h2 id="faq-title">
+              Questions before
+              <br />
+              you get started?
+            </h2>
+            <p>
+              Here is what the current application supports, and what happens
+              next.
+            </p>
+            <Link href="/contact" className={styles.textLink}>
+              Get in touch <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+          </div>
+          <FAQAccordion items={FAQ_ITEMS} />
+        </section>
 
-      <InstallSection />
-
-      {/* Testimonials */}
-      <Section
-        eyebrow="What Restaurants Say"
-        title="Loved by Restaurant Teams"
-        subtitle="Illustrative examples of the kind of impact ServeSync aims to deliver."
-      >
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          {SAMPLE_TESTIMONIALS.map((t, i) => (
-            <TestimonialCard key={t.name + i} {...t} index={i} />
-          ))}
-        </div>
-      </Section>
-
-      <CTASection />
-
+        <section
+          id="contact"
+          className={`${styles.container} ${styles.contactSection}`}
+          aria-labelledby="contact-title"
+        >
+          <div className={styles.contactPanel}>
+            <div>
+              <p className={styles.eyebrow}>Let&apos;s get you started</p>
+              <h2 id="contact-title">
+                See how ServeSync fits your restaurant.
+              </h2>
+              <p>
+                Explore the customer experience, or send in your restaurant
+                details for review.
+              </p>
+              <div className={styles.heroActions}>
+                <Button
+                  href="/demo"
+                  icon={ArrowRight}
+                  iconPosition="right"
+                  fullWidthOnMobile
+                >
+                  Explore Live Demo
+                </Button>
+                <Button
+                  href="/apply"
+                  variant="secondary-light"
+                  fullWidthOnMobile
+                >
+                  Register Restaurant
+                </Button>
+              </div>
+            </div>
+            <div className={styles.contactDetails}>
+              <Mail size={25} aria-hidden="true" />
+              <h3>Have a question?</h3>
+              <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+              <p>
+                Email us about registration or setup. This link opens your email
+                app.
+              </p>
+              <Link href="/contact">
+                Contact options <ArrowRight size={16} aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
+        </section>
+      </main>
       <MarketingFooter />
     </div>
   );

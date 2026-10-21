@@ -48,20 +48,16 @@ const resolveStaffTenant = (req, res, next) => {
  */
 const resolvePublicTenant = async (req, res, next) => {
   try {
-    const slug = req.params.slug || req.body?.restaurantSlug || req.query?.restaurantSlug;
+    const slug = req.params.slug ?? req.body?.restaurantSlug ?? req.query?.restaurantSlug ?? DEMO_SLUG;
 
-    if (slug) {
-      const restaurant = await prisma.restaurant.findUnique({ where: { slug } });
-      if (!restaurant || !restaurant.isActive) {
-        return res.status(404).json({ success: false, message: "Restaurant not found." });
-      }
-      req.restaurantId = restaurant.id;
-      req.restaurant = restaurant;
-      return next();
+    if (typeof slug !== "string" || !slug.trim()) return res.status(404).json({ success: false, message: "Restaurant not found." });
+    const restaurant = await prisma.restaurant.findUnique({ where: { slug } });
+    if (!restaurant || !restaurant.isActive) {
+      return res.status(404).json({ success: false, message: "Restaurant not found." });
     }
-
-    req.restaurantId = await getDemoRestaurantId();
-    next();
+    req.restaurantId = restaurant.id;
+    req.restaurant = restaurant;
+    return next();
   } catch (error) {
     next(error);
   }

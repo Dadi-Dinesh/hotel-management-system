@@ -1,4 +1,5 @@
 import axios from "axios";
+import { rememberCustomerAccess, customerAccessForSession } from "./customerAccess";
 import { notifyNetworkError } from "./pwa/networkEvents";
 
 const getApiBase = () => {
@@ -26,6 +27,9 @@ const api = axios.create({
 // Attach JWT token to requests if available
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
+    const sessionId = config.url?.match(/^\/sessions\/([^/?]+)/)?.[1] || config.data?.sessionId;
+    const access = config.data?.customerAccess || customerAccessForSession(sessionId);
+    if (access) config.headers["X-Customer-Access"] = access;
     const token = localStorage.getItem("token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -43,7 +47,10 @@ api.interceptors.request.use((config) => {
 
 // Handle expired tokens and network errors
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    rememberCustomerAccess(response.data?.data, response.config?.url);
+    return response;
+  },
   (error) => {
     if (!error.response && error.message === "Network Error") {
       console.warn("API Connection Error: Backend server unreachable at", API_BASE);

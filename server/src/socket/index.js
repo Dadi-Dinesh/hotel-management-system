@@ -7,38 +7,18 @@
  *   - restaurant:<id>:admins    : Admin dashboard for one restaurant
  *   - restaurant:<id>:kitchen   : Kitchen display for one restaurant
  *   - restaurant:<id>:table:<code> : Customer table room, tenant-scoped
- *   - tableCode / table:<code> : legacy, un-scoped table rooms — kept ALIVE
- *     alongside the scoped ones so pre-existing (un-prefixed) customer pages
- *     keep working exactly as before. Only ever used by the demo restaurant,
- *     since legacy pages can only ever resolve a demo-restaurant table in the
- *     first place (see middleware/tenant.js resolvePublicTenant) — so there is
- *     no cross-tenant collision risk in keeping them.
+ * Legacy demo URLs join the same verified, tenant-scoped table rooms.
  *   - printer-agents : Cloud Printer Agent connection room (unchanged)
  */
 
 const jwt = require("jsonwebtoken");
-const prisma = require("../config/db");
+const { verifyCustomerAccess } = require("../services/customerAccess");
+const { installBroadcastAccess } = require("../services/socketBroadcastAccess");
+const { staffSocketAccess, revalidateSocket } = require("../services/staffSocketAccess");
+const { supplyRequest } = require("../utils/supplyRequest");
 const cloudPrinterGateway = require("../services/printer/cloudPrinterGateway");
 
 let io;
-let cachedDemoRestaurantId = null;
-
-async function resolveDemoRestaurantId() {
-  if (cachedDemoRestaurantId) return cachedDemoRestaurantId;
-  const demo = await prisma.restaurant.findUnique({ where: { slug: "nookambika" }, select: { id: true } });
-  cachedDemoRestaurantId = demo?.id || null;
-  return cachedDemoRestaurantId;
-}
-
-/** Resolve a restaurantId from an explicit slug, falling back to the demo restaurant. */
-async function resolveRestaurantId(restaurantSlug) {
-  if (restaurantSlug) {
-    const restaurant = await prisma.restaurant.findUnique({ where: { slug: restaurantSlug }, select: { id: true } });
-    if (restaurant) return restaurant.id;
-  }
-  return resolveDemoRestaurantId();
-}
-
 const initializeSocket = (server, allowedOrigins = []) => {
   const { Server } = require("socket.io");
 
@@ -61,6 +41,8 @@ const initializeSocket = (server, allowedOrigins = []) => {
     connectTimeout: 45000,
     allowEIO3: true,
   });
+
+  installBroadcastAccess(io.sockets.adapter, revalidateSocket);
 
   io.engine.on("connection_error", (err) => {
     console.warn("⚠️ [Socket Engine] Connection notice:", err.req?.url, err.code, err.message);
@@ -111,134 +93,108 @@ const initializeSocket = (server, allowedOrigins = []) => {
     // ROOM JOINS
     // ─────────────────────────────────────────
 
-    // Customer joins table room. Accepts either:
-    //   "T01"                                  — legacy, resolves to the demo restaurant
-    //   { tableCode: "T01", restaurantSlug }    — new, tenant-scoped
-    socket.on("join-table", async (payload) => {
+    // Never accept a room name/tenant as proof of identity. A socket has one
+    // current customer or staff context; switching clears prior tenant rooms.
+    let joinVersion = 0;
+    let accessExpiry;
+    const clearRooms = () => {
+      for (const room of socket.rooms || []) if (room !== socket.id) socket.leave(room);
+      delete socket.data.restaurantId;
+      delete socket.data.tableCode;
+      delete socket.data.customerAccess;
+      delete socket.data.staff;
+      clearTimeout(accessExpiry);
+    };
+    const expireWith = (token) => {
+      const expiry = jwt.decode(token)?.exp;
+      if (expiry) {
+        accessExpiry = setTimeout(() => { clearRooms(); socket.disconnect(true); }, Math.max(0, expiry * 1000 - Date.now()));
+        accessExpiry.unref?.();
+      }
+    };
+    socket.on("join-table", async (payload, acknowledge) => {
+      const version = ++joinVersion;
+      const reply = typeof acknowledge === "function" ? acknowledge : () => {};
       try {
-        const tableCode = typeof payload === "string" ? payload : payload?.tableCode;
-        const restaurantSlug = typeof payload === "object" ? payload?.restaurantSlug : undefined;
-        if (!tableCode) return;
-
-        const code = tableCode.toUpperCase();
-        const restaurantId = await resolveRestaurantId(restaurantSlug);
-
-        socket.data.restaurantId = restaurantId;
-        socket.data.tableCode = code;
-
-        // Legacy rooms — always joined so existing demo-restaurant pages keep working.
-        socket.join(code);
-        socket.join(`table:${code}`);
-        // Tenant-scoped room — what every new emit targets.
-        if (restaurantId) {
-          socket.join(`restaurant:${restaurantId}:table:${code}`);
-        }
-        console.log(`📍 Socket ${socket.id} joined table room: ${code} (restaurant: ${restaurantId || "unknown"})`);
-      } catch (err) {
-        console.error("join-table error:", err.message);
-      }
+        const context = await verifyCustomerAccess(payload?.customerAccess);
+        const { table, restaurant } = context;
+        const slug = payload?.restaurantSlug ?? "nookambika";
+        if (typeof payload?.tableCode !== "string" || table.code !== payload.tableCode.toUpperCase() || restaurant.slug !== slug) throw new Error("Invalid table context.");
+        if (version !== joinVersion) return;
+        clearRooms();
+        socket.data.restaurantId = restaurant.id;
+        socket.data.tableCode = table.code;
+        socket.data.customerAccess = payload.customerAccess;
+        socket.join(`restaurant:${restaurant.id}:table:${table.code}`);
+        // Legacy URLs use this same verified, tenant-scoped room.
+        expireWith(payload.customerAccess);
+        reply({ success: true });
+      } catch { reply({ success: false, message: "Scan this table's QR code again." }); }
     });
-
-    // Waiter / Captain joins waiters room. Accepts an optional { restaurantId }.
-    socket.on("join-waiter", async (payload) => {
-      const restaurantId = payload?.restaurantId || (await resolveDemoRestaurantId());
-      socket.data.restaurantId = restaurantId;
-      socket.join(`restaurant:${restaurantId}:waiters`);
-      socket.join(`restaurant:${restaurantId}:captains`);
-      console.log(`👨‍🍳 Socket ${socket.id} joined waiters room (restaurant: ${restaurantId})`);
+    const joinStaff = (event, roles, rooms) => socket.on(event, async (payload, acknowledge) => {
+      const version = ++joinVersion;
+      const reply = typeof acknowledge === "function" ? acknowledge : () => {};
+      try {
+        const token = payload?.token || socket.handshake.auth?.token;
+        const staff = await staffSocketAccess(token, payload?.restaurantId, roles);
+        if (version !== joinVersion) return;
+        clearRooms();
+        socket.data.restaurantId = staff.restaurantId;
+        socket.data.staff = { ...staff, token, roles };
+        rooms.forEach(role => socket.join(`restaurant:${staff.restaurantId}:${role}`));
+        expireWith(token);
+        reply({ success: true });
+      } catch { reply({ success: false, message: "Staff access denied." }); }
     });
+    joinStaff("join-waiter", ["CAPTAIN", "MANAGER", "ADMIN"], ["waiters", "captains"]);
+    joinStaff("join-captain", ["CAPTAIN", "MANAGER", "ADMIN"], ["waiters", "captains"]);
+    joinStaff("join-admin", ["ADMIN"], ["admins", "waiters"]);
+    joinStaff("join-kitchen", ["KITCHEN", "ADMIN"], ["kitchen"]);
 
-    socket.on("join-captain", async (payload) => {
-      const restaurantId = payload?.restaurantId || (await resolveDemoRestaurantId());
-      socket.data.restaurantId = restaurantId;
-      socket.join(`restaurant:${restaurantId}:captains`);
-      socket.join(`restaurant:${restaurantId}:waiters`);
-      console.log(`👨‍🍳 Socket ${socket.id} joined captains room (restaurant: ${restaurantId})`);
-    });
-
-    // Admin joins admin room. Platform Owners pass no restaurantId until they
-    // pick one via the RestaurantSwitcher, which re-emits join-admin.
-    socket.on("join-admin", async (payload) => {
-      const restaurantId = payload?.restaurantId || (await resolveDemoRestaurantId());
-      socket.data.restaurantId = restaurantId;
-      if (restaurantId) {
-        socket.join(`restaurant:${restaurantId}:admins`);
-        socket.join(`restaurant:${restaurantId}:waiters`);
-      }
-      console.log(`🔑 Socket ${socket.id} joined admins room (restaurant: ${restaurantId || "platform-wide"})`);
-    });
-
-    // Platform Owner joins platform:admins room for real-time application
-    // notifications. Requires a valid Platform Owner JWT — the room carries
-    // applicant contact details, so it is never joinable anonymously.
     socket.on("join-platform", async (payload) => {
+      const version = ++joinVersion;
       try {
-        const token = payload?.token;
-        if (!token) return;
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || "nookambika-dhaba-jwt-secret-2024-secure");
-        const user = await prisma.user.findUnique({ where: { id: decoded.userId }, select: { restaurantId: true } });
-        if (!user || user.restaurantId) return;
+        if (!process.env.JWT_SECRET) return;
+        const { authenticate } = require("../middleware/auth");
+        const req = { headers: { authorization: `Bearer ${payload?.token || ""}` } };
+        let valid = false;
+        await authenticate(req, { status() { return this; }, json() {} }, () => { valid = true; });
+        if (!valid || req.user.role !== "ADMIN" || req.user.restaurantId) return;
+        if (version !== joinVersion) return;
+        clearRooms();
+        socket.data.staff = { platform: true, token: payload.token };
         socket.join("platform:admins");
-        console.log(`🛡️ Socket ${socket.id} joined platform:admins room`);
-      } catch (e) {
-        // Invalid/expired token — silently refuse the room.
-      }
+        expireWith(payload.token);
+      } catch { /* Invalid credentials never join. */ }
+    });
+    socket.on("kitchen-live-mode", async (payload) => {
+      try {
+        const current = socket.data.staff;
+        if (!current) return;
+        const staff = await staffSocketAccess(current.token, current.restaurantId, ["ADMIN", "CAPTAIN", "MANAGER"]);
+        if (payload?.restaurantId && payload.restaurantId !== staff.restaurantId) return;
+        const enabled = typeof payload === "boolean" ? payload : !!payload?.enabled;
+        io.to(["kitchen", "captains", "waiters", "admins"].map(role => `restaurant:${staff.restaurantId}:${role}`)).emit("kitchen-live-mode-changed", { enabled });
+      } catch { /* Unauthorized state changes are ignored. */ }
     });
 
-    // Kitchen staff joins kitchen room.
-    socket.on("join-kitchen", async (payload) => {
-      const restaurantId = payload?.restaurantId || (await resolveDemoRestaurantId());
-      socket.data.restaurantId = restaurantId;
-      socket.join(`restaurant:${restaurantId}:kitchen`);
-      console.log(`👨‍🍳 Socket ${socket.id} joined kitchen room (restaurant: ${restaurantId})`);
-    });
-
-    // ─────────────────────────────────────────
-    // KITCHEN LIVE MODE EVENT
-    // ─────────────────────────────────────────
-    socket.on("kitchen-live-mode", (payload) => {
-      const isLive = typeof payload === "boolean" ? payload : !!payload?.enabled;
-      const restaurantId = (typeof payload === "object" && payload?.restaurantId) || socket.data.restaurantId;
-      if (!restaurantId) return;
-      console.log(`🔥 Kitchen Live Mode changed: ${isLive ? "ON" : "OFF"} (restaurant: ${restaurantId})`);
-      io.to(`restaurant:${restaurantId}:kitchen`).emit("kitchen-live-mode-changed", { enabled: isLive });
-      io.to(`restaurant:${restaurantId}:captains`).emit("kitchen-live-mode-changed", { enabled: isLive });
-      io.to(`restaurant:${restaurantId}:waiters`).emit("kitchen-live-mode-changed", { enabled: isLive });
-      io.to(`restaurant:${restaurantId}:admins`).emit("kitchen-live-mode-changed", { enabled: isLive });
-    });
-
-    // ─────────────────────────────────────────
-    // CUSTOMER → WAITER EVENTS
-    // ─────────────────────────────────────────
-
-    socket.on("call-waiter", (data) => {
-      const tableCode = typeof data === "string" ? data : data?.tableCode;
-      if (!tableCode) return;
-
-      const customMessage =
-        typeof data === "object" && data?.message
-          ? data.message
-          : `Table ${tableCode.toUpperCase()} needs assistance`;
-
-      const payload = {
-        tableCode: tableCode.toUpperCase(),
-        message: customMessage,
-        details: typeof data === "object" ? data.details || null : null,
-        timestamp: new Date().toISOString(),
-      };
-
-      console.log(`🔔 Waiter call from Table ${tableCode}: ${customMessage}`);
-
-      // Tenant-scoped only — resolved from this socket's own join-table call,
-      // which defaults to the demo restaurant when no slug was given. Every
-      // staff dashboard (old or new) joins that same restaurant-scoped room
-      // by default, so this reaches the right — and only the right — staff.
-      const restaurantId = socket.data.restaurantId;
-      if (restaurantId) {
-        io.to(`restaurant:${restaurantId}:waiters`).emit("waiter-call", payload);
-        io.to(`restaurant:${restaurantId}:captains`).emit("waiter-call", payload);
-        io.to(`restaurant:${restaurantId}:admins`).emit("waiter-call", payload);
-      }
+    socket.on("call-waiter", async (data, acknowledge) => {
+      const reply = typeof acknowledge === "function" ? acknowledge : () => {};
+      try {
+        const { table, restaurant } = await verifyCustomerAccess(socket.data.customerAccess);
+        const tableCode = typeof data === "string" ? data : data?.tableCode;
+        if (typeof tableCode !== "string" || table.code !== tableCode.toUpperCase()) throw new Error("Invalid table.");
+        const request = supplyRequest(data);
+        const rooms = ["waiters", "captains", "admins"].map(role => `restaurant:${restaurant.id}:${role}`);
+        if (!rooms.some(room => io.sockets.adapter.rooms.get(room)?.size > 0)) {
+          reply({ success: false, message: "No staff connection is available. Please ask staff directly." });
+          return;
+        }
+        const delivered = await io.sockets.adapter.broadcast({ type: 2, nsp: "/", data: ["waiter-call", {
+          tableCode: table.code, ...request, timestamp: new Date().toISOString(),
+        }] }, { rooms: new Set(rooms), except: new Set(), flags: {} });
+        reply({ success: delivered > 0, acknowledgement: "server-dispatch", message: delivered > 0 ? undefined : "No authorized staff connection is available. Please ask staff directly." });
+      } catch { reply({ success: false, message: "Request could not be dispatched. Scan the QR code or ask staff directly." }); }
     });
 
     // ─────────────────────────────────────────
@@ -246,6 +202,7 @@ const initializeSocket = (server, allowedOrigins = []) => {
     // ─────────────────────────────────────────
 
     socket.on("disconnect", (reason) => {
+      clearTimeout(accessExpiry);
       console.log("Socket disconnected:", socket.id, "reason:", reason);
     });
   });

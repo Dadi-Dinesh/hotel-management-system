@@ -1,4 +1,5 @@
 const express = require("express");
+const { customerAccess } = require("../middleware/customerAccess");
 const router = express.Router();
 const {
   startSession,
@@ -21,16 +22,17 @@ router.get("/bill-requests", authenticate, requireRole("ADMIN", "CAPTAIN"), reso
 // Session start is effectively "the QR scan" — rate-limited generously so a
 // genuine table of guests each scanning within the same minute is never affected.
 router.post("/", rateLimit({ windowMs: 60 * 1000, max: 20, message: "Too many attempts — please wait a moment and rescan." }), resolvePublicTenant, startSession);
-router.get("/:id", getSession);
-router.patch("/:id/request-bill", requestBill);
+router.get("/:id", customerAccess({ allowClosed: true }), getSession);
+router.patch("/:id/request-bill", customerAccess(), requestBill);
 router.post(
   "/:id/feedback",
   rateLimit({ windowMs: 10 * 60 * 1000, max: 20, message: "Too many feedback submissions — please try again shortly." }),
+  customerAccess({ allowClosed: true }),
   validate(submitFeedbackSchema),
   submitFeedback
 );
 
 // Protected — captain/admin close session
-router.patch("/:id/close", authenticate, requireRole("ADMIN", "CAPTAIN"), closeSession);
+router.patch("/:id/close", authenticate, requireRole("ADMIN", "CAPTAIN"), resolveStaffTenant, closeSession);
 
 module.exports = router;

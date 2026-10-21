@@ -1,4 +1,6 @@
 "use client";
+import { supplySummary } from "../../lib/supplySummary.mjs";
+import { getToken as getSocketStaffToken } from "../../lib/auth";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -185,7 +187,7 @@ export default function AdminDashboard() {
 
     const joinRoom = () => {
       console.log("[Admin Dashboard] Emitting join-admin to join room...");
-      socket.emit("join-admin", { restaurantId: getEffectiveRestaurantId() });
+      socket.emit("join-admin", { restaurantId: getEffectiveRestaurantId(), token: getSocketStaffToken() });
     };
 
     if (socket.connected) {
@@ -200,7 +202,7 @@ export default function AdminDashboard() {
     };
 
     const handleWaiterCall = (data) => {
-      toast(`🔔 Table ${data.tableCode} is calling for assistance!`, {
+      toast(`Table ${data.tableCode}: ${supplySummary(data)}`, {
         duration: 8000,
         icon: "📣",
         style: { background: "#FEF3C7", border: "1px solid #F59E0B" },

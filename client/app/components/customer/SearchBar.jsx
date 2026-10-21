@@ -6,8 +6,14 @@ import { Search, X } from "lucide-react";
 /** Live-filtering search input with a clear button. No backend calls —
  * filtering happens client-side against the already-loaded menu. */
 const SearchBar = forwardRef(function SearchBar(
-  { value, onChange, placeholder = "Search dishes, categories...", autoFocus = false, className = "" },
-  ref
+  {
+    value,
+    onChange,
+    placeholder = "Search dishes, categories...",
+    autoFocus = false,
+    className = "",
+  },
+  ref,
 ) {
   return (
     <div className={`relative ${className}`}>
@@ -25,7 +31,7 @@ const SearchBar = forwardRef(function SearchBar(
         placeholder={placeholder}
         autoFocus={autoFocus}
         aria-label="Search menu"
-        className="ss-input ss-small w-full h-11 pl-11 pr-10 font-medium"
+        className="ss-input text-base w-full h-11 pl-11 pr-10 font-medium"
         style={{
           background: "var(--ss-bg)",
           border: "1px solid var(--ss-border)",
@@ -38,7 +44,7 @@ const SearchBar = forwardRef(function SearchBar(
           type="button"
           onClick={() => onChange("")}
           aria-label="Clear search"
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full"
+          className="absolute right-0 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-full"
           style={{ background: "var(--ss-border)", color: "var(--ss-primary)" }}
         >
           <X size={13} />

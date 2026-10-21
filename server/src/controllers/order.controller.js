@@ -1,3 +1,4 @@
+const { describeRequest, findReplay } = require("../services/orderIdempotency");
 const prisma = require("../config/db");
 const { getIO } = require("../socket");
 const { generateKOTData, generateKOTHTML } = require("../utils/kotGenerator");
@@ -32,6 +33,11 @@ const placeOrder = async (req, res, next) => {
       });
     }
 
+    const request = describeRequest(req.headers?.["idempotency-key"], items);
+    const respondReplay = order => res.status(200).json({ success: true, replayed: true, message: "Original order recovered.", data: order });
+    const replay = await findReplay(prisma, session, request);
+    if (replay) return respondReplay(replay);
+
     if (session.status === "CLOSED") {
       return res.status(400).json({
         success: false,
@@ -42,7 +48,7 @@ const placeOrder = async (req, res, next) => {
     // Fetch menu items to snapshot prices
     const menuItemIds = items.map((i) => i.menuItemId);
     const menuItems = await prisma.menuItem.findMany({
-      where: { id: { in: menuItemIds }, isAvailable: true },
+      where: { id: { in: menuItemIds }, restaurantId: session.restaurantId, isAvailable: true },
     });
 
     if (menuItems.length !== menuItemIds.length) {
@@ -53,65 +59,80 @@ const placeOrder = async (req, res, next) => {
     }
 
     // Create order with items (status: PENDING by default)
-    const order = await prisma.order.create({
-      data: {
-        sessionId,
-        restaurantId: session.restaurantId,
-        items: {
-          create: items.map((item) => {
-            const menuItem = menuItems.find((m) => m.id === item.menuItemId);
-            return {
-              menuItemId: item.menuItemId,
-              quantity: item.quantity,
-              price: menuItem.price,
-              status: "PENDING",
-            };
-          }),
+    let order;
+    try {
+      order = await prisma.order.create({
+        data: {
+          ...request,
+          sessionId,
+          restaurantId: session.restaurantId,
+          items: {
+            create: items.map((item) => {
+              const menuItem = menuItems.find((m) => m.id === item.menuItemId);
+              return {
+                menuItemId: item.menuItemId,
+                quantity: item.quantity,
+                price: menuItem.price,
+                status: "PENDING",
+              };
+            }),
+          },
         },
-      },
-      include: {
-        items: {
-          include: { menuItem: true },
+        include: {
+          items: {
+            include: { menuItem: true },
+          },
+          session: {
+            include: { table: true },
+          },
         },
-        session: {
-          include: { table: true },
-        },
-      },
-    });
+      });
 
-    // Full order payload for real-time state synchronization
-    const orderPayload = {
-      ...order,
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      tableCode: session.table.code,
-      tableNumber: session.table.number,
-      items: order.items.map((i) => ({
-        id: i.id,
-        menuItemId: i.menuItemId,
-        quantity: i.quantity,
-        price: i.price,
-        status: i.status || "PENDING",
-        menuItem: i.menuItem,
-        name: i.menuItem.name,
-      })),
-      createdAt: order.createdAt,
-    };
+    } catch (error) {
+      if (error.code === "P2002") {
+        const winner = await findReplay(prisma, session, request);
+        if (winner) return respondReplay(winner);
+      }
+      throw error;
+    }
 
-    // Emit new-order event to this restaurant's waiters, captains, admins, and kitchen
-    const io = getIO();
-    const rid = session.restaurantId;
-    console.log("Sending new-order event:", order.id);
-    io.to(`restaurant:${rid}:waiters`).emit("new-order", orderPayload);
-    io.to(`restaurant:${rid}:captains`).emit("new-order", orderPayload);
-    io.to(`restaurant:${rid}:admins`).emit("new-order", orderPayload);
-    io.to(`restaurant:${rid}:kitchen`).emit("new-order", orderPayload);
+    // Persistence succeeded. Notification failure must not turn an accepted order
+    // into a failed submission. Staff can recover it through their existing REST feeds.
+    try {
+      // Full order payload for real-time state synchronization
+      const orderPayload = {
+        ...order,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        tableCode: session.table.code,
+        tableNumber: session.table.number,
+        items: order.items.map((i) => ({
+          id: i.id,
+          menuItemId: i.menuItemId,
+          quantity: i.quantity,
+          price: i.price,
+          status: i.status || "PENDING",
+          menuItem: i.menuItem,
+          name: i.menuItem.name,
+        })),
+        createdAt: order.createdAt,
+      };
 
-    // Emit real-time aggregated quantities update to this restaurant's kitchen room
-    const aggregatedKitchen = await getKitchenAggregatedData(rid);
-    io.to(`restaurant:${rid}:kitchen`).emit("kitchen-updated", aggregatedKitchen);
-    io.to(`restaurant:${rid}:captains`).emit("kitchen-updated", aggregatedKitchen);
-    io.to(`restaurant:${rid}:admins`).emit("kitchen-updated", aggregatedKitchen);
+      // Emit new-order event to this restaurant's waiters, captains, admins, and kitchen
+      const io = getIO();
+      const rid = session.restaurantId;
+      console.log("Sending new-order event:", order.id);
+      io.to(["waiters", "captains", "admins", "kitchen"].map(role => `restaurant:${rid}:${role}`)).emit("new-order", orderPayload);
+
+      // Emit real-time aggregated quantities update to this restaurant's kitchen room
+      const aggregatedKitchen = await getKitchenAggregatedData(rid);
+      io.to(`restaurant:${rid}:kitchen`).emit("kitchen-updated", aggregatedKitchen);
+      io.to(`restaurant:${rid}:captains`).emit("kitchen-updated", aggregatedKitchen);
+      io.to(`restaurant:${rid}:admins`).emit("kitchen-updated", aggregatedKitchen);
+
+    } catch {
+      console.warn("Order saved; live notification dispatch failed.");
+    }
 
     res.status(201).json({
       success: true,

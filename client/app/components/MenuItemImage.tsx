@@ -25,24 +25,41 @@ const VARIANT_STYLES = {
   },
 };
 
-function FallbackPlaceholder({ variant, iconSize }: { variant: "thumbnail" | "large"; iconSize: number }) {
+function FallbackPlaceholder({
+  variant,
+  iconSize,
+}: {
+  variant: "thumbnail" | "large";
+  iconSize: number;
+}) {
   return (
     <div
       className="w-full h-full flex flex-col items-center justify-center"
       style={{
         background: "var(--ss-bg, var(--color-cream-200))",
-        border: variant === "thumbnail" ? "1px solid var(--ss-border, var(--color-cream-300))" : "none",
+        border:
+          variant === "thumbnail"
+            ? "1px solid var(--ss-border, var(--color-cream-300))"
+            : "none",
       }}
     >
       <UtensilsCrossed
         size={iconSize}
-        style={{ color: "var(--ss-secondary, var(--color-brown-800))", opacity: 0.4 }}
+        style={{
+          color: "var(--ss-secondary, var(--color-brown-800))",
+          opacity: 0.4,
+        }}
       />
     </div>
   );
 }
 
-export default function MenuItemImage({ src, alt, onClick, variant = "thumbnail" }: MenuItemImageProps) {
+export default function MenuItemImage({
+  src,
+  alt,
+  onClick,
+  variant = "thumbnail",
+}: MenuItemImageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const styles = VARIANT_STYLES[variant];
@@ -51,28 +68,38 @@ export default function MenuItemImage({ src, alt, onClick, variant = "thumbnail"
     <div
       className={`relative overflow-hidden border transition-all duration-300 ${styles.wrapperClass}`}
       style={{
-        borderColor: variant === "large" ? "transparent" : "var(--ss-border, var(--color-brown-900))",
+        borderColor:
+          variant === "large"
+            ? "transparent"
+            : "var(--ss-border, var(--color-brown-900))",
         cursor: onClick ? "pointer" : "default",
         transform: "scale(1)",
         transition: "transform 0.15s ease, border-color 0.15s ease",
       }}
       onClick={onClick}
       onMouseEnter={(e) => {
-        if (onClick && variant === "thumbnail") (e.currentTarget as HTMLDivElement).style.transform = "scale(1.06)";
+        if (onClick && variant === "thumbnail")
+          (e.currentTarget as HTMLDivElement).style.transform = "scale(1.06)";
       }}
       onMouseLeave={(e) => {
-        if (onClick && variant === "thumbnail") (e.currentTarget as HTMLDivElement).style.transform = "scale(1)";
+        if (onClick && variant === "thumbnail")
+          (e.currentTarget as HTMLDivElement).style.transform = "scale(1)";
       }}
       onMouseDown={(e) => {
-        if (onClick && variant === "thumbnail") (e.currentTarget as HTMLDivElement).style.transform = "scale(0.95)";
+        if (onClick && variant === "thumbnail")
+          (e.currentTarget as HTMLDivElement).style.transform = "scale(0.95)";
       }}
       onMouseUp={(e) => {
-        if (onClick && variant === "thumbnail") (e.currentTarget as HTMLDivElement).style.transform = "scale(1.06)";
+        if (onClick && variant === "thumbnail")
+          (e.currentTarget as HTMLDivElement).style.transform = "scale(1.06)";
       }}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={(e) => {
-        if (onClick && e.key === "Enter") onClick();
+        if (onClick && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onClick();
+        }
       }}
       aria-label={onClick ? `View details for ${alt}` : undefined}
     >

@@ -1,0 +1,235 @@
+.page {
+  min-height: 100dvh;
+  background: var(--ss-bg);
+  color: var(--ss-primary);
+  overflow-wrap: anywhere;
+}
+.page :is(button, a, input, summary, [role="button"]):focus-visible,
+.dialog :is(button, a, input):focus-visible {
+  outline: 3px solid var(--ss-accent-dark);
+  outline-offset: 3px;
+}
+.main {
+  max-width: 1100px;
+  margin: auto;
+  padding: 20px 16px calc(100px + env(safe-area-inset-bottom));
+  width: 100%;
+}
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+.notice {
+  padding: 14px 16px;
+  border: 1px solid var(--ss-border);
+  background: var(--ss-surface);
+  border-radius: 14px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.notice button,
+.notice a {
+  display: inline-block;
+  text-decoration: underline;
+  font-weight: 700;
+  margin: 4px 12px 0 0;
+  min-height: 44px;
+  padding: 8px 0;
+}
+.card {
+  background: var(--ss-surface);
+  border: 1px solid var(--ss-border);
+  border-radius: 18px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.cardTop {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.cardInfo {
+  flex: 1;
+  min-width: 0;
+}
+.name {
+  display: block;
+  text-align: left;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1.4;
+  min-height: 44px;
+}
+.meta {
+  font-size: 12px;
+  color: var(--ss-secondary);
+  line-height: 1.5;
+}
+.price {
+  font-size: 16px;
+  font-weight: 700;
+}
+.cardBottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.quantityInput {
+  width: 70px;
+  min-height: 44px;
+  border: 1px solid var(--ss-border);
+  border-radius: 10px;
+  padding: 8px;
+  background: var(--ss-bg);
+}
+.bottomBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: var(--ss-surface);
+  border-top: 1px solid var(--ss-border);
+  z-index: 40;
+}
+.bottomBar button {
+  max-width: 1068px;
+  margin: auto;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: var(--ss-accent);
+  font-weight: 700;
+}
+.dialog {
+  position: relative;
+  background: var(--ss-surface);
+  width: 100%;
+  max-width: 480px;
+  max-height: 92dvh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px 20px 0 0;
+  overflow-wrap: anywhere;
+  min-height: 0;
+}
+.dialogHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--ss-border);
+}
+.dialogHeader h2 {
+  font-size: 20px;
+  font-weight: 700;
+}
+.dialogHeader button {
+  min-width: 44px;
+  min-height: 44px;
+}
+.dialogBody {
+  padding: 16px;
+  overflow: auto;
+  min-height: 0;
+  flex: 1;
+}
+.dialogFooter {
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--ss-border);
+}
+.cartRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--ss-border);
+}
+.cartName {
+  flex: 1 1 150px;
+  min-width: 0;
+}
+.cartName h3 {
+  font-weight: 700;
+}
+.cartActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cartActions > button {
+  min-height: 44px;
+  min-width: 44px;
+}
+.action {
+  min-height: 48px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: var(--ss-accent);
+  color: var(--ss-primary);
+  font-weight: 700;
+}
+.action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(39, 24, 12, 0.5);
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.totals {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  font-weight: 700;
+}
+.status {
+  font-size: 13px;
+  color: var(--ss-secondary);
+}
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .overlay {
+    justify-content: flex-end;
+  }
+  .dialog {
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+}
+@media (min-width: 1100px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

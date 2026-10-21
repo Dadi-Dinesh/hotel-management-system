@@ -1,4 +1,6 @@
 "use client";
+import { supplySummary } from "../../lib/supplySummary.mjs";
+import { getToken as getSocketStaffToken } from "../../lib/auth";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -203,7 +205,7 @@ export default function CaptainDashboard() {
     // Join room function — safe to call on mount and on reconnect
     const joinRoom = () => {
       console.log("[Captain Dashboard] Emitting join-waiter & join-captain to join room...");
-      const joinPayload = { restaurantId: getEffectiveRestaurantId() };
+      const joinPayload = { restaurantId: getEffectiveRestaurantId(), token: getSocketStaffToken() };
       socket.emit("join-waiter", joinPayload);
       socket.emit("join-captain", joinPayload);
     };
@@ -284,11 +286,7 @@ export default function CaptainDashboard() {
         type: "waiter-call",
         icon: "🔔",
         message: `Table ${data.tableCode} needs assistance`,
-        subtext: new Date(data.timestamp).toLocaleTimeString("en-IN", {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        }),
+        subtext: supplySummary(data),
         data,
         timestamp: new Date(data.timestamp),
         urgent: true,
@@ -296,7 +294,7 @@ export default function CaptainDashboard() {
       setNotifications((prev) => [notif, ...prev.slice(0, 49)]);
       setShowNotifications(true);
 
-      toast(`📣 Table ${data.tableCode} is calling for assistance!`, {
+      toast(`Table ${data.tableCode}: ${supplySummary(data)}`, {
         duration: 8000,
         icon: "🔔",
         id: `waiter-${data.tableCode}-${Date.now()}`,

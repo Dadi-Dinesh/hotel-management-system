@@ -21,7 +21,12 @@ const getAllTables = async (req, res, next) => {
           where: { status: { in: ["ACTIVE", "BILL_REQUESTED"] } },
           include: {
             orders: {
-              include: {
+              select: {
+                id: true,
+                orderNumber: true,
+                sessionId: true,
+                status: true,
+                createdAt: true,
                 items: {
                   include: { menuItem: true },
                 },
@@ -69,7 +74,15 @@ const getTableByCode = async (req, res, next) => {
           include: {
             orders: {
               orderBy: { createdAt: "asc" },
-              include: {
+              select: {
+                id: true,
+                orderNumber: true,
+                sessionId: true,
+                status: true,
+                createdAt: true,
+                acceptedAt: true,
+                servedAt: true,
+                restaurantId: true,
                 items: {
                   include: { menuItem: true },
                 },

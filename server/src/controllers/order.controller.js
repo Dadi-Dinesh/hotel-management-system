@@ -60,40 +60,52 @@ const placeOrder = async (req, res, next) => {
 
     // Create order with items (status: PENDING by default)
     let order;
+    const createData = {
+      ...request,
+      sessionId,
+      restaurantId: session.restaurantId,
+      items: {
+        create: items.map((item) => {
+          const menuItem = menuItems.find((m) => m.id === item.menuItemId);
+          return {
+            menuItemId: item.menuItemId,
+            quantity: item.quantity,
+            price: menuItem.price,
+            status: "PENDING",
+          };
+        }),
+      },
+    };
+
+    const orderInclude = {
+      items: {
+        include: { menuItem: true },
+      },
+      session: {
+        include: { table: true },
+      },
+    };
+
     try {
       order = await prisma.order.create({
-        data: {
-          ...request,
-          sessionId,
-          restaurantId: session.restaurantId,
-          items: {
-            create: items.map((item) => {
-              const menuItem = menuItems.find((m) => m.id === item.menuItemId);
-              return {
-                menuItemId: item.menuItemId,
-                quantity: item.quantity,
-                price: menuItem.price,
-                status: "PENDING",
-              };
-            }),
-          },
-        },
-        include: {
-          items: {
-            include: { menuItem: true },
-          },
-          session: {
-            include: { table: true },
-          },
-        },
+        data: createData,
+        include: orderInclude,
       });
-
     } catch (error) {
-      if (error.code === "P2002") {
+      if (error.code === "P2022" && (error.meta?.column?.includes("idempotencyKey") || error.message?.includes("idempotencyKey"))) {
+        delete createData.idempotencyKey;
+        delete createData.requestHash;
+        order = await prisma.order.create({
+          data: createData,
+          include: orderInclude,
+        });
+      } else if (error.code === "P2002") {
         const winner = await findReplay(prisma, session, request);
         if (winner) return respondReplay(winner);
+        throw error;
+      } else {
+        throw error;
       }
-      throw error;
     }
 
     // Persistence succeeded. Notification failure must not turn an accepted order

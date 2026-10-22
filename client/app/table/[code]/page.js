@@ -92,10 +92,13 @@ export default function TableLandingPage() {
         );
       }
     } catch (error) {
-      setLoadError(
+      const msg =
         error.response?.data?.message ||
-          "Unable to load this table. Please check your connection and try again.",
-      );
+        (error.message === "Network Error" || error.code === "ECONNABORTED"
+          ? "Couldn't connect to the server. Please check your connection and try again."
+          : "Unable to load this table. Please try again.");
+      setLoadError(msg);
+      toast.error(msg, { id: "table-load-error" });
     } finally {
       setLoading(false);
     }
@@ -117,9 +120,14 @@ export default function TableLandingPage() {
       if (seatNumber.trim()) {
         localStorage.setItem(`seat-${tableCode}`, seatNumber.trim());
       }
-      toast.success("Welcome! Browse our menu and order.");
+      toast.success("Welcome! Browse our menu and order.", { id: "start-session-status" });
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to start session");
+      const msg =
+        error.response?.data?.message ||
+        (error.message === "Network Error" || error.code === "ECONNABORTED"
+          ? "Couldn't connect to the server. Please try again."
+          : "Failed to start session. Please try again.");
+      toast.error(msg, { id: "start-session-error" });
     } finally {
       setStarting(false);
     }

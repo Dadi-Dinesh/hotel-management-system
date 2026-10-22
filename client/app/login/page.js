@@ -1,6 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Store, Users, ChefHat, ArrowRight } from "lucide-react";
-import { PLATFORM_NAME } from "../lib/branding";
+import { PLATFORM_NAME, PLATFORM_LOGO } from "../lib/branding";
 
 export const metadata = {
   title: "Login | ServeSync",
@@ -37,12 +38,16 @@ export default function LoginSelectionPage() {
     <div className="min-h-screen flex items-center justify-center px-6 py-16" style={{ background: "var(--ss-bg)" }}>
       <div className="w-full max-w-3xl">
         <div className="text-center mb-10">
-          <span
-            className="w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-bold mx-auto mb-5"
-            style={{ background: "var(--ss-primary)", color: "var(--ss-accent)" }}
-          >
-            S
-          </span>
+          <div className="w-16 h-16 rounded-2xl mx-auto mb-5 overflow-hidden shadow-md flex items-center justify-center bg-[#FFFDF8] border border-amber-900/15 p-1">
+            <Image
+              src={PLATFORM_LOGO}
+              alt={`${PLATFORM_NAME} Logo`}
+              width={64}
+              height={64}
+              className="w-full h-full object-contain"
+              priority
+            />
+          </div>
           <p className="ss-caption font-bold mb-2" style={{ color: "var(--ss-accent-dark)" }}>
             {PLATFORM_NAME}
           </p>

@@ -3,7 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { PLATFORM_NAME } from "../lib/branding";
+import { PLATFORM_NAME, PLATFORM_LOGO } from "../lib/branding";
 
 interface NavbarProps {
   title?: string;
@@ -63,14 +63,19 @@ export default function Navbar({
               </div>
             ) : (
               <div
-                className="relative w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 rounded-xl flex items-center justify-center font-black text-sm sm:text-base border shadow-xs"
+                className="relative w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 rounded-xl overflow-hidden border shadow-xs bg-[#FFFDF8]"
                 style={{
-                  background: "var(--color-brown-900)",
-                  color: "var(--color-orange-500)",
                   borderColor: "var(--color-brown-900)",
                 }}
               >
-                S
+                <Image
+                  src={PLATFORM_LOGO}
+                  alt={logoAlt || `${displayTitle} Logo`}
+                  fill
+                  sizes="40px"
+                  className="object-contain"
+                  priority
+                />
               </div>
             )}
             <div className="min-w-0 flex-1">

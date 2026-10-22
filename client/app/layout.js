@@ -49,7 +49,8 @@ export const metadata = {
     ],
   },
   icons: {
-    apple: "/icons/apple-touch-icon.png",
+    icon: "/servesync-logo.png",
+    apple: "/servesync-logo.png",
   },
 };
 

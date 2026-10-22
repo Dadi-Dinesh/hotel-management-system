@@ -1,5 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
-import { PLATFORM_NAME } from "../../lib/branding";
+import { PLATFORM_NAME, PLATFORM_LOGO } from "../../lib/branding";
 import { CONTACT_EMAIL } from "../../lib/marketing/publicContent";
 import styles from "./marketing.module.css";
 
@@ -37,9 +38,13 @@ export default function MarketingFooter() {
         <div className={styles.footerGrid}>
           <div>
             <Link href="/" className={styles.brand}>
-              <span className={styles.brandMark} aria-hidden="true">
-                S
-              </span>
+              <Image
+                src={PLATFORM_LOGO}
+                alt=""
+                width={34}
+                height={34}
+                className="rounded-lg object-contain shadow-xs flex-shrink-0"
+              />
               {PLATFORM_NAME}
             </Link>
             <p>

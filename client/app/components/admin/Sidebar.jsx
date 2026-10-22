@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
@@ -8,7 +9,7 @@ import { Menu, X, ChevronsLeft, ChevronsRight, LogOut } from "lucide-react";
 import { ADMIN_NAV_ITEMS } from "./adminNavConfig";
 import { useRestaurant } from "../RestaurantContext";
 import { clearAuth } from "../../lib/auth";
-import { PLATFORM_NAME } from "../../lib/branding";
+import { PLATFORM_NAME, PLATFORM_LOGO } from "../../lib/branding";
 
 const COLLAPSE_KEY = "servesync-admin-sidebar-collapsed";
 
@@ -99,12 +100,13 @@ export default function Sidebar() {
         style={{ width: collapsed ? 76 : 248, background: "var(--ss-surface)", borderColor: "var(--ss-border)" }}
       >
         <div className="flex items-center gap-2.5 px-4 h-16 border-b flex-shrink-0" style={{ borderColor: "var(--ss-border)" }}>
-          <span
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
-            style={{ background: "var(--ss-primary)", color: "var(--ss-accent)" }}
-          >
-            S
-          </span>
+          <Image
+            src={PLATFORM_LOGO}
+            alt=""
+            width={32}
+            height={32}
+            className="w-8 h-8 rounded-xl object-contain flex-shrink-0 bg-[#FFFDF8] p-0.5 border border-amber-900/10 shadow-xs"
+          />
           {!collapsed && (
             <div className="min-w-0">
               <p className="text-sm font-bold truncate" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-primary)" }}>
@@ -159,9 +161,13 @@ export default function Sidebar() {
             >
               <div className="flex items-center justify-between px-4 h-16 border-b flex-shrink-0" style={{ borderColor: "var(--ss-border)" }}>
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0" style={{ background: "var(--ss-primary)", color: "var(--ss-accent)" }}>
-                    S
-                  </span>
+                  <Image
+                    src={PLATFORM_LOGO}
+                    alt=""
+                    width={32}
+                    height={32}
+                    className="w-8 h-8 rounded-xl object-contain flex-shrink-0 bg-[#FFFDF8] p-0.5 border border-amber-900/10 shadow-xs"
+                  />
                   <p className="text-sm font-bold truncate" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-primary)" }}>
                     {PLATFORM_NAME}
                   </p>

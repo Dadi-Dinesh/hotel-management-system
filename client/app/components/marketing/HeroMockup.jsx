@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useId, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -11,6 +12,7 @@ import {
   Check,
   Receipt,
 } from "lucide-react";
+import { PLATFORM_NAME, PLATFORM_LOGO } from "../../lib/branding";
 import styles from "./marketing.module.css";
 
 // A labeled interface illustration of existing workflows, not live data.
@@ -99,7 +101,10 @@ export default function HeroMockup() {
       aria-label="ServeSync product walkthrough"
     >
       <div className={styles.previewBar}>
-        <span className={styles.previewBrand}>S / ServeSync</span>
+        <span className={styles.previewBrand} style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+          <Image src={PLATFORM_LOGO} alt="" width={18} height={18} className="rounded object-contain" />
+          {PLATFORM_NAME}
+        </span>
         <span className={styles.previewLabel}>Product walkthrough</span>
       </div>
       <div

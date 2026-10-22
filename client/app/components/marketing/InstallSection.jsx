@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import Image from "next/image";
 import { Download, CheckCircle2, Smartphone, Sparkles, QrCode, Zap, Info } from "lucide-react";
-import { PLATFORM_NAME } from "../../lib/branding";
+import { PLATFORM_NAME, PLATFORM_LOGO } from "../../lib/branding";
 
 export default function InstallSection() {
   const shouldReduceMotion = useReducedMotion();
@@ -246,9 +247,13 @@ export default function InstallSection() {
                     <div>
                       <div className="flex items-center justify-between border-b pb-3 mb-4" style={{ borderColor: "#E8D8B5" }}>
                         <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-md bg-stone-900 text-amber-400 font-black text-xs flex items-center justify-center">
-                            S
-                          </span>
+                          <Image
+                            src={PLATFORM_LOGO}
+                            alt=""
+                            width={24}
+                            height={24}
+                            className="w-6 h-6 rounded-md object-contain"
+                          />
                           <span className="font-extrabold text-xs tracking-wider uppercase text-stone-900">
                             {PLATFORM_NAME}
                           </span>

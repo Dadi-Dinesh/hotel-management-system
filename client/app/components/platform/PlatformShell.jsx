@@ -12,12 +12,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import Image from "next/image";
 import { Bell, FileText, LayoutDashboard, LogOut, Menu, Settings, Store, X, Activity } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../../lib/api";
 import { clearAuth, getToken, getUser } from "../../lib/auth";
 import { connectSocket } from "../../lib/socket";
-import { PLATFORM_NAME } from "../../lib/branding";
+import { PLATFORM_NAME, PLATFORM_LOGO } from "../../lib/branding";
 import { timeAgo } from "./PlatformUI";
 
 export const PLATFORM_REFRESH_EVENT = "servesync:platform-refresh";
@@ -50,9 +51,13 @@ function writeSeen(ts) {
 function Brand() {
   return (
     <div className="flex items-center gap-2.5 min-w-0">
-      <span className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0" style={{ background: "var(--ss-primary)", color: "var(--ss-accent)" }}>
-        S
-      </span>
+      <Image
+        src={PLATFORM_LOGO}
+        alt=""
+        width={36}
+        height={36}
+        className="w-9 h-9 rounded-xl object-contain flex-shrink-0 bg-[#FFFDF8] p-0.5 border border-amber-900/10 shadow-xs"
+      />
       <div className="min-w-0 leading-tight">
         <p className="text-[15px] font-bold truncate" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-primary)" }}>
           {PLATFORM_NAME}

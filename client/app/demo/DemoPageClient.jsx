@@ -9,12 +9,14 @@
  */
 
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Camera, QrCode, ArrowRight } from "lucide-react";
 import api from "../lib/api";
 import toast from "react-hot-toast";
-import { PLATFORM_NAME, DEMO_RESTAURANT } from "../lib/branding";
+import { PLATFORM_NAME, PLATFORM_LOGO, DEMO_RESTAURANT } from "../lib/branding";
+import { extractTableCode } from "../lib/tableCode";
 import MarketingNav from "../components/marketing/MarketingNav";
 import MarketingFooter from "../components/marketing/MarketingFooter";
 
@@ -24,38 +26,9 @@ export default function DemoPageClient() {
   const [manualInput, setManualInput] = useState("");
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState("");
+  const [fieldError, setFieldError] = useState("");
   const [verifying, setVerifying] = useState(false);
   const qrScannerRef = useRef(null);
-
-  const extractTableCode = (scannedText) => {
-    if (!scannedText) return null;
-    const text = scannedText.trim();
-
-    const urlMatch = text.match(/\/table\/([A-Za-z0-9-_]+)/i);
-    if (urlMatch && urlMatch[1]) {
-      const raw = urlMatch[1].toUpperCase();
-      if (/^\d+$/.test(raw)) {
-        const num = parseInt(raw, 10);
-        if (num >= 1 && num <= 12) return `T${String(num).padStart(2, "0")}`;
-      }
-      return raw;
-    }
-
-    if (/^\d+$/.test(text)) {
-      const num = parseInt(text, 10);
-      if (num >= 1 && num <= 12) return `T${String(num).padStart(2, "0")}`;
-    }
-
-    const codeMatch = text.match(/^T(\d+)$/i);
-    if (codeMatch && codeMatch[1]) {
-      const num = parseInt(codeMatch[1], 10);
-      if (num >= 1 && num <= 12) return `T${String(num).padStart(2, "0")}`;
-    }
-
-    if (/^[A-Z0-9-_]+$/i.test(text)) return text.toUpperCase();
-
-    return null;
-  };
 
   const stopScanner = async () => {
     if (qrScannerRef.current) {
@@ -125,25 +98,38 @@ export default function DemoPageClient() {
 
   const handleManualSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setVerifying(true);
+    setFieldError("");
 
-    const formattedCode = extractTableCode(manualInput);
-    if (!formattedCode) {
-      setError("Please enter a valid table number (1-12) or table code (T01-T12).");
-      setVerifying(false);
+    const trimmed = manualInput.trim();
+    if (!trimmed) {
+      setFieldError("Please enter a table number (1-12) or table code (e.g. 1 or T01).");
       return;
     }
 
+    const formattedCode = extractTableCode(trimmed);
+    if (!formattedCode) {
+      setFieldError("Please enter a valid table number (1-12) or table code (e.g. 1 or T01).");
+      return;
+    }
+
+    setVerifying(true);
     try {
       const res = await api.get(`/tables/${formattedCode}`);
-      if (res.data.success) {
+      if (res.data?.success) {
+        toast.success(`Table ${formattedCode} verified!`, { id: "table-entry-status" });
         router.push(`/table/${formattedCode}`);
       } else {
-        setError("Table is currently unavailable.");
+        toast.error("Table is currently unavailable.", { id: "table-entry-error" });
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Table not found. Please try again.");
+      const status = err.response?.status;
+      if (status === 404) {
+        toast.error(`Table ${formattedCode} was not found. Please try another table number.`, { id: "table-entry-error" });
+      } else if (!err.response && (err.message === "Network Error" || err.code === "ECONNABORTED")) {
+        toast.error("Couldn't connect to the server. Please check your connection and try again.", { id: "table-entry-error" });
+      } else {
+        toast.error(err.response?.data?.message || "Something went wrong on our end. Please try again.", { id: "table-entry-error" });
+      }
     } finally {
       setVerifying(false);
     }
@@ -154,7 +140,10 @@ export default function DemoPageClient() {
       <MarketingNav />
 
       <main className="flex-1 flex flex-col items-center px-6 py-14 text-center">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="max-w-lg w-full">
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="max-w-lg w-full flex flex-col items-center">
+          <div className="w-20 h-20 mb-5 relative rounded-2xl overflow-hidden shadow-md border-2" style={{ borderColor: "var(--color-brown-900)", background: "#FFFDF8" }}>
+            <Image src={PLATFORM_LOGO} alt="ServeSync Logo" fill className="object-contain p-1.5" priority />
+          </div>
           <span
             className="inline-flex items-center gap-2 px-4 py-2 mb-6 border-2 text-xs font-bold uppercase tracking-widest rounded-full"
             style={{ borderColor: "var(--color-orange-500)", color: "var(--color-brown-900)", background: "var(--color-cream-100)" }}
@@ -224,16 +213,32 @@ export default function DemoPageClient() {
                 <input
                   type="text"
                   value={manualInput}
-                  onChange={(e) => setManualInput(e.target.value)}
-                  placeholder="e.g. 5 or T05"
+                  onChange={(e) => {
+                    setManualInput(e.target.value);
+                    if (fieldError) setFieldError("");
+                  }}
+                  placeholder="e.g. 1 or T01"
                   className="input uppercase font-bold text-center text-lg tracking-widest"
-                  style={{ borderRadius: "0.75rem" }}
+                  style={{
+                    borderRadius: "0.75rem",
+                    borderColor: fieldError ? "var(--color-danger, #D64545)" : undefined,
+                  }}
                   maxLength={10}
+                  disabled={verifying}
                   required
                 />
+                {fieldError && (
+                  <p className="mt-1.5 text-xs font-semibold text-left text-red-600">
+                    {fieldError}
+                  </p>
+                )}
               </div>
-              {error && <div className="p-3 border text-xs font-bold uppercase tracking-wider text-red-600 bg-red-50 border-red-200 rounded-lg">⚠️ {error}</div>}
-              <button type="submit" disabled={verifying} className="btn-primary w-full py-4 text-sm font-bold uppercase tracking-wider" style={{ borderRadius: "0.75rem" }}>
+              <button
+                type="submit"
+                disabled={verifying}
+                className="btn-primary w-full py-4 text-sm font-bold uppercase tracking-wider transition-opacity disabled:opacity-60"
+                style={{ borderRadius: "0.75rem" }}
+              >
                 {verifying ? "VERIFYING..." : "START ORDERING"}
               </button>
             </form>

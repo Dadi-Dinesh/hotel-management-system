@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
-import { PLATFORM_NAME } from "../../lib/branding";
+import { PLATFORM_NAME, PLATFORM_LOGO } from "../../lib/branding";
 import Button from "../ui/Button";
 import styles from "./marketing.module.css";
 
@@ -59,9 +60,14 @@ export default function MarketingNav({ skipTo }) {
           aria-label={`${PLATFORM_NAME} home`}
           onClick={() => setOpen(false)}
         >
-          <span className={styles.brandMark} aria-hidden="true">
-            S
-          </span>
+          <Image
+            src={PLATFORM_LOGO}
+            alt=""
+            width={34}
+            height={34}
+            className="rounded-lg object-contain shadow-xs flex-shrink-0"
+            priority
+          />
           {PLATFORM_NAME}
         </Link>
         <nav className={styles.desktopNav} aria-label="Main navigation">

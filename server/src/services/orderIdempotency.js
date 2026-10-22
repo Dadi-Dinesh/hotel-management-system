@@ -9,12 +9,19 @@ function describeRequest(key, items) {
   return { idempotencyKey: key, requestHash };
 }
 async function findReplay(db, session, request) {
-  const order = await db.order.findUnique({ where: { restaurantId_sessionId_idempotencyKey: {
-    restaurantId: session.restaurantId, sessionId: session.id, idempotencyKey: request.idempotencyKey,
-  } }, include });
-  if (order && order.requestHash !== request.requestHash) {
-    throw Object.assign(new Error("This request key was already used for a different order."), { statusCode: 409 });
+  try {
+    const order = await db.order.findUnique({ where: { restaurantId_sessionId_idempotencyKey: {
+      restaurantId: session.restaurantId, sessionId: session.id, idempotencyKey: request.idempotencyKey,
+    } }, include });
+    if (order && order.requestHash !== request.requestHash) {
+      throw Object.assign(new Error("This request key was already used for a different order."), { statusCode: 409 });
+    }
+    return order;
+  } catch (err) {
+    if (err.code === "P2022" || err.message?.includes("does not exist")) {
+      return null;
+    }
+    throw err;
   }
-  return order;
 }
 module.exports = { describeRequest, findReplay };

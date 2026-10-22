@@ -1,6 +1,7 @@
 "use client";
 
-import { PLATFORM_NAME } from "../lib/branding";
+import Image from "next/image";
+import { PLATFORM_NAME, PLATFORM_LOGO } from "../lib/branding";
 
 /**
  * Shared shell for the staff login screens (admin/kitchen/captain).
@@ -22,9 +23,18 @@ export default function AuthShell({ icon: Icon, title, subtitle, tagline, childr
             style={{ background: "radial-gradient(circle, var(--ss-accent) 0%, transparent 70%)", filter: "blur(80px)" }}
           />
         </div>
-        <span className="relative font-bold text-lg" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-accent)" }}>
-          {PLATFORM_NAME}
-        </span>
+        <div className="relative flex items-center gap-2.5">
+          <Image
+            src={PLATFORM_LOGO}
+            alt=""
+            width={32}
+            height={32}
+            className="w-8 h-8 rounded-lg object-contain bg-[#FFFDF8] p-0.5 border border-amber-900/10 shadow-xs"
+          />
+          <span className="font-bold text-lg" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-accent)" }}>
+            {PLATFORM_NAME}
+          </span>
+        </div>
         <div className="relative">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6" style={{ background: "var(--ss-accent)", color: "var(--ss-on-accent)" }}>
             <Icon size={30} />
@@ -43,6 +53,18 @@ export default function AuthShell({ icon: Icon, title, subtitle, tagline, childr
       <div className="flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8 lg:hidden">
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <Image
+                src={PLATFORM_LOGO}
+                alt=""
+                width={28}
+                height={28}
+                className="w-7 h-7 rounded-lg object-contain bg-[#FFFDF8] p-0.5 border border-amber-900/10"
+              />
+              <span className="font-bold text-base" style={{ fontFamily: "var(--font-heading)", color: "var(--ss-primary)" }}>
+                {PLATFORM_NAME}
+              </span>
+            </div>
             <div
               className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
               style={{ background: "var(--ss-accent)", color: "var(--ss-on-accent)", boxShadow: "var(--ss-shadow-md)" }}

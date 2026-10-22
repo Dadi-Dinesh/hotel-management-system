@@ -293,6 +293,13 @@ test('printer-agent disconnect retains its independent authentication lifecycle'
   assert.ok(printer.rooms.has('printer-agents'));
   assert.doesNotThrow(() => printer.disconnect());
 });
+test('printer-agent rejects unauthorized connection when key is invalid or missing', () => {
+  const f = fixture();
+  const badPrinter1 = f.connect('bad-printer-1', { agentType: 'PRINTER_AGENT', apiKey: 'wrong-key' });
+  assert.ok(!badPrinter1.rooms.has('printer-agents'));
+  const badPrinter2 = f.connect('bad-printer-2', { agentType: 'PRINTER_AGENT' });
+  assert.ok(!badPrinter2.rooms.has('printer-agents'));
+});
 test('installed Socket.IO adapter delivers a room union once per recipient without cross-tenant delivery', () => {
   const { Adapter } = require('socket.io-adapter');
   const delivered = new Map();

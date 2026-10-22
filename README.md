@@ -329,7 +329,7 @@ npm start
 | `JWT_SECRET` | Yes (fails to start without it) | Signs/verifies auth tokens — 32+ chars recommended |
 | `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` | Recommended | Image uploads (menu items, logos) fail gracefully without them |
 | `CLIENT_URL` | Recommended | Used for CORS allowlisting and links in generated content |
-| `PRINTER_AGENT_KEY` | Recommended | Shared secret between server and Printer Agent (falls back to an insecure default if unset — always set your own) |
+| `PRINTER_AGENT_KEY` | Recommended | Shared secret between server and Printer Agent (fails closed safely if unset — set your own strong secret in production) |
 | `PORT` | No | Defaults to `4000` |
 
 **Client** (`client/.env.local`) — baked into the browser bundle at build time:
@@ -345,7 +345,7 @@ npm start
 | Variable | Required | Purpose |
 |---|---|---|
 | `BACKEND_URL` | Yes (exits without it) | The server's URL to connect to over Socket.IO |
-| `PRINTER_AGENT_KEY` | Recommended | Must match the server's value |
+| `PRINTER_AGENT_KEY` | Required | Shared secret matching the server's value (exits at startup if missing) |
 | `PRINTER_PORT` | No | Serial port path (defaults to a common macOS USB path) |
 | `PRINTER_BAUD_RATE` | No | Defaults to `9600` |
 | `PRINTER_TARGET` | No | `ALL` \| `RECEIPT` \| `KOT` |
@@ -353,13 +353,36 @@ npm start
 
 ## Testing
 
+ServeSync includes three levels of automated testing:
+
+### 1. Server Unit & Security Tests (81 tests)
+Runs pure domain logic, tenant-isolation enforcement, JWT validation, Zod schemas, ESC/POS byte builders, token hashing, and feedback classification:
 ```bash
 cd server
-npm test   # node:test — validation schemas, ESC/POS byte formatting,
-           # token hashing, feedback keyword classification
+npm test
 ```
 
-This is a **unit-test foundation** over pure, dependency-free logic — not full end-to-end coverage against a live database (this project shares one Neon instance across dev/demo with no isolated test database provisioned). See [`docs/DEVELOPER_GUIDE.md`](docs/DEVELOPER_GUIDE.md#testing) for the reasoning and what a fuller test suite would need.
+### 2. Client & Customer Journey Tests (13 tests)
+Tests cart precision, line-item updates, category classification, signed QR table capability derivation, tenant mismatch rejection, and retry identity preservation:
+```bash
+cd client
+node --test tests/*.test.*
+```
+
+### 3. Disposable PostgreSQL Integration Tests (7 scenarios)
+Verifies real PostgreSQL concurrency and database constraints against an isolated disposable Postgres container (PostgreSQL 16):
+```bash
+cd server
+DATABASE_URL_TEST="postgresql://servesync_test_user:test_only_password_xyz@127.0.0.1:5439/servesync_test_db?sslmode=disable" node --test src/__tests__/postgresIdempotencyIntegration.test.js
+```
+Verified scenarios:
+- **A**: Concurrent identical submissions create exactly one order and one set of items.
+- **B**: Reusing an idempotency key with a mismatched payload returns HTTP 409 conflict and preserves the original order.
+- **C**: Distinct keys generate distinct orders.
+- **D**: Independent sessions and tenants use identical keys without collision.
+- **E**: Failed database transactions roll back completely without consuming the idempotency key.
+- **F**: Lost response recovery returns the original order even after the table session has been closed.
+- **G**: Historical orders with `NULL` idempotency fields coexist seamlessly without constraint violations.
 
 ## Deployment
 

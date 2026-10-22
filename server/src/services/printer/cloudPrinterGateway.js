@@ -42,7 +42,7 @@ class CloudPrinterGateway {
    * Periodic GC to purge stale un-cleared pending map entries (runs every 60s)
    */
   startGarbageCollection() {
-    setInterval(() => {
+    this.gcInterval = setInterval(() => {
       const now = Date.now();
       for (const [jobId, item] of this.pendingAckMap.entries()) {
         if (now - item.createdAt > 45000) {
@@ -52,6 +52,9 @@ class CloudPrinterGateway {
         }
       }
     }, 60000);
+    if (this.gcInterval?.unref) {
+      this.gcInterval.unref();
+    }
   }
 
   /**

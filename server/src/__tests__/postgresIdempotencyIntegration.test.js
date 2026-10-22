@@ -48,6 +48,7 @@ if (!testDbUrl) {
   const CAT1_ID = 'pg_test_cat_1';
   const ITEM1_ID = 'pg_test_item_1';
   const ITEM2_ID = 'pg_test_item_2';
+  const CAT2_ID = 'pg_test_cat_2';
 
   // Helper to submit via placeOrder controller
   async function submitOrder({
@@ -129,6 +130,9 @@ if (!testDbUrl) {
         isActive: true,
         tables: {
           create: [{ id: TABLE2_ID, code: 'T02', number: 2, isActive: true }],
+        },
+        categories: {
+          create: [{ id: CAT2_ID, name: 'Specials' }],
         },
       },
     });
@@ -241,6 +245,7 @@ if (!testDbUrl) {
     const r2Item = await prisma.menuItem.create({
       data: {
         restaurantId: REST2_ID,
+        categoryId: CAT2_ID,
         name: 'R2 Special Curry',
         price: 200,
         isAvailable: true,
@@ -324,7 +329,7 @@ if (!testDbUrl) {
       data: {
         restaurantId: REST1_ID,
         sessionId: SESSION1_ID,
-        status: 'COMPLETED',
+        status: 'SERVED',
         idempotencyKey: null,
         requestHash: null,
       },
@@ -334,7 +339,7 @@ if (!testDbUrl) {
       data: {
         restaurantId: REST1_ID,
         sessionId: SESSION1_ID,
-        status: 'COMPLETED',
+        status: 'SERVED',
         idempotencyKey: null,
         requestHash: null,
       },
@@ -358,4 +363,9 @@ if (!testDbUrl) {
     });
     assert.equal(newOrderResult.status, 201, 'New order placed successfully alongside historical NULL records');
   });
+
+  after(async () => {
+    await prisma.$disconnect();
+  });
 }
+

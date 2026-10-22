@@ -20,7 +20,13 @@ if (!BACKEND_URL) {
   process.exit(1);
 }
 
-const PRINTER_AGENT_KEY = process.env.PRINTER_AGENT_KEY || "nookambika_printer_secret_key_2026";
+const PRINTER_AGENT_KEY = process.env.PRINTER_AGENT_KEY ? process.env.PRINTER_AGENT_KEY.trim() : null;
+
+if (!PRINTER_AGENT_KEY) {
+  printerLogger.error("❌ [Agent Startup Error] PRINTER_AGENT_KEY environment variable is missing!");
+  printerLogger.error("   Please define PRINTER_AGENT_KEY in printer-agent/.env to match your backend PRINTER_AGENT_KEY.");
+  process.exit(1);
+}
 
 printerLogger.info("🚀 Starting Local Thermal Printer Agent...");
 printerLogger.info(`📡 Connecting to Backend: ${BACKEND_URL}`);

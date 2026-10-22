@@ -58,8 +58,13 @@ const initializeSocket = (server, allowedOrigins = []) => {
     const isPrinterAgent = socket.handshake.auth?.agentType === "PRINTER_AGENT" || !!authApiKey;
 
     if (isPrinterAgent) {
-      const expectedKey = process.env.PRINTER_AGENT_KEY || "nookambika_printer_secret_key_2026";
-      if (authApiKey !== expectedKey) {
+      const expectedKey = process.env.PRINTER_AGENT_KEY ? process.env.PRINTER_AGENT_KEY.trim() : null;
+      if (!expectedKey) {
+        console.error(`❌ [Socket Auth] PRINTER_AGENT_KEY is not configured on the server. Rejecting printer agent connection (Socket ID: ${socket.id}).`);
+        socket.disconnect(true);
+        return;
+      }
+      if (!authApiKey || authApiKey !== expectedKey) {
         console.error(`❌ [Socket Auth] Unauthorized Printer Agent attempt (Socket ID: ${socket.id}). Disconnecting.`);
         socket.disconnect(true);
         return;

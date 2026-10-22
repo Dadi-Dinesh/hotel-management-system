@@ -17,7 +17,7 @@ const RECOMMENDED_VARS = [
   { key: "CLOUDINARY_API_KEY", hint: "Logo/menu-photo uploads will fail without all three CLOUDINARY_* vars." },
   { key: "CLOUDINARY_API_SECRET", hint: "Logo/menu-photo uploads will fail without all three CLOUDINARY_* vars." },
   { key: "CLIENT_URL", hint: "Falls back to the hardcoded Vercel URL + localhost — set this for a custom domain." },
-  { key: "PRINTER_AGENT_KEY", hint: "Falls back to a default shared secret baked into source — set your own in production." },
+  { key: "PRINTER_AGENT_KEY", hint: "Printer agent authentication fails safely if unset — set your own strong secret in production." },
 ];
 
 const MIN_JWT_SECRET_LENGTH = 32;

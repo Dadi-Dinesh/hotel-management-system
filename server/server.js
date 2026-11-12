@@ -39,15 +39,14 @@ const app = express();
 const server = http.createServer(app);
 
 // Port setup — process.env.PORT for Render deployment, default 4000
-const PORT = process.env.PORT || 4000;
+const PORT = Number(process.env.PORT || 4000);
+const HOST = process.env.HOST || "0.0.0.0";
 
 // Allowed CORS origins
 const getAllowedOrigins = () => {
-  const origins = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "https://hotel-management-system-psi-kohl.vercel.app",
-  ];
+  const origins = process.env.NODE_ENV === "production"
+    ? []
+    : ["http://localhost:3000", "http://localhost:3001"];
 
   if (process.env.CLIENT_URL) {
     const urls = process.env.CLIENT_URL.split(",").map((u) => u.trim());
@@ -151,7 +150,8 @@ app.use(errorHandler);
 
 // Process safety & server event loggers
 server.on("error", (err) => {
-  console.error("💥 [Server] HTTP/Socket Server Error:", err.message);
+  console.error("💥 [Server] HTTP/Socket Server Error:", err.code);
+  process.exitCode = 1;
 });
 
 server.on("close", () => {
@@ -186,8 +186,8 @@ const startServer = async () => {
       new Promise((_, reject) => setTimeout(() => reject(new Error("Database check timeout")), 5000)),
     ]);
     console.log("✓ Database Connected");
-  } catch (dbErr) {
-    console.warn("⚠️ [Database Check Notice]:", dbErr.message);
+  } catch {
+    console.warn("Database unavailable during startup.");
   }
 
   // 2. Socket.IO Verification
@@ -206,7 +206,7 @@ const startServer = async () => {
   }
 
   // 4. Start Listening
-  server.listen(PORT, () => {
+  server.listen(PORT, HOST, () => {
     console.log(`✓ Server Running on port ${PORT}\n`);
     console.log(`🍽️ ServeSync API ready for requests on http://localhost:${PORT}`);
   });

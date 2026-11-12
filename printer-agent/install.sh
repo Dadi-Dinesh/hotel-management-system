@@ -26,7 +26,7 @@ if ! command -v node &> /dev/null; then
 fi
 
 # 2. Ensure .env exists
-if [ ! -f "$AGENT_DIR/.env" ]; then
+if [ ! -f "$AGENT_DIR/.env" ] && [ ! -f "$AGENT_DIR/.env.local" ]; then
     echo "⚙️ [Setup] Creating default .env file from .env.example..."
     cp "$AGENT_DIR/.env.example" "$AGENT_DIR/.env"
     echo "⚠️ [Notice] Please edit $AGENT_DIR/.env with your production Render BACKEND_URL & PRINTER_AGENT_KEY!"

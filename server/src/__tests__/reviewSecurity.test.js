@@ -32,6 +32,8 @@ function fixture() {
     to(selected) { return { emit(event, payload) { return adapter.broadcast({ type: 2, data: [event, payload] }, { rooms: new Set([].concat(selected)), except: new Set(), flags: {} }); } }; },
   };
   const db = {
+    $transaction: (callback) => callback(db),
+    $queryRaw: async (sql, id) => [sql.join("").includes('FROM "Table"') ? tables.get(id) : sessions.get(id)],
     restaurant: { findUnique: async ({ where }) => where.id ? restaurants.get(where.id) : [...restaurants.values()].find(r => r.slug === where.slug) },
     table: {
       findUnique: async ({ where, include }) => {
@@ -139,7 +141,7 @@ test('customer joins validate signed table and slug; never fall back or join glo
   const f = fixture(); const s = f.connect('guest');
   for (const payload of [{ tableCode: 'T01', restaurantSlug: 'cafe-a' }, { tableCode: 'T01', restaurantSlug: 'missing', customerAccess: f.token() }, { tableCode: 'T02', restaurantSlug: 'cafe-a', customerAccess: f.token() }]) assert.equal((await s.emit('join-table', payload)).success, false);
   assert.equal((await s.emit('join-table', { tableCode: 'T01', restaurantSlug: 'cafe-a', customerAccess: f.token() })).success, true);
-  assert.deepEqual([...s.rooms].sort(), ['guest', 'restaurant:a:table:T01']); s.disconnect();
+  assert.deepEqual([...s.rooms].sort(), ['guest', 'restaurant:a:session:sa']); s.disconnect();
 });
 test('supply dispatch is once per recipient, excludes other tenants and validates quantities', async () => {
   const f = fixture(); const captain = f.connect('captain'), admin = f.connect('admin'), other = f.connect('other'), guest = f.connect('guest');
@@ -344,4 +346,49 @@ test('supply acknowledgement fails when its only previously connected staff memb
  await guest.emit('join-table',{tableCode:'T01',restaurantSlug:'cafe-a',customerAccess:f.token()});
  f.users.delete('captain');const ack=await guest.emit('call-waiter',{tableCode:'T01',message:'Water requested'});
  assert.equal(ack.success,false);assert.equal(ack.acknowledgement,'server-dispatch');assert.equal(staff.received.length,0);guest.disconnect();
+});
+
+test('successive customers at one table only receive their own session events', async () => {
+  const f = fixture();
+  const first = f.connect('first-guest');
+  const second = f.connect('second-guest');
+  const join = { tableCode: 'T01', restaurantSlug: 'cafe-a' };
+  assert.equal((await first.emit('join-table', { ...join, customerAccess: f.token() })).success, true);
+  f.sessions.get('sa').status = 'CLOSED';
+  const nextSession = { ...f.sessions.get('sa'), id: 'sa-next', status: 'ACTIVE' };
+  f.sessions.set(nextSession.id, nextSession);
+  const nextToken = f.access.issueCustomerAccess(f.tables.get('ta'), nextSession);
+  assert.equal((await second.emit('join-table', { ...join, customerAccess: nextToken })).success, true);
+  await f.io.to('restaurant:a:session:sa-next').emit('order-status-update', { status: 'SERVED' });
+  assert.equal(first.received.length, 0);
+  assert.equal(second.received.length, 1);
+  first.disconnect();
+  second.disconnect();
+});
+
+test('platform middleware requires both an admin role and a null restaurant', () => {
+  const f = fixture();
+  const { requirePlatformOwner } = f.load('middleware/auth.js');
+  for (const user of [{ role: 'CAPTAIN', restaurantId: null }, { role: 'ADMIN', restaurantId: 'a' }]) {
+    const res = response();
+    requirePlatformOwner({ user }, res, () => assert.fail('Unexpected platform access'));
+    assert.equal(res.statusCode, 403);
+  }
+  let called = false;
+  requirePlatformOwner({ user: { role: 'ADMIN', restaurantId: null } }, response(), () => { called = true; });
+  assert.equal(called, true);
+});
+
+test('platform staff mutations require an explicit tenant selection', () => {
+  const f = fixture();
+  const { resolveStaffTenant } = f.load('middleware/tenant.js');
+  const req = { user: { role: 'ADMIN', restaurantId: null }, method: 'DELETE', headers: {}, query: {} };
+  const res = response();
+  resolveStaffTenant(req, res, () => assert.fail('Expected a required tenant selection'));
+  assert.equal(res.statusCode, 400);
+  req.headers['x-restaurant-id'] = 'a';
+  let called = false;
+  resolveStaffTenant(req, response(), () => { called = true; });
+  assert.equal(req.restaurantId, 'a');
+  assert.equal(called, true);
 });

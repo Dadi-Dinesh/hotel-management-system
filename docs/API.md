@@ -6,7 +6,7 @@ Base URL: `{SERVER_URL}/api` (local: `http://localhost:4000/api`).
 
 - **Auth**: `Authorization: Bearer <jwt>` header. Tokens are issued by `POST /auth/login` and carry `userId`, `role`, and `restaurantId`.
 - **Roles**: `ADMIN`, `MANAGER`, `CAPTAIN`, `KITCHEN`. A route marked "Admin" requires the `ADMIN` role; "Staff" accepts any authenticated staff role listed.
-- **Tenant resolution**: staff-protected routes resolve the tenant from the caller's own account (`resolveStaffTenant`) — a token can never act on another restaurant's data. Public routes resolve the tenant from a `:slug` in the URL, or implicitly via an already-tenant-scoped resource like a `sessionId`.
+- **Tenant resolution**: staff-protected routes resolve the tenant from the caller's own account (`resolveStaffTenant`) — restaurant staff are confined to their own restaurant. Public routes resolve the tenant from a `:slug` in the URL, or implicitly via an already-tenant-scoped resource like a `sessionId`.
 - **Validation errors** (400): `{ "success": false, "message": "...", "errors": [{ "field": "...", "message": "..." }] }`
 - **Rate-limited responses** (429): `{ "success": false, "message": "<route-specific message>" }`
 - **Response envelope**: most endpoints return `{ "success": true, "data": ... }` or `{ "success": true, ...fields }`; errors return `{ "success": false, "message": "..." }` (never a raw stack trace in production — see `src/middleware/errorHandler.js`).
@@ -34,7 +34,7 @@ Base URL: `{SERVER_URL}/api` (local: `http://localhost:4000/api`).
 | Method | Path | Access | Notes |
 |---|---|---|---|
 | GET | `/` | Admin (platform owner) | List every restaurant, for the restaurant switcher |
-| POST | `/` | Public (rate-limited: 10 / hour) | Onboarding wizard — creates a new tenant + admin account |
+| POST | `/` | Retired (410) | Submit a registration through `POST /api/applications` for platform review |
 | GET | `/:slug` | Public | Restaurant profile (name, branding, logo) |
 | GET | `/:slug/tables/:code` | Public (rate-limited: 30 / min) | QR-scan table lookup, slug-scoped |
 | GET | `/:slug/menu` | Public | Slug-scoped mirror of `/menu` |

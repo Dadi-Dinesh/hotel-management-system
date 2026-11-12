@@ -9,6 +9,8 @@ function controllerHarness({ missing=false, closed=false }={}) {
  const session={id:"session-a",restaurantId:"restaurant-a",tableId:"table-a",status:closed?"CLOSED":"ACTIVE",table:{code:"T01",number:1}};
  const menu=[{id:"food-a",restaurantId:"restaurant-a",isAvailable:true,price:125,name:"Rice"},{id:"food-b",restaurantId:"restaurant-b",isAvailable:true,price:1,name:"Other tenant"}];
  const prisma={session:{findUnique:async()=>missing?null:session},menuItem:{findMany:async({where})=>{query=where;return menu.filter(item=>where.id.in.includes(item.id)&&item.restaurantId===where.restaurantId&&item.isAvailable===where.isAvailable);}},order:{findUnique:async()=>null,create:async(args)=>{created=args;return {id:"order-a",orderNumber:9,createdAt:new Date(),items:args.data.items.create.map((item,index)=>({...item,id:`line-${index}`,menuItem:menu.find(m=>m.id===item.menuItemId)}))};}}};
+ prisma.$transaction = (callback) => callback(prisma);
+ prisma.$queryRaw = async () => [{ status: session.status }];
  const io={to:room=>({emit:(event,payload)=>(Array.isArray(room)?room:[room]).forEach(room=>events.push({room,event,payload}))})};
  const dependencies={"../services/orderIdempotency":require("../services/orderIdempotency"),"../config/db":prisma,"../socket":{getIO:()=>io},"../utils/kotGenerator":{},"../services/kds.service":{getKitchenAggregatedData:async()=>[]},"../services/printer/autoPrintService":{}};
  const context={module:{exports:{}},require:id=>{assert.ok(id in dependencies,`Unexpected dependency ${id}`);return dependencies[id];},console:{log(){}}};

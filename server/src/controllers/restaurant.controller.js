@@ -1,28 +1,8 @@
-const jwt = require("jsonwebtoken");
 const prisma = require("../config/db");
 const { uploadToCloudinary, deleteFromCloudinary } = require("../middleware/upload");
 const { logAudit } = require("../utils/auditLog");
-const { sendEmail } = require("../services/email/emailService");
-const { welcomeEmail, restaurantCreatedEmail } = require("../services/email/templates");
-const { provisionRestaurant } = require("../services/restaurantProvisioning");
 
-const PUBLIC_FIELDS = {
-  id: true,
-  name: true,
-  slug: true,
-  shortName: true,
-  logo: true,
-  coverImage: true,
-  cuisine: true,
-  primaryColor: true,
-  secondaryColor: true,
-  accentColor: true,
-  welcomeMessage: true,
-  currency: true,
-  address: true,
-  phone: true,
-  isActive: true,
-};
+const { PUBLIC_RESTAURANT_FIELDS } = require("../middleware/tenant");
 
 /**
  * Public restaurant profile — powers the new /restaurant/:slug pages' branding.
@@ -32,7 +12,7 @@ const getRestaurantBySlug = async (req, res, next) => {
   try {
     const restaurant = await prisma.restaurant.findUnique({
       where: { slug: req.params.slug },
-      select: PUBLIC_FIELDS,
+      select: PUBLIC_RESTAURANT_FIELDS,
     });
     if (!restaurant || !restaurant.isActive) {
       return res.status(404).json({ success: false, message: "Restaurant not found." });
@@ -54,106 +34,9 @@ const listRestaurants = async (req, res, next) => {
     }
     const restaurants = await prisma.restaurant.findMany({
       orderBy: { createdAt: "desc" },
-      select: { ...PUBLIC_FIELDS, plan: true, subscriptionStatus: true, trialEndsAt: true, createdAt: true },
+      select: { ...PUBLIC_RESTAURANT_FIELDS, plan: true, subscriptionStatus: true, trialEndsAt: true, createdAt: true },
     });
     res.json({ success: true, data: restaurants });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Onboarding — creates a brand-new Restaurant + its first Admin user + N tables,
- * and logs them straight in. Public (no auth — there's no user yet).
- * POST /api/restaurants
- */
-const createRestaurant = async (req, res, next) => {
-  try {
-    const {
-      name,
-      cuisine,
-      phone,
-      address,
-      primaryColor,
-      tableCount,
-      adminName,
-      adminEmail,
-      adminPassword,
-    } = req.body;
-
-    if (!name || !adminName || !adminEmail || !adminPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "Restaurant name, and admin name/email/password are required.",
-      });
-    }
-
-    if (String(adminPassword).length < 6) {
-      return res.status(400).json({ success: false, message: "Password must be at least 6 characters." });
-    }
-
-    const existingUser = await prisma.user.findUnique({ where: { email: adminEmail.toLowerCase() } });
-    if (existingUser) {
-      return res.status(409).json({ success: false, message: "An account with this email already exists." });
-    }
-
-    let logoUrl = null;
-    if (req.file) {
-      const uploadResult = await uploadToCloudinary(req.file.buffer, "servesync-restaurants");
-      logoUrl = uploadResult.secure_url;
-    }
-
-    // The demo restaurant deliberately stays in legacy/open QR mode (no
-    // token) — provisionRestaurant always issues real per-table tokens,
-    // which is what every restaurant created after Phase 7 (via this
-    // endpoint or the newer application-approval flow) gets by default.
-    const result = await provisionRestaurant({
-      name,
-      cuisine,
-      phone,
-      address,
-      logoUrl,
-      primaryColor,
-      tableCount,
-      adminName,
-      adminEmail,
-      adminPassword,
-    });
-
-    const token = jwt.sign(
-      { userId: result.admin.id, role: result.admin.role, restaurantId: result.restaurant.id },
-      process.env.JWT_SECRET,
-      { expiresIn: "24h" }
-    );
-
-    res.status(201).json({
-      success: true,
-      message: `${result.restaurant.name} is ready!`,
-      data: {
-        token,
-        user: {
-          id: result.admin.id,
-          name: result.admin.name,
-          email: result.admin.email,
-          role: result.admin.role,
-          restaurantId: result.restaurant.id,
-          isPlatformOwner: false,
-        },
-        restaurant: result.restaurant,
-        // Strip the hash before it ever leaves the server — only the raw,
-        // one-time token (needed to render the onboarding QR previews) goes out.
-        tables: result.tables.map(({ qrTokenHash, ...t }) => t),
-      },
-    });
-
-    logAudit({ action: "restaurant.created", restaurantId: result.restaurant.id, metadata: { name: result.restaurant.name, tableCount: result.tables.length } });
-
-    // Fire-and-forget — no email provider is wired up yet (Phase 11 scope),
-    // so sendEmail() only logs today. Never blocks or fails the response.
-    const welcome = welcomeEmail({ adminName, restaurantName: result.restaurant.name });
-    sendEmail({ to: adminEmail, subject: welcome.subject, html: welcome.html }).catch(() => {});
-    const created = restaurantCreatedEmail({ adminName, restaurantName: result.restaurant.name, slug: result.restaurant.slug, tableCount: result.tables.length });
-    sendEmail({ to: adminEmail, subject: created.subject, html: created.html }).catch(() => {});
   } catch (error) {
     next(error);
   }
@@ -300,7 +183,6 @@ module.exports = {
   getRestaurantBySlug,
   getRestaurantSettings,
   listRestaurants,
-  createRestaurant,
   updateRestaurantSettings,
   setRestaurantActive,
 };

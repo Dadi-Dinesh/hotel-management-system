@@ -13,7 +13,7 @@ administration removes an order's item rows.
 
 Apply once to a disposable staging copy using the team's approved SQL migration
 process. The ALTER/CREATE INDEX transaction takes locks: evaluate its duration on
-the staging copy before planning rollout. Establish a proper migration baseline
+the staging copy before planning rollout. For a busy live database, commit the column changes separately and build the same unique index concurrently outside a transaction. Verify index validity before releasing the API. See [Deployment](../../../docs/DEPLOYMENT.md). Establish a proper migration baseline
 before adopting `prisma migrate deploy`; this patch is not that baseline.
 
 Deploy the schema before the new backend, regenerate Prisma Client, and coordinate

@@ -115,7 +115,6 @@ const printTestReceipt = async (req, res, next) => {
  */
 const printCustomerBillReceipt = async (req, res, next) => {
   try {
-    console.log("📥 [POST /api/printer/bill] Received request body:", JSON.stringify(req.body, null, 2));
 
     const orderData = req.body.order || req.body;
     if (!orderData || !orderData.items || !Array.isArray(orderData.items)) {
@@ -145,7 +144,6 @@ const printCustomerBillReceipt = async (req, res, next) => {
  */
 const printKOTReceipt = async (req, res, next) => {
   try {
-    console.log("📥 [POST /api/printer/kot] Received request body:", JSON.stringify(req.body, null, 2));
 
     const orderData = req.body.order || req.body;
     if (!orderData || !orderData.items || !Array.isArray(orderData.items)) {

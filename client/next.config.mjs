@@ -22,6 +22,7 @@ if (missingPublicVars.length > 0) {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactCompiler: true,
+  turbopack: { root: import.meta.dirname },
   // Standalone output — a minimal, self-contained server bundle with only
   // the production dependencies actually used, copied into the Docker
   // image (see client/Dockerfile). Has no effect on `next dev`.

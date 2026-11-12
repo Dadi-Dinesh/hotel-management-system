@@ -14,7 +14,7 @@ const startSession = async (req, res, next) => {
   try {
     const { tableCode, token } = req.body;
 
-    if (!tableCode) {
+    if (typeof tableCode !== "string" || !tableCode.trim()) {
       return res.status(400).json({
         success: false,
         message: "Table code is required.",
@@ -50,40 +50,46 @@ const startSession = async (req, res, next) => {
 
     await validateTable(table, token);
 
-    // Check for existing active session
-    const existingSession = await prisma.session.findFirst({
-      where: {
-        tableId: table.id,
-        status: { in: ["ACTIVE", "BILL_REQUESTED"] },
-      },
-      include: {
-        orders: {
-          orderBy: { createdAt: "asc" },
-          include: {
-            items: { include: { menuItem: true } },
+    const { session, isNew } = await prisma.$transaction(async (tx) => {
+      const [currentTable] = await tx.$queryRaw`
+        SELECT "isActive", "qrTokenHash" FROM "Table"
+        WHERE id = ${table.id} AND "restaurantId" = ${table.restaurantId}
+        FOR UPDATE
+      `;
+      if (!currentTable?.isActive || currentTable.qrTokenHash !== table.qrTokenHash) {
+        return { session: null };
+      }
+
+      const existing = await tx.session.findFirst({
+        where: { tableId: table.id, status: { in: ["ACTIVE", "BILL_REQUESTED"] } },
+        include: {
+          orders: {
+            orderBy: { createdAt: "asc" },
+            include: { items: { include: { menuItem: true } } },
           },
+          table: true,
+          feedbacks: true,
         },
-        table: true,
-        feedbacks: true,
-      },
+      });
+      if (existing) return { session: existing, isNew: false };
+
+      const created = await tx.session.create({
+        data: { tableId: table.id, restaurantId: table.restaurantId },
+        include: { orders: true, table: true },
+      });
+      return { session: created, isNew: true };
     });
 
-    if (existingSession) {
+    if (!session) {
+      return res.status(403).json({ success: false, message: "The table is unavailable. Scan the QR code again." });
+    }
+    if (!isNew) {
       return res.json({
         success: true,
         message: "Existing session found.",
-        data: { ...existingSession, customerAccess: issueCustomerAccess(table, existingSession) },
+        data: { ...session, customerAccess: issueCustomerAccess(table, session) },
       });
     }
-
-    // Create new session
-    const session = await prisma.session.create({
-      data: { tableId: table.id, restaurantId: table.restaurantId },
-      include: {
-        orders: true,
-        table: true,
-      },
-    });
 
     // Notify this restaurant's waiters, captains, and admins about the new table session
     const io = getIO();
@@ -328,12 +334,9 @@ const closeSession = async (req, res, next) => {
       tableCode: session.table.code,
     };
     console.log("Sending session-closed event for table:", session.table.code);
-    io.to(session.table.code).emit("session-closed", closedPayload);
-    io.to(`table:${session.table.code}`).emit("session-closed", closedPayload);
-    io.to(`restaurant:${session.restaurantId}:table:${session.table.code}`).emit("session-closed", closedPayload);
-    io.to(`restaurant:${session.restaurantId}:waiters`).emit("session-closed", closedPayload);
-    io.to(`restaurant:${session.restaurantId}:captains`).emit("session-closed", closedPayload);
-    io.to(`restaurant:${session.restaurantId}:admins`).emit("session-closed", closedPayload);
+    io.to(`restaurant:${session.restaurantId}:session:${session.id}`).emit("session-closed", closedPayload);
+    io.to(["waiters", "captains", "admins"].map(role => `restaurant:${session.restaurantId}:${role}`))
+      .emit("session-closed", closedPayload);
 
     const billTotal = session.orders.reduce((sum, o) => (o.status === "CANCELLED" ? sum : sum + o.items.reduce((s, i) => s + i.price * i.quantity, 0)), 0);
     logAudit({ action: "bill.generated", restaurantId: session.restaurantId, userId: req.user?.id, metadata: { sessionId: session.id, tableCode: session.table.code, total: Math.round(billTotal * 100) / 100 } });

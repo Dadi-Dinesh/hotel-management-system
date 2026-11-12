@@ -5,13 +5,18 @@ const fs = require('node:fs');
 const path = require('node:path');
 const idempotency = require('../services/orderIdempotency');
 function harness() {
-  const rows = new Map(); let writes = 0, failWrite = false, failDispatch = false;
+  const rows = new Map(); let writes = 0, failWrite = false, failDispatch = false, schemaReady = true, closeBeforeWrite = false;
   const session = { id: 's1', restaurantId: 'r1', status: 'ACTIVE', table: { code: 'T01' } };
   const db = {
+    $transaction: (callback) => callback(db),
+    $queryRaw: async () => [{ status: closeBeforeWrite ? 'CLOSED' : session.status }],
     session: { findUnique: async ({where}) => ({ ...session, id: where.id }) },
     menuItem: { findMany: async ({where}) => where.id.in.includes('food') ? [{ id: 'food', price: 100, name: 'Rice' }] : [] },
     order: {
-      findUnique: async ({where}) => rows.get(JSON.stringify(where.restaurantId_sessionId_idempotencyKey)),
+      findUnique: async ({where}) => {
+        if (!schemaReady) throw Object.assign(new Error('Column missing'), { code: 'P2022' });
+        return rows.get(JSON.stringify(where.restaurantId_sessionId_idempotencyKey));
+      },
       create: async ({data}) => {
         // Yield so independent callers can race; the simulated DB enforces the unique index.
         await new Promise(resolve => setImmediate(resolve));
@@ -31,7 +36,7 @@ function harness() {
     await module.exports.placeOrder({headers:{'idempotency-key':key},body:{sessionId,items:[{menuItemId:item,quantity}]}},res,error=>{res.code=error.statusCode||500;res.error=error;});
     return res;
   }
-  return {submit,session,rows,writes:()=>writes,failWrite:v=>{failWrite=v;},failDispatch:v=>{failDispatch=v;}};
+  return {submit,session,rows,writes:()=>writes,failWrite:v=>{failWrite=v;},failDispatch:v=>{failDispatch=v;}, disableSchema:()=>{schemaReady=false;}, closeBeforeWrite:()=>{closeBeforeWrite=true;}};
 }
 test('sequential retries and lost responses return original order, including after closure',async()=>{
  const h=harness();const first=await h.submit();assert.equal(first.code,201);
@@ -65,4 +70,17 @@ test('validation and failed persistence do not consume the key; committed notifi
 test('missing or malformed keys fail before writing',async()=>{
  const h=harness();for(const key of ['', 'tiny', '../invalid/request/key'])assert.equal((await h.submit({key})).code,400);
  assert.equal(h.writes(),0);
+});
+
+test('missing idempotency schema returns unavailable without an unkeyed write', async () => {
+  const h = harness();
+  h.disableSchema();
+  assert.equal((await h.submit()).code, 503);
+  assert.equal(h.writes(), 0);
+});
+test('a session closed before the transactional write cannot acquire a new order', async () => {
+  const h = harness();
+  h.closeBeforeWrite();
+  assert.equal((await h.submit()).code, 400);
+  assert.equal(h.writes(), 0);
 });

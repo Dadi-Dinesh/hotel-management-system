@@ -6,7 +6,6 @@
 const prisma = require("../config/db");
 const { getIO } = require("../socket");
 const printerService = require("../services/printer/printerService");
-const logger = require("../utils/logger");
 
 const startedAt = Date.now();
 
@@ -15,9 +14,8 @@ async function checkDatabase() {
   try {
     await prisma.$queryRaw`SELECT 1`;
     return { status: "up", latencyMs: Date.now() - start };
-  } catch (error) {
-    logger.error("Health check: database unreachable", { error: error.message });
-    return { status: "down", error: error.message };
+  } catch {
+    return { status: "down" };
   }
 }
 
@@ -25,8 +23,8 @@ function checkSocket() {
   try {
     const io = getIO();
     return { status: "up", connectedClients: io.engine?.clientsCount ?? null };
-  } catch (error) {
-    return { status: "down", error: error.message };
+  } catch {
+    return { status: "down" };
   }
 }
 
@@ -39,10 +37,9 @@ function checkPrinter() {
       // printing instead, so it's reported but never fails the health check.
       status: status.connected ? "connected" : "disconnected",
       kitchenMode: status.kitchenMode,
-      lastError: status.lastError || null,
     };
-  } catch (error) {
-    return { status: "unknown", error: error.message };
+  } catch {
+    return { status: "unknown" };
   }
 }
 

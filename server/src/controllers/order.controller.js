@@ -87,25 +87,30 @@ const placeOrder = async (req, res, next) => {
     };
 
     try {
-      order = await prisma.order.create({
-        data: createData,
-        include: orderInclude,
+      order = await prisma.$transaction(async (tx) => {
+        // Serialize new orders with writes to the same dining session.
+        const [current] = await tx.$queryRaw`
+          SELECT status::text AS status FROM "Session"
+          WHERE id = ${sessionId} AND "restaurantId" = ${session.restaurantId}
+          FOR UPDATE
+        `;
+        if (!current || current.status === "CLOSED") return null;
+        return tx.order.create({ data: createData, include: orderInclude });
       });
     } catch (error) {
-      if (error.code === "P2022" && (error.meta?.column?.includes("idempotencyKey") || error.message?.includes("idempotencyKey"))) {
-        delete createData.idempotencyKey;
-        delete createData.requestHash;
-        order = await prisma.order.create({
-          data: createData,
-          include: orderInclude,
-        });
-      } else if (error.code === "P2002") {
+      if (error.code === "P2002") {
         const winner = await findReplay(prisma, session, request);
         if (winner) return respondReplay(winner);
         throw error;
       } else {
         throw error;
       }
+    }
+
+    if (!order) {
+      const winner = await findReplay(prisma, session, request);
+      if (winner) return respondReplay(winner);
+      return res.status(400).json({ success: false, message: "This session has been closed." });
     }
 
     // Persistence succeeded. Notification failure must not turn an accepted order
@@ -152,6 +157,9 @@ const placeOrder = async (req, res, next) => {
       data: order,
     });
   } catch (error) {
+    if (error.code === "P2022") {
+      return res.status(503).json({ success: false, message: "Ordering is temporarily unavailable. Please ask staff for help." });
+    }
     next(error);
   }
 };
@@ -267,13 +275,9 @@ const acceptOrder = async (req, res, next) => {
     const io = getIO();
     const rid = order.restaurantId;
     console.log("Sending order-accepted event:", order.id);
-    io.to(tableCode).emit("order-accepted", statusPayload);
-    io.to(`table:${tableCode}`).emit("order-accepted", statusPayload);
-    io.to(`restaurant:${rid}:table:${tableCode}`).emit("order-accepted", statusPayload);
-    io.to(`restaurant:${rid}:waiters`).emit("order-status-update", statusPayload);
-    io.to(`restaurant:${rid}:captains`).emit("order-status-update", statusPayload);
-    io.to(`restaurant:${rid}:admins`).emit("order-status-update", statusPayload);
-    io.to(`restaurant:${rid}:kitchen`).emit("order-status-update", statusPayload);
+    io.to(`restaurant:${rid}:session:${order.sessionId}`).emit("order-accepted", statusPayload);
+    io.to(["waiters", "captains", "admins", "kitchen"].map(role => `restaurant:${rid}:${role}`))
+      .emit("order-status-update", statusPayload);
 
     // Emit updated kitchen aggregated data
     const aggregatedKitchen = await getKitchenAggregatedData(rid);
@@ -363,13 +367,9 @@ const updateOrderStatus = async (req, res, next) => {
     const io = getIO();
     const rid = order.restaurantId;
     console.log(`Sending order-status-update event (${order.status}):`, order.id);
-    io.to(tableCode).emit("order-status-update", statusPayload);
-    io.to(`table:${tableCode}`).emit("order-status-update", statusPayload);
-    io.to(`restaurant:${rid}:table:${tableCode}`).emit("order-status-update", statusPayload);
-    io.to(`restaurant:${rid}:waiters`).emit("order-status-update", statusPayload);
-    io.to(`restaurant:${rid}:captains`).emit("order-status-update", statusPayload);
-    io.to(`restaurant:${rid}:admins`).emit("order-status-update", statusPayload);
-    io.to(`restaurant:${rid}:kitchen`).emit("order-status-update", statusPayload);
+    io.to(`restaurant:${rid}:session:${order.sessionId}`).emit("order-status-update", statusPayload);
+    io.to(["waiters", "captains", "admins", "kitchen"].map(role => `restaurant:${rid}:${role}`))
+      .emit("order-status-update", statusPayload);
 
     // Broadcast live kitchen aggregation update
     const aggregatedKitchen = await getKitchenAggregatedData(rid);
@@ -497,9 +497,7 @@ const updateOrderItemStatus = async (req, res, next) => {
       },
     };
 
-    io.to(tableCode).emit("order-status-update", orderStatusPayload);
-    io.to(`table:${tableCode}`).emit("order-status-update", orderStatusPayload);
-    io.to(`restaurant:${rid}:table:${tableCode}`).emit("order-status-update", orderStatusPayload);
+    io.to(`restaurant:${rid}:session:${updatedParentOrder.sessionId}`).emit("order-status-update", orderStatusPayload);
 
     res.json({
       success: true,

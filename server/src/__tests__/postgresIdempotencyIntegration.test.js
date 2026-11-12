@@ -6,9 +6,7 @@ const path = require('node:path');
 const testDbUrl = process.env.DATABASE_URL_TEST;
 
 if (!testDbUrl) {
-  test('PostgreSQL integration suite skipped (DATABASE_URL_TEST not set)', () => {
-    assert.ok(true, 'Skipping isolated database tests since DATABASE_URL_TEST is not provided.');
-  });
+  test('PostgreSQL integration suite', { skip: 'DATABASE_URL_TEST not set' }, () => {});
 } else {
   // Enforce isolation: ensure testDbUrl never points to production or Neon
   const parsed = new URL(testDbUrl);

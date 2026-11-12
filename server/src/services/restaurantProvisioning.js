@@ -1,12 +1,4 @@
-/**
- * restaurantProvisioning — the one place that actually creates a tenant.
- *
- * Extracted from restaurant.controller.js's createRestaurant (the legacy
- * instant-onboarding endpoint) so the new application-approval flow can
- * reuse the exact same transaction instead of duplicating it. Behavior is
- * unchanged from the original inline version — same slug rules, same table/
- * QR-token generation, same trial window.
- */
+// Creates the restaurant, staff and table QR records in a single transaction.
 const bcrypt = require("bcryptjs");
 const prisma = require("../config/db");
 const { generateRawToken, hashToken } = require("../utils/tokenUtils");
@@ -66,8 +58,8 @@ async function provisionRestaurant({
   // Optional extra role accounts (e.g. the Captain + Kitchen logins issued
   // on application approval) — created in the same transaction so a tenant
   // never ends up half-provisioned. May be a function of the final slug.
-  // Legacy callers pass nothing.
   staffAccounts = [],
+  completeApproval,
 }) {
   const slug = await generateUniqueSlug(name);
   const numTables = Math.min(Math.max(parseInt(tableCount, 10) || 8, 1), 50);
@@ -83,6 +75,7 @@ async function provisionRestaurant({
       data: {
         name,
         slug,
+        email: adminEmail,
         shortName: name.length > 24 ? name.slice(0, 24) : name,
         cuisine: cuisine || null,
         phone: phone || null,
@@ -146,7 +139,8 @@ async function provisionRestaurant({
     const createdTables = await Promise.all(tableCreates);
     const tablesWithTokens = createdTables.map((table, i) => ({ ...table, qrToken: rawTokensByIndex[i] }));
 
-    return { restaurant, admin, staff, tables: tablesWithTokens };
+    const application = await completeApproval(tx, restaurant.id);
+    return { restaurant, admin, staff, tables: tablesWithTokens, application };
   });
 }
 

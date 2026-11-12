@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("dotenv").config({ path: [".env.local", ".env"] });
 
 const { io } = require("socket.io-client");
 const SerialPrinter = require("./drivers/SerialPrinter");

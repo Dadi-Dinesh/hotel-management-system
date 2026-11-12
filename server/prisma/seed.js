@@ -1,79 +1,49 @@
+require("dotenv").config();
+
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 
-const prisma = new PrismaClient();
-
-async function main() {
-  console.log("🌱 Starting database seed with updated menu prices, descriptions, and ratings...\n");
-
-  // ─── Seed Tables (T01 – T12) ──────────────────────
-  console.log("📋 Creating 12 tables...");
-  const tables = [];
-  for (let i = 1; i <= 12; i++) {
-    const code = `T${String(i).padStart(2, "0")}`;
-    const table = await prisma.table.upsert({
-      where: { code },
-      update: {},
-      create: { code, number: i, capacity: 4, isActive: true },
-    });
-    tables.push(table);
+function getLocalSeedPassword() {
+  let target;
+  try {
+    target = new URL(process.env.DATABASE_URL);
+  } catch {
+    throw new Error("Configure the isolated local servesync_demo database before seeding.");
   }
-  console.log(`   ✅ Created ${tables.length} tables (T01–T12)\n`);
+  if (process.env.NODE_ENV === "production" ||
+      !["localhost", "127.0.0.1"].includes(target.hostname) ||
+      target.pathname !== "/servesync_demo" || target.search || target.hash) {
+    throw new Error("The demo seed is restricted to a disposable local servesync_demo database.");
+  }
+  const password = process.env.DEMO_SEED_PASSWORD;
+  if (!password || password.length < 12 || Buffer.byteLength(password) > 72) {
+    throw new Error("Set a private DEMO_SEED_PASSWORD of at least 12 characters and at most 72 bytes.");
+  }
+  return password;
+}
 
-  // ─── Seed Admin Account ────────────────────────────
-  console.log("👤 Creating admin account...");
-  const adminPassword = await bcrypt.hash("admin@123", 12);
-  const admin = await prisma.user.upsert({
-    where: { email: "admin@nookambika.com" },
-    update: {},
-    create: {
-      name: "Admin",
-      email: "admin@nookambika.com",
-      password: adminPassword,
-      role: "ADMIN",
-    },
+async function seedDemo(prisma, password) {
+  const restaurant = await prisma.restaurant.create({
+    data: { slug: "nookambika", name: "Sree Nookambika Family Dhaba" },
   });
-  console.log(`   ✅ Admin: ${admin.email} / admin@123\n`);
 
-  // ─── Seed Captain Account ─────────────────────────
-  console.log("👤 Creating captain account...");
-  const captainPassword = await bcrypt.hash("captain@123", 12);
-  const captain = await prisma.user.upsert({
-    where: { email: "captain@nookambika.com" },
-    update: {},
-    create: {
-      name: "Captain",
-      email: "captain@nookambika.com",
-      password: captainPassword,
-      role: "CAPTAIN",
-    },
+  await prisma.table.createMany({
+    data: Array.from({ length: 12 }, (_, index) => ({
+      number: index + 1,
+      code: `T${String(index + 1).padStart(2, "0")}`,
+      restaurantId: restaurant.id,
+    })),
   });
-  console.log(`   ✅ Captain: ${captain.email} / captain@123\n`);
 
-  // ─── Seed Kitchen Account ─────────────────────────
-  console.log("👨‍🍳 Creating kitchen account...");
-  const kitchenPassword = await bcrypt.hash("kitchen@123", 12);
-  const kitchenUser = await prisma.user.upsert({
-    where: { email: "kitchen@nookambika.com" },
-    update: {},
-    create: {
-      name: "Kitchen Master",
-      email: "kitchen@nookambika.com",
-      password: kitchenPassword,
-      role: "KITCHEN",
-    },
+  await prisma.user.createMany({
+    data: ["ADMIN", "CAPTAIN", "KITCHEN"].map(role => ({
+      name: role,
+      email: `${role.toLowerCase()}@demo.example.invalid`,
+      password,
+      role,
+      restaurantId: restaurant.id,
+    })),
   });
-  console.log(`   ✅ Kitchen: ${kitchenUser.email} / kitchen@123\n`);
-
-  // ─── Clean Existing Menu Data ──────────────────────
-  console.log("🧹 Cleaning old menu, orders, and sessions data...");
-  await prisma.feedback.deleteMany({});
-  await prisma.orderItem.deleteMany({});
-  await prisma.order.deleteMany({});
-  await prisma.session.deleteMany({});
-  await prisma.menuItem.deleteMany({});
-  await prisma.category.deleteMany({});
-  console.log("   ✅ Cleaned old records\n");
 
   // ─── Seed Categories ──────────────────────────────
   console.log("📂 Creating menu categories...");
@@ -92,7 +62,7 @@ async function main() {
   const categories = {};
   for (const name of categoryNames) {
     const category = await prisma.category.create({
-      data: { name },
+      data: { name, restaurantId: restaurant.id },
     });
     categories[name] = category;
   }
@@ -218,6 +188,7 @@ async function main() {
         ratingCount: item.ratingCount,
         totalRating: item.totalRating,
         categoryId,
+        restaurantId: restaurant.id,
       },
     });
     itemCount++;
@@ -225,20 +196,21 @@ async function main() {
 
   console.log(`   ✅ Created ${itemCount} rich menu items\n`);
 
-  console.log("─".repeat(40));
-  console.log("🎉 Database seeded successfully!");
-  console.log("─".repeat(40));
-  console.log("\n📋 Login Credentials:");
-  console.log("   Admin:   admin@nookambika.com / admin@123");
-  console.log("   Captain: captain@nookambika.com / captain@123");
-  console.log("");
 }
 
-main()
-  .catch((e) => {
-    console.error("❌ Seed error:", e);
-    process.exit(1);
-  })
-  .finally(async () => {
+async function main() {
+  const password = await bcrypt.hash(getLocalSeedPassword(), 12);
+  const prisma = new PrismaClient();
+  try {
+    await prisma.$transaction(tx => seedDemo(tx, password), { timeout: 15000 });
+  } catch {
+    throw new Error("Demo seed failed. Check that the disposable database has the current schema and no existing demo.");
+  } finally {
     await prisma.$disconnect();
-  });
+  }
+}
+
+main().catch(error => {
+  console.error(error.message);
+  process.exitCode = 1;
+});

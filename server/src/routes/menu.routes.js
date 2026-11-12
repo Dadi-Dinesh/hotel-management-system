@@ -14,7 +14,7 @@ const { resolveStaffTenant, resolveTenant } = require("../middleware/tenant");
 // Dual-use: anonymous customers (legacy, demo-scoped) AND the authenticated
 // admin menu-management page (scoped to that staff member's own restaurant).
 router.get("/", resolveTenant, getMenu);
-router.get("/:id", getMenuItem);
+router.get("/:id", resolveTenant, getMenuItem);
 
 // Protected — admin only
 router.post("/", authenticate, requireRole("ADMIN"), resolveStaffTenant, upload.single("image"), addMenuItem);

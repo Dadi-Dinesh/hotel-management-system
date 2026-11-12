@@ -8,10 +8,11 @@ const { logAudit } = require("../utils/auditLog");
  */
 const getMenu = async (req, res, next) => {
   try {
+    if (!req.restaurantId) return res.status(400).json({ success: false, message: "Select a restaurant first." });
     const { available } = req.query;
 
     const itemsWhere = {};
-    if (available === "true") {
+    if (!req.user || available === "true") {
       itemsWhere.isAvailable = true;
     }
 
@@ -40,8 +41,9 @@ const getMenuItem = async (req, res, next) => {
   try {
     const { id } = req.params;
 
+    if (!req.restaurantId) return res.status(400).json({ success: false, message: "Select a restaurant first." });
     const item = await prisma.menuItem.findUnique({
-      where: { id },
+      where: { id, restaurantId: req.restaurantId, ...(req.user ? {} : { isAvailable: true }) },
       include: { category: true },
     });
 
@@ -215,19 +217,14 @@ const deleteMenuItem = async (req, res, next) => {
       });
     }
 
-    // Delete image from Cloudinary
-    if (existing.publicId) {
-      await deleteFromCloudinary(existing.publicId);
-    } else if (existing.image) {
-      await deleteFromCloudinary(existing.image);
+    try {
+      await prisma.menuItem.delete({ where: { id, restaurantId: existing.restaurantId } });
+    } catch (error) {
+      if (error.code !== "P2003") throw error;
+      return res.status(409).json({ success: false, message: "This item has order or feedback history. Mark it unavailable instead." });
     }
 
-    // Delete associated feedbacks and order items first to satisfy foreign key constraints
-    await prisma.feedback.deleteMany({ where: { menuItemId: id } });
-    await prisma.orderItem.deleteMany({ where: { menuItemId: id } });
-
-    // Then delete the menu item itself
-    await prisma.menuItem.delete({ where: { id } });
+    await deleteFromCloudinary(existing.publicId || existing.image);
 
     logAudit({ action: "menu.item_deleted", restaurantId: existing.restaurantId, userId: req.user?.id, metadata: { menuItemId: id, name: existing.name } });
 

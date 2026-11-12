@@ -370,24 +370,13 @@ const deleteTable = async (req, res, next) => {
       });
     }
 
-    // Clean up closed sessions, orders, items, and feedback associated with this table before deleting
-    const allSessions = await prisma.session.findMany({
-      where: { tableId: id },
-      select: { id: true },
-    });
-
-    const sessionIds = allSessions.map((s) => s.id);
-
-    if (sessionIds.length > 0) {
-      await prisma.$transaction([
-        prisma.feedback.deleteMany({ where: { sessionId: { in: sessionIds } } }),
-        prisma.orderItem.deleteMany({ where: { order: { sessionId: { in: sessionIds } } } }),
-        prisma.order.deleteMany({ where: { sessionId: { in: sessionIds } } }),
-        prisma.session.deleteMany({ where: { tableId: id } }),
-        prisma.table.delete({ where: { id } }),
-      ]);
-    } else {
-      await prisma.table.delete({ where: { id } });
+    // The required Session → Table foreign key protects both closed history
+    // and a session that starts while this request is in flight.
+    try {
+      await prisma.table.delete({ where: { id, restaurantId: table.restaurantId } });
+    } catch (error) {
+      if (error.code !== "P2003") throw error;
+      return res.status(409).json({ success: false, message: "This table has session history. Disable it instead." });
     }
 
     // Broadcast table update — tenant-scoped rooms

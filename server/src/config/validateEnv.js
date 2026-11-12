@@ -16,7 +16,6 @@ const RECOMMENDED_VARS = [
   { key: "CLOUDINARY_CLOUD_NAME", hint: "Logo/menu-photo uploads will fail without all three CLOUDINARY_* vars." },
   { key: "CLOUDINARY_API_KEY", hint: "Logo/menu-photo uploads will fail without all three CLOUDINARY_* vars." },
   { key: "CLOUDINARY_API_SECRET", hint: "Logo/menu-photo uploads will fail without all three CLOUDINARY_* vars." },
-  { key: "CLIENT_URL", hint: "Falls back to the hardcoded Vercel URL + localhost — set this for a custom domain." },
   { key: "PRINTER_AGENT_KEY", hint: "Printer agent authentication fails safely if unset — set your own strong secret in production." },
 ];
 
@@ -29,7 +28,11 @@ const MIN_JWT_SECRET_LENGTH = 32;
  * without Cloudinary/a custom CLIENT_URL/a custom printer key.
  */
 function validateEnv() {
-  const missing = REQUIRED_VARS.filter((v) => !process.env[v.key] || !process.env[v.key].trim());
+  const production = process.env.NODE_ENV === "production";
+  const missing = REQUIRED_VARS.filter((v) => !process.env[v.key]?.trim());
+  if (production && !process.env.CLIENT_URL?.split(",").some(origin => origin.trim())) {
+    missing.push({ key: "CLIENT_URL", hint: "Set the frontend origin allowlist." });
+  }
 
   if (missing.length > 0) {
     logger.error("❌ Server cannot start — required environment variables are missing:");
@@ -38,7 +41,11 @@ function validateEnv() {
     process.exit(1);
   }
 
-  if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < MIN_JWT_SECRET_LENGTH) {
+  if (process.env.JWT_SECRET.trim().length < MIN_JWT_SECRET_LENGTH) {
+    if (production) {
+      logger.error(`JWT_SECRET must contain at least ${MIN_JWT_SECRET_LENGTH} characters in production.`);
+      process.exit(1);
+    }
     logger.warn(`⚠️  JWT_SECRET is shorter than the recommended ${MIN_JWT_SECRET_LENGTH} characters — consider rotating to a longer random value in production.`);
   }
 

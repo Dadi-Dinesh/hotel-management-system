@@ -19,10 +19,11 @@ const logger = require("../utils/logger");
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 const errorHandler = (err, req, res, next) => {
-  logger.error(`${req.method} ${req.originalUrl} → ${err.message}`, {
-    stack: err.stack,
-    statusCode: err.statusCode,
-  });
+  if (IS_PRODUCTION) {
+    logger.error("HTTP request failed", { method: req.method, code: err.code, statusCode: err.statusCode });
+  } else {
+    logger.error("HTTP request failed", { method: req.method, name: err.name, statusCode: err.statusCode });
+  }
 
   // Prisma-specific errors
   if (err.code === "P2002") {

@@ -1,6 +1,24 @@
 const jwt = require("jsonwebtoken");
 const prisma = require("../config/db");
 
+const PUBLIC_RESTAURANT_FIELDS = {
+  id: true,
+  name: true,
+  slug: true,
+  shortName: true,
+  logo: true,
+  coverImage: true,
+  cuisine: true,
+  primaryColor: true,
+  secondaryColor: true,
+  accentColor: true,
+  welcomeMessage: true,
+  currency: true,
+  address: true,
+  phone: true,
+  isActive: true,
+};
+
 const DEMO_SLUG = "nookambika";
 let cachedDemoRestaurantId = null;
 
@@ -29,10 +47,18 @@ const resolveStaffTenant = (req, res, next) => {
   if (req.user.restaurantId) {
     req.restaurantId = req.user.restaurantId;
     req.isPlatformOwner = false;
-  } else {
+  } else if (req.user.role === "ADMIN" && req.user.restaurantId === null) {
     req.isPlatformOwner = true;
     const requested = req.headers["x-restaurant-id"] || req.query.restaurantId || null;
-    req.restaurantId = requested || null;
+    if (requested !== null && (typeof requested !== "string" || !requested.trim())) {
+      return res.status(400).json({ success: false, message: "Invalid restaurant selection." });
+    }
+    if (!requested && ["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+      return res.status(400).json({ success: false, message: "Select a restaurant before making changes." });
+    }
+    req.restaurantId = requested;
+  } else {
+    return res.status(403).json({ success: false, message: "Restaurant access required." });
   }
 
   next();
@@ -51,7 +77,7 @@ const resolvePublicTenant = async (req, res, next) => {
     const slug = req.params.slug ?? req.body?.restaurantSlug ?? req.query?.restaurantSlug ?? DEMO_SLUG;
 
     if (typeof slug !== "string" || !slug.trim()) return res.status(404).json({ success: false, message: "Restaurant not found." });
-    const restaurant = await prisma.restaurant.findUnique({ where: { slug } });
+    const restaurant = await prisma.restaurant.findUnique({ where: { slug }, select: PUBLIC_RESTAURANT_FIELDS });
     if (!restaurant || !restaurant.isActive) {
       return res.status(404).json({ success: false, message: "Restaurant not found." });
     }
@@ -77,21 +103,21 @@ const resolveTenant = async (req, res, next) => {
     if (authHeader?.startsWith("Bearer ")) {
       try {
         const token = authHeader.split(" ")[1];
-        const secret = process.env.JWT_SECRET || "nookambika-dhaba-jwt-secret-2024-secure";
-        const decoded = jwt.verify(token, secret);
+        const secret = process.env.JWT_SECRET;
+        const decoded = jwt.verify(token, secret, { algorithms: ["HS256"] });
         const user = await prisma.user.findUnique({
           where: { id: decoded.userId },
-          select: { id: true, restaurantId: true },
+          select: { id: true, role: true, restaurantId: true, restaurant: { select: { isActive: true } } },
         });
 
-        if (user?.restaurantId) {
+        if (user?.restaurantId && user.restaurant?.isActive) {
           req.restaurantId = user.restaurantId;
           req.isPlatformOwner = false;
           req.user = user;
           return next();
         }
 
-        if (user && !user.restaurantId) {
+        if (user?.role === "ADMIN" && user.restaurantId === null) {
           // Platform Owner — only trust an explicit target, never a bare fallback.
           // In particular: do NOT fall through to resolvePublicTenant below —
           // its demo-restaurant default exists for genuinely anonymous QR
@@ -117,4 +143,4 @@ const resolveTenant = async (req, res, next) => {
   }
 };
 
-module.exports = { resolveStaffTenant, resolvePublicTenant, resolveTenant, getDemoRestaurantId };
+module.exports = { resolveStaffTenant, resolvePublicTenant, resolveTenant, getDemoRestaurantId, PUBLIC_RESTAURANT_FIELDS };

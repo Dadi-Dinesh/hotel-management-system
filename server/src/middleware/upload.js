@@ -1,15 +1,15 @@
 const multer = require("multer");
 const cloudinary = require("../config/cloudinary");
 const path = require("path");
-const fs = require("fs");
 const AppError = require("../utils/AppError");
 
 // Use memory storage — files go straight to buffer, then to Cloudinary
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|webp/;
-  const extname = allowedTypes.test(
+  const allowedExtensions = /^\.(?:jpe?g|png|webp)$/;
+  const allowedTypes = /^image\/(?:jpeg|png|webp)$/;
+  const extname = allowedExtensions.test(
     path.extname(file.originalname).toLowerCase()
   );
   const mimetype = allowedTypes.test(file.mimetype);

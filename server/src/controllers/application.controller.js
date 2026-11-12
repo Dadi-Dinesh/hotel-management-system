@@ -1,17 +1,12 @@
-/**
- * application.controller — the new front door for becoming a ServeSync
- * restaurant: submit → review → approve/reject, replacing instant self-serve
- * signup. Approval reuses restaurantProvisioning.js (the exact same
- * transaction the legacy /api/restaurants onboarding endpoint uses) rather
- * than duplicating restaurant/table/QR-token creation.
- */
+// Handles reviewed restaurant applications and provisions approved tenants.
 const prisma = require("../config/db");
+const AppError = require("../utils/AppError");
 const { uploadToCloudinary } = require("../middleware/upload");
 const { provisionRestaurant } = require("../services/restaurantProvisioning");
 const { buildStaffAccountSpecs } = require("../services/platformClients");
 const { generateTempPassword } = require("../utils/tokenUtils");
 const { logAudit } = require("../utils/auditLog");
-const { sendEmail } = require("../services/email/emailService");
+const { sendEmail, isEmailConfigured } = require("../services/email/emailService");
 const { applicationReceivedEmail, applicationRejectedEmail } = require("../services/email/templates");
 const { resendWhatsAppMessage } = require("../services/whatsapp/whatsappService");
 
@@ -280,28 +275,23 @@ const approveApplication = async (req, res, next) => {
       adminEmail: application.email,
       adminPassword: generateTempPassword(),
       staffAccounts: (slug) => buildStaffAccountSpecs(slug, application.restaurantName),
-    });
-
-    // Persist the applicant's contact email on the tenant too (provisioning
-    // only takes a phone), so the client profile is complete.
-    await prisma.restaurant.update({ where: { id: result.restaurant.id }, data: { email: application.email } });
-
-    const updated = await prisma.restaurantApplication.update({
-      where: { id: application.id },
-      data: {
-        status: "APPROVED",
-        reviewedByUserId: req.user.id,
-        reviewedAt: new Date(),
-        restaurantId: result.restaurant.id,
-      },
-      include: { reviewedBy: REVIEWER_SELECT },
+      completeApproval: (tx, restaurantId) => tx.restaurantApplication.update({
+        where: { id: application.id, status: "PENDING" },
+        data: {
+          status: "APPROVED",
+          reviewedByUserId: req.user.id,
+          reviewedAt: new Date(),
+          restaurantId,
+        },
+        include: { reviewedBy: REVIEWER_SELECT },
+      }),
     });
 
     res.json({
       success: true,
       message: "Restaurant approved successfully. Credentials and QR package are ready to be sent.",
       data: {
-        application: withReviewFields(updated),
+        application: withReviewFields(result.application),
         restaurant: { id: result.restaurant.id, name: result.restaurant.name, slug: result.restaurant.slug, primaryColor: result.restaurant.primaryColor },
         accounts: [result.admin, ...result.staff].map((u) => ({ role: u.role, email: u.email })),
         // Strip the hash before it ever leaves the server.
@@ -330,7 +320,7 @@ const approveApplication = async (req, res, next) => {
 
     emitPlatformEvent("application:approved", { id: application.id, restaurantName: result.restaurant.name });
   } catch (error) {
-    next(error);
+    next(error.code === "P2025" ? new AppError("This application is no longer pending.", 409) : error);
   }
 };
 
@@ -351,7 +341,7 @@ const rejectApplication = async (req, res, next) => {
     }
 
     const updated = await prisma.restaurantApplication.update({
-      where: { id: application.id },
+      where: { id: application.id, status: "PENDING" },
       data: {
         status: "REJECTED",
         reviewedByUserId: req.user.id,
@@ -374,7 +364,7 @@ const rejectApplication = async (req, res, next) => {
 
     emitPlatformEvent("application:rejected", { id: application.id, restaurantName: application.restaurantName });
   } catch (error) {
-    next(error);
+    next(error.code === "P2025" ? new AppError("This application is no longer pending.", 409) : error);
   }
 };
 
@@ -385,15 +375,12 @@ const rejectApplication = async (req, res, next) => {
  */
 const requestMoreInfo = async (req, res, next) => {
   try {
+    if (!isEmailConfigured()) throw new AppError("Email delivery is unavailable. Contact the applicant directly.", 503);
     const { message } = req.body;
     const application = await prisma.restaurantApplication.findUnique({ where: { id: req.params.id } });
     if (!application) {
       return res.status(404).json({ success: false, message: "Application not found." });
     }
-
-    res.json({ success: true, message: "Request sent." });
-
-    logAudit({ action: "application.info_requested", userId: req.user.id, metadata: { applicationId: application.id, restaurantName: application.restaurantName, message } });
 
     const { wrapEmail, escapeHtml } = require("../services/email/emailLayout");
     const html = wrapEmail({
@@ -408,7 +395,10 @@ const requestMoreInfo = async (req, res, next) => {
         <p style="margin:0;">Reply to this email with the details and we'll continue the review right away.</p>
       `,
     });
-    sendEmail({ to: application.email, subject: `A quick question about your ${application.restaurantName} application`, html }).catch(() => {});
+    const delivery = await sendEmail({ to: application.email, subject: `A quick question about your ${application.restaurantName} application`, html });
+    if (!delivery.sent) throw new AppError("The request could not be sent.", 502);
+    logAudit({ action: "application.info_requested", userId: req.user.id, metadata: { applicationId: application.id } });
+    res.json({ success: true, message: "Request sent." });
   } catch (error) {
     next(error);
   }

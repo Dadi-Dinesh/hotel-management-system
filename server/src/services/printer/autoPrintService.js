@@ -1,4 +1,5 @@
 const prisma = require("../../config/db");
+const { getDemoRestaurantId } = require("../../middleware/tenant");
 const printerService = require("./printerService");
 const printerLogger = require("./printerLogger");
 
@@ -16,7 +17,7 @@ async function maybeAutoPrintKOT(order) {
   try {
     if (!order?.restaurantId) return;
     const settings = await prisma.printerSettings.findUnique({ where: { restaurantId: order.restaurantId } });
-    if (!settings?.autoPrintKOT) return;
+    if (!settings?.autoPrintKOT || order.restaurantId !== await getDemoRestaurantId()) return;
 
     await printerService.printKOT(order);
     printerLogger.info(`🤖 [AutoPrint] KOT auto-printed for order #${order.orderNumber || order.id}`);
@@ -30,7 +31,7 @@ async function maybeAutoPrintBill(session) {
   try {
     if (!session?.restaurantId) return;
     const settings = await prisma.printerSettings.findUnique({ where: { restaurantId: session.restaurantId } });
-    if (!settings?.autoPrintBill) return;
+    if (!settings?.autoPrintBill || session.restaurantId !== await getDemoRestaurantId()) return;
 
     await printerService.printBill(session);
     printerLogger.info(`🤖 [AutoPrint] Bill auto-printed for table ${session.table?.code || session.tableId}`);

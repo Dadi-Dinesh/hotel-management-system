@@ -67,6 +67,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Run client tests
+        run: node --test tests/*test*
+
       - name: TypeScript check
         run: npx tsc --noEmit
 

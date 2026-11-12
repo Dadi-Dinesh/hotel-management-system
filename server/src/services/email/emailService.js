@@ -11,8 +11,7 @@
 /**
  * @param {{ to: string, subject: string, html: string }} message
  */
-async function sendEmail({ to, subject, html }) {
-  console.log(`✉️  [EmailService] (not sent — no provider configured) Would send "${subject}" to ${to} (${html?.length || 0} chars of HTML)`);
+async function sendEmail() {
   return { sent: false, reason: "No email provider configured yet." };
 }
 

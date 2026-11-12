@@ -11,6 +11,7 @@ const {
   testNetworkPrinter,
 } = require("../controllers/printer.controller");
 const { authenticate, requireRole } = require("../middleware/auth");
+const { resolveStaffTenant, getDemoRestaurantId } = require("../middleware/tenant");
 
 // These routes had NO auth middleware at all — anyone who knew the server's
 // URL could trigger real print jobs (test/bill/kot), reconfigure the printer
@@ -22,7 +23,12 @@ const { authenticate, requireRole } = require("../middleware/auth");
 // (see client/app/lib/api.js's axios interceptor), so this is a safe,
 // non-breaking fix. Role scope matches the existing printer-settings routes
 // in restaurant.routes.js (ADMIN + MANAGER).
-router.use(authenticate, requireRole("ADMIN", "MANAGER"));
+router.use(authenticate, requireRole("ADMIN", "MANAGER"), resolveStaffTenant, async (req, res, next) => {
+  if (!req.restaurantId || req.restaurantId !== await getDemoRestaurantId()) {
+    return res.status(403).json({ success: false, message: "The shared hardware agent is only available for the demo restaurant." });
+  }
+  next();
+});
 
 // Printer Hardware Management Endpoints
 router.get("/status", getPrinterStatus);

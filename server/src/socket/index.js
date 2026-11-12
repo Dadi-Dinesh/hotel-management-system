@@ -6,7 +6,7 @@
  *   - restaurant:<id>:captains  : alias of the above
  *   - restaurant:<id>:admins    : Admin dashboard for one restaurant
  *   - restaurant:<id>:kitchen   : Kitchen display for one restaurant
- *   - restaurant:<id>:table:<code> : Customer table room, tenant-scoped
+ *   - restaurant:<id>:session:<id> : Customer room, scoped to one dining session
  * Legacy demo URLs join the same verified, tenant-scoped table rooms.
  *   - printer-agents : Cloud Printer Agent connection room (unchanged)
  */
@@ -22,19 +22,13 @@ let io;
 const initializeSocket = (server, allowedOrigins = []) => {
   const { Server } = require("socket.io");
 
-  const defaultOrigins = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "https://hotel-management-system-psi-kohl.vercel.app",
-    ...allowedOrigins,
-  ];
-
   io = new Server(server, {
     cors: {
-      origin: true,
+      origin: allowedOrigins,
       methods: ["GET", "POST"],
       credentials: true,
     },
+    allowRequest: (req, callback) => callback(null, !req.headers.origin || allowedOrigins.includes(req.headers.origin)),
     transports: ["polling", "websocket"],
     pingTimeout: 20000,
     pingInterval: 25000,
@@ -45,7 +39,7 @@ const initializeSocket = (server, allowedOrigins = []) => {
   installBroadcastAccess(io.sockets.adapter, revalidateSocket);
 
   io.engine.on("connection_error", (err) => {
-    console.warn("⚠️ [Socket Engine] Connection notice:", err.req?.url, err.code, err.message);
+    console.warn("⚠️ [Socket Engine] Connection notice:", err.code);
   });
 
   io.on("connection", (socket) => {
@@ -122,16 +116,16 @@ const initializeSocket = (server, allowedOrigins = []) => {
       const reply = typeof acknowledge === "function" ? acknowledge : () => {};
       try {
         const context = await verifyCustomerAccess(payload?.customerAccess);
-        const { table, restaurant } = context;
+        const { table, restaurant, session } = context;
         const slug = payload?.restaurantSlug ?? "nookambika";
-        if (typeof payload?.tableCode !== "string" || table.code !== payload.tableCode.toUpperCase() || restaurant.slug !== slug) throw new Error("Invalid table context.");
+        if (!session || typeof payload?.tableCode !== "string" || table.code !== payload.tableCode.toUpperCase() || restaurant.slug !== slug) throw new Error("Invalid table context.");
         if (version !== joinVersion) return;
         clearRooms();
         socket.data.restaurantId = restaurant.id;
         socket.data.tableCode = table.code;
         socket.data.customerAccess = payload.customerAccess;
-        socket.join(`restaurant:${restaurant.id}:table:${table.code}`);
-        // Legacy URLs use this same verified, tenant-scoped room.
+        socket.join(`restaurant:${restaurant.id}:session:${session.id}`);
+        // Legacy URLs use the same session-scoped room.
         expireWith(payload.customerAccess);
         reply({ success: true });
       } catch { reply({ success: false, message: "Scan this table's QR code again." }); }

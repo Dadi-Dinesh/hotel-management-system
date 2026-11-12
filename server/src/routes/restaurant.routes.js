@@ -4,7 +4,6 @@ const {
   getRestaurantBySlug,
   getRestaurantSettings,
   listRestaurants,
-  createRestaurant,
   updateRestaurantSettings,
   setRestaurantActive,
 } = require("../controllers/restaurant.controller");
@@ -21,14 +20,10 @@ const { rateLimit } = require("../middleware/rateLimit");
 // Platform Owner — list every restaurant (for the RestaurantSwitcher)
 router.get("/", authenticate, requireRole("ADMIN"), resolveStaffTenant, listRestaurants);
 
-// Public — onboarding wizard's final step. Rate-limited: this creates real
-// accounts + data, so it's the one public write worth guarding here.
-router.post(
-  "/",
-  rateLimit({ windowMs: 60 * 60 * 1000, max: 10, message: "Too many restaurants created from this network recently. Please try again later." }),
-  upload.single("logo"),
-  createRestaurant
-);
+// Provisioning starts with a reviewed application.
+router.post("/", (req, res) => {
+  res.status(410).json({ success: false, message: "Apply for a ServeSync account through the registration form." });
+});
 
 // Public — restaurant profile + slug-aware mirrors of the existing customer endpoints.
 // These reuse the exact same controller functions as the legacy /api/tables,

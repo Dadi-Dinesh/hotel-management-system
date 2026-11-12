@@ -2,28 +2,9 @@
 
 ## Local Setup
 
-See the root [README's Getting Started](../README.md#getting-started) for the fastest path (Docker Compose) and the native per-service path. This guide covers the details that come up once you're actually working in the codebase.
+Use the [local setup instructions](../README.md#local-setup) and an isolated PostgreSQL database. Prisma validation and client generation work with a placeholder connection URL and require no database access.
 
-### Database workflow
-
-This project uses **`prisma db push`**, not `prisma migrate dev` — there's no migration history checked in. After editing `server/prisma/schema.prisma`:
-
-```bash
-cd server
-npx prisma db push       # sync the schema straight to your database
-npx prisma generate      # regenerate the Prisma Client (also runs automatically via postinstall in most setups)
-```
-
-`npx prisma validate` checks the schema for correctness without touching a live database — this is what CI runs.
-
-### Seeding demo data
-
-```bash
-cd server
-npm run seed
-```
-
-Seeds the demo restaurant (**Sree Nookambika Family Dhaba**, slug `nookambika`) with categories, menu items, tables, and one staff account per role. See [Demo Access](../README.md#demo-access) for the credentials.
+For new, empty local databases, initialize the schema from `server/prisma/schema.prisma`. Use the [schema rollout procedure](DEPLOYMENT.md#order-schema-rollout) for existing databases. The [testing guide](TESTING.md) describes the guarded local demo seed and integration suite.
 
 ## Conventions
 
@@ -66,7 +47,7 @@ If you add a new pure function (a calculation, a formatter, a classifier) — ad
 
 **Change the database schema**
 1. Edit `server/prisma/schema.prisma`.
-2. `npx prisma db push` against your own dev database.
+2. Update the schema on a new disposable database or rehearse a reviewed migration on an isolated copy.
 3. If the model is tenant-owned, add `restaurantId` and filter every query that touches it.
 
 ## CI
